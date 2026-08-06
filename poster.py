@@ -252,12 +252,14 @@ def offset_track(pts, d):
 
     scale = scale * _corridor_gate(P[:, 1])   # true outside the crowded run
     Q = P + N * (d * scale)[:, None]
-    # tapering prevents nearly all folds; trim whatever slips through
-    trimmed = _trim_loops([tuple(q) for q in Q], tol=2.0 * abs(d))
+    # tapering prevents nearly all folds; trim whatever slips through, but only
+    # where we actually moved the line
+    trimmed = _trim_loops([tuple(q) for q in Q], tol=2.0 * abs(d),
+                          active=scale > 1e-3)
     return [(x / k, y) for x, y in trimmed]
 
 
-def _trim_loops(run, window=80, tol=None):
+def _trim_loops(run, window=80, tol=None, active=None):
     """Cut the little loops an offset throws off wherever the track turns
     tighter than the offset distance.
 
@@ -290,6 +292,10 @@ def _trim_loops(run, window=80, tol=None):
                 # the boat actually circling — is far wider than the offset, so
                 # bail out rather than quietly straighten it away.
                 if tol is not None and np.abs(A[i:j + 1] - x).max() > tol:
+                    continue
+                # never touch stretches drawn at their true position — a fold
+                # can only be ours where the offset is actually applied
+                if active is not None and not active[i:j + 1].all():
                     continue
                 jump = (j, x)
                 break
