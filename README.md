@@ -89,14 +89,24 @@ The poster is drawn to read like a paper chart rather than a data plot:
   `poster.py`; `pygeomag` is only needed to re-derive it, not to build. The
   figure isn't printed on the rose — the inner ring's rotation *is* the
   variation — so if you need the number, it's here.
-- **Offset tracks — the one deliberate inaccuracy, and it is confined.** Four
-  days share the narrow run between Tilloo and Elbow Cay, where they'd
-  otherwise overplot into a single stripe. Only along that run is each day
-  shifted sideways (up to ~170 m, perpendicular to its own heading); the shift
-  ramps to nothing over 0.022° at either end, so **everywhere else on the
-  chart the tracks are drawn exactly as recorded** — measured at 0.00 m
-  displacement outside the corridor. See `CORRIDOR_S` / `CORRIDOR_N` in
-  `poster.py`. The seven day panels are true throughout.
+- **Offset tracks — the one deliberate inaccuracy, and it is confined.**
+  Between Tilloo Cut and Hope Town several days share one channel and would
+  otherwise overplot into a single stripe. Only along that run
+  (**26.420–26.520 N**, ramping to nothing over 0.012° at each end) is a day
+  shifted sideways, by up to ~170 m perpendicular to its own heading.
+  Everywhere else — Little Harbour, Lynyard Cay, Hope Town, Man-O-War, Great
+  Guana — **the tracks are drawn exactly as recorded**. The seven day panels
+  are true throughout.
+
+  The bounds were measured rather than guessed: counting day-pairs that come
+  within 250 m per 0.005° band shows three-way congestion at 26.42–26.435 and
+  26.485–26.525, while south of 26.355 only a single day is present at all.
+
+  Verify it with a pixel diff of `--compare`'s two proofs; changes should fall
+  inside the band and nowhere else. That check is what caught the trim pass
+  still snipping loops out of true geometry outside the corridor — a defect a
+  displacement metric misses entirely, because a trimmed corner still lies on
+  the original line.
   `python poster.py --compare` renders both versions side by side plus
   `out/compare_offset.png`, so the distortion can be judged directly.
 

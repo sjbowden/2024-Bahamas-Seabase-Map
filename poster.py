@@ -193,7 +193,11 @@ def load_day(stem, min_step_m=22.0, max_kn=30.0, walk_split=None, road_split=Non
 # The offset applies only along the Tilloo/Elbow run, where four days share one
 # channel. Everywhere else the tracks are drawn exactly as recorded; the shift
 # ramps in and out over FADE so there is no kink at the boundary.
-CORRIDOR_S, CORRIDOR_N, CORRIDOR_FADE = 26.340, 26.545, 0.022
+# Bounds measured, not guessed: three days run within 250 m of each other from
+# about 26.42 to 26.52. South of 26.355 only one day is present at all, and
+# north of here the fan-out to Marsh Harbour separates them on its own — so the
+# run stops short of both Little Harbour and Hope Town.
+CORRIDOR_S, CORRIDOR_N, CORRIDOR_FADE = 26.420, 26.520, 0.012
 
 
 def _corridor_gate(lat):
