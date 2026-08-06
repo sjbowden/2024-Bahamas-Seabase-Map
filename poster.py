@@ -42,10 +42,11 @@ LAT0 = 26.5
 ASPECT = 1.0 / math.cos(math.radians(LAT0))   # deg lon -> deg lat scaling
 
 # ---------------------------------------------------------------- palette ---
-C_WATER      = "#CFE0E8"
-C_SHOAL_1    = "#E2EDF1"
-C_SHOAL_2    = "#D8E7ED"
-C_LAND       = "#F2E7CE"
+# chart convention: deep water reads almost white, shoals get bluer inshore
+C_WATER      = "#E7F1F5"
+C_SHOAL_1    = "#CDE3EE"
+C_SHOAL_2    = "#B2D3E6"
+C_LAND       = "#F0E2C2"
 C_LAND_EDGE  = "#8A7F6A"
 C_INK        = "#2E3A42"
 C_INK_SOFT   = "#5C6B75"
@@ -109,9 +110,10 @@ AIRPORT = (-77.0782, 26.5135, "MHH", "Leonard M. Thompson Intl")
 HOTEL = (-77.048906, 26.545222)
 MARINA = (-77.05192, 26.54688)
 
+# (lon, lat, label, ha, va) — Lynyard sits below its marker to clear the rose
 ANCHORAGES = [
-    (-76.9907, 26.4488, "Tilloo Pond", "left"),
-    (-76.9849, 26.3568, "Lynyard Cay", "left"),
+    (-76.9907, 26.4488, "Tilloo Pond", "left", "center"),
+    (-76.9849, 26.3568, "Lynyard Cay", "center", "top"),
 ]
 
 
@@ -239,12 +241,13 @@ def draw_chart(ax, extent, land, days, tracks, *, detail=True, lw_scale=1.0,
     draw_airport(ax, lw_scale)
 
     # anchorages
-    for lon, lat, text, ha in ANCHORAGES:
+    for lon, lat, text, ha, va in ANCHORAGES:
         ax.plot([lon], [lat], marker="o", ms=6 * lw_scale, mfc=C_PAPER,
                 mec=C_INK, mew=1.3 * lw_scale, zorder=8)
-        off = 0.006 if ha == "left" else -0.006
-        ax.text(lon + off, lat, text, fontproperties=SANS_B, fontsize=9.5 * lw_scale,
-                color=C_INK, ha=ha, va="center", zorder=8,
+        dx = {"left": 0.006, "right": -0.006}.get(ha, 0.0)
+        dy = {"top": -0.005, "bottom": 0.005}.get(va, 0.0)
+        ax.text(lon + dx, lat + dy, text, fontproperties=SANS_B,
+                fontsize=9.5 * lw_scale, color=C_INK, ha=ha, va=va, zorder=8,
                 path_effects=_halo(2.6 * lw_scale))
 
     # place names
@@ -372,6 +375,75 @@ def _halo(lw):
     return [pe.withStroke(linewidth=lw, foreground=C_PAPER, alpha=0.85)]
 
 
+def _dm(value, pos, neg):
+    """26.3667 -> 26°22′N"""
+    hemi = pos if value >= 0 else neg
+    v = abs(value)
+    d = int(v)
+    m = int(round((v - d) * 60))
+    if m == 60:
+        d, m = d + 1, 0
+    return f"{d}°{m:02d}′{hemi}"
+
+
+def chart_neatline(ax, extent, fig, lw_scale=1.0, label_every=5):
+    """The graduated border of a paper chart: a band ticked off in whole
+    minutes of arc, alternating light and dark, labelled every 5'."""
+    w, e, s, n = extent
+    pos = ax.get_position()
+    fw, fh = fig.get_size_inches()
+    band_in = 0.105
+    tx = band_in / (pos.width * fw) * (e - w)
+    ty = band_in / (pos.height * fh) * (n - s)
+
+    # blank the border area so map content doesn't run under the graduations
+    outer = [(w, s), (e, s), (e, n), (w, n), (w, s)]
+    inner = [(w + tx, s + ty), (w + tx, n - ty), (e - tx, n - ty),
+             (e - tx, s + ty), (w + tx, s + ty)]
+    codes = ([Path.MOVETO] + [Path.LINETO] * 3 + [Path.CLOSEPOLY]) * 2
+    ax.add_patch(PathPatch(Path(outer + inner, codes), facecolor=C_PAPER,
+                           edgecolor="none", zorder=14))
+
+    def bands(lo, hi, horizontal):
+        for m in range(math.floor(lo * 60), math.ceil(hi * 60)):
+            a, b = max(m / 60.0, lo), min((m + 1) / 60.0, hi)
+            if b <= a or m % 2:
+                continue
+            if horizontal:
+                for y0 in (s, n - ty):
+                    ax.add_patch(plt.Rectangle((a, y0), b - a, ty,
+                                               facecolor=C_INK, edgecolor="none",
+                                               zorder=15))
+            else:
+                for x0 in (w, e - tx):
+                    ax.add_patch(plt.Rectangle((x0, a), tx, b - a,
+                                               facecolor=C_INK, edgecolor="none",
+                                               zorder=15))
+
+    bands(w, e, True)
+    bands(s, n, False)
+
+    for rect in ((w, s, e - w, n - s), (w + tx, s + ty, e - w - 2 * tx, n - s - 2 * ty)):
+        ax.add_patch(plt.Rectangle(rect[:2], rect[2], rect[3], fill=False,
+                                   edgecolor=C_INK, lw=1.0 * lw_scale, zorder=16))
+
+    # labels outside the neatline, skipping anything crowding a corner
+    for m in range(math.ceil(w * 60), math.floor(e * 60) + 1):
+        x = m / 60.0
+        if m % label_every or x - w < 0.012 or e - x < 0.012:
+            continue
+        ax.text(x, s - (n - s) * 0.008, _dm(x, "E", "W"), fontproperties=SANS,
+                fontsize=7.4 * lw_scale, color=C_INK, ha="center", va="top",
+                zorder=16, clip_on=False)
+    for m in range(math.ceil(s * 60), math.floor(n * 60) + 1):
+        y = m / 60.0
+        if m % label_every or y - s < 0.012 or n - y < 0.012:
+            continue
+        ax.text(w - (e - w) * 0.008, y, _dm(y, "N", "S"), fontproperties=SANS,
+                fontsize=7.4 * lw_scale, color=C_INK, ha="center", va="bottom",
+                rotation=90, zorder=16, clip_on=False)
+
+
 def scale_bar(ax, extent, y_frac=0.045, x_frac=0.06, nm_len=5, lw_scale=1.0):
     w, e, s, n = extent
     dlon = nm_len * NM / (111320.0 * math.cos(math.radians(LAT0)))
@@ -389,17 +461,127 @@ def scale_bar(ax, extent, y_frac=0.045, x_frac=0.06, nm_len=5, lw_scale=1.0):
             color=C_INK, zorder=10)
 
 
-def north_arrow(ax, extent, lw_scale=1.0):
-    w, e, s, n = extent
-    x = w + (e - w) * 0.90
-    y = s + (n - s) * 0.055
-    L = (n - s) * 0.045
-    ax.add_patch(FancyArrow(x, y, 0, L, width=0.0004 * lw_scale,
-                            head_width=0.0035 * lw_scale, head_length=L * 0.32,
-                            facecolor=C_INK, edgecolor=C_INK, zorder=10,
-                            length_includes_head=True))
-    ax.text(x, y + L * 1.18, "N", fontproperties=SERIF, fontsize=11 * lw_scale,
-            ha="center", va="bottom", color=C_INK, zorder=10)
+# magnetic variation at 26°30'N 77°03'W for March 2024, from the WMM 2020
+# coefficients (cross-checks to -9.12° against WMM 2025 at epoch 2025.0)
+VARIATION_DEG = -9.081
+VARIATION_TEXT = "VAR  9°05′ W  (2024)"
+VARIATION_RATE = "ANNUAL INCREASE  4′"
+
+
+C_ROSE = "#43362B"          # sepia engraving ink
+C_ROSE_MAG = "#8C4A32"      # faded red for the magnetic ring
+
+
+def _fleur_paths():
+    """Fleur-de-lis pointing +y across y in [0,1], x in [-0.5,0.5] — the north
+    point of a vintage rose. Pieces are filled separately."""
+    C4, M, L, CP = Path.CURVE4, Path.MOVETO, Path.LINETO, Path.CLOSEPOLY
+    # tall centre petal — cubic down the right flank, straight across the foot,
+    # cubic back up the left. Codes must come in groups of three per CURVE4.
+    centre = Path(
+        [(0.0, 1.0),
+         (0.050, 0.80), (0.100, 0.55), (0.115, 0.33),   # right flank
+         (-0.115, 0.33),                                # foot
+         (-0.100, 0.55), (-0.050, 0.80), (0.0, 1.0),    # left flank
+         (0.0, 1.0)],
+        [M, C4, C4, C4, L, C4, C4, C4, CP])
+    # side petal: sweeps out and down from the band, then hooks up to a point
+    # side petal: swells outward from a narrow base, then tapers to a cusp —
+    # the two curves meet at the tip with no rounding, so it comes to a point
+    right = Path(
+        [(0.06, 0.30),
+         (0.30, 0.25), (0.48, 0.35), (0.500, 0.625),    # outer edge to the tip,
+         (0.38, 0.50), (0.24, 0.37), (0.06, 0.30),      # which is the outermost
+         (0.06, 0.30)],                                 # point so it flares out
+        [M, C4, C4, C4, C4, C4, C4, CP])
+    left = Path([(-x, y) for x, y in right.vertices], right.codes)
+    # the band that cinches the three petals together
+    band = Path(
+        [(-0.205, 0.195), (0.205, 0.195), (0.165, 0.315), (-0.165, 0.315),
+         (-0.205, 0.195), (-0.205, 0.195)],
+        [M, L, L, L, L, CP])
+    return [centre, right, left, band]
+
+
+def compass_rose(ax, lon, lat, R, lw_scale=1.0):
+    """A vintage chart rose: 32-point faceted star, fleur-de-lis north, a
+    graduated true ring and a magnetic ring turned by the local variation."""
+    def P(bearing_deg, r):
+        a = math.radians(bearing_deg)
+        return (lon + r * ASPECT * math.sin(a), lat + r * math.cos(a))
+
+    def ring(radius, rot, every, med, long_, numerals, color, fs, halo=False):
+        for rr in (radius, radius * 0.885):
+            ax.add_patch(plt.Circle((lon, lat), rr, fill=False, ec=color,
+                                    lw=(0.9 if rr == radius else 0.6) * lw_scale,
+                                    zorder=11, transform=ax.transData))
+        # the ring is a true circle only if x is stretched by the map aspect
+        for deg in range(0, 360, every):
+            if deg % long_ == 0:
+                inner, wdt = radius * 0.885, 0.9
+            elif deg % med == 0:
+                inner, wdt = radius * 0.925, 0.65
+            else:
+                inner, wdt = radius * 0.950, 0.35
+            a, b = P(deg + rot, inner), P(deg + rot, radius)
+            ax.plot([a[0], b[0]], [a[1], b[1]], color=color, lw=wdt * lw_scale,
+                    zorder=11, solid_capstyle="butt")
+        for deg in range(0, 360, numerals):
+            x, y = P(deg + rot, radius * 0.805)
+            ax.text(x, y, f"{deg:d}", fontproperties=SANS,
+                    fontsize=fs * lw_scale, color=color, ha="center",
+                    va="center", zorder=12, rotation=-(deg + rot),
+                    rotation_mode="anchor",
+                    path_effects=_halo(2.2 * lw_scale) if halo else None)
+
+    ring(R, 0.0, 1, 5, 10, 30, C_ROSE, 6.0)
+    ring(R * 0.79, VARIATION_DEG, 5, 15, 30, 30, C_ROSE_MAG, 5.4)
+
+    # hairline rays at the 32-point bearings, under the star
+    for k in range(32):
+        if k % 4:
+            a, b = P(k * 11.25, R * 0.10), P(k * 11.25, R * 0.30)
+            ax.plot([a[0], b[0]], [a[1], b[1]], color=C_ROSE,
+                    lw=0.35 * lw_scale, zorder=10)
+
+    # Two overlaid 8-point stars give the classic 16-point rose. Each point is
+    # split down its centreline into a lit and a shadowed half; the base
+    # vertices sit a full half-sector away so the facets read as solids rather
+    # than spokes.
+    def star(bearings, r_tip, r_base, half=22.5, skip=()):
+        for b in bearings:
+            if b in skip:
+                continue
+            tip = P(b, r_tip)
+            vl, vr = P(b - half, r_base), P(b + half, r_base)
+            ax.add_patch(MplPolygon([(lon, lat), vl, tip], closed=True,
+                                    facecolor=C_ROSE, edgecolor=C_ROSE,
+                                    lw=0.3 * lw_scale, zorder=11))
+            ax.add_patch(MplPolygon([(lon, lat), tip, vr], closed=True,
+                                    facecolor=C_PAPER, edgecolor=C_ROSE,
+                                    lw=0.3 * lw_scale, zorder=11))
+
+    star([22.5 + 45 * k for k in range(8)], R * 0.32, R * 0.085)
+    star([45 * k for k in range(8)], R * 0.58, R * 0.150, skip=(0,))
+    star([0], R * 0.30, R * 0.150)          # stub for the fleur to stand on
+
+    # fleur-de-lis rising from the north point
+    fh = R * 0.52
+    tr = (matplotlib.transforms.Affine2D()
+          .scale(fh * ASPECT * 0.62, fh).translate(lon, lat + R * 0.20)
+          + ax.transData)
+    for p in _fleur_paths():
+        ax.add_patch(PathPatch(p, transform=tr, facecolor=C_ROSE,
+                               edgecolor=C_ROSE, lw=0.4 * lw_scale, zorder=13))
+
+    # no cardinal letters: the fleur marks north and the ring is graduated, so
+    # they'd only add clutter and crowd the labels around Lynyard Cay
+    ax.text(lon, lat - R * 1.14, VARIATION_TEXT, fontproperties=SANS_B,
+            fontsize=7.0 * lw_scale, color=C_ROSE_MAG, ha="center", va="top",
+            zorder=12, path_effects=_halo(3.0 * lw_scale))
+    ax.text(lon, lat - R * 1.28, VARIATION_RATE, fontproperties=SANS,
+            fontsize=6.0 * lw_scale, color=C_INK_SOFT, ha="center", va="top",
+            zorder=12, path_effects=_halo(3.0 * lw_scale))
 
 
 # ------------------------------------------------------------------ poster ---
@@ -436,8 +618,9 @@ def build(dpi, out_png, out_pdf=None):
     ax = fig.add_axes([0.065, 0.225, 0.545, 0.685])
     draw_chart(ax, extent, land, DAYS, tracks, lw_scale=1.0)
     draw_badges(ax, DAYS, badge_positions(DAYS, tracks))
+    compass_rose(ax, -76.9470, 26.3480, 0.0235)
     scale_bar(ax, extent)
-    north_arrow(ax, extent)
+    chart_neatline(ax, extent, fig)
 
     # ---- right-hand legend column
     x = 0.655
