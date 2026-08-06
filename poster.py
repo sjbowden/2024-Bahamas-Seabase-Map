@@ -208,30 +208,84 @@ def offset_track(pts, d):
     if len(S) < 2:
         return pts
     U = S / Ls[:, None]                       # unit heading of each segment
-    perp = lambda u: np.array([-u[1], u[0]])
+    n = len(P)
 
-    # Where the boat doubles back, the two headings cancel and the averaged
-    # normal is meaningless — that's what threw off spikes. Break the line
-    # there instead, so an out-and-back becomes two parallel passes.
-    dots = (U[:-1] * U[1:]).sum(axis=1)
+    # Turn radius at each vertex. Offsetting a bend by more than its own radius
+    # is what folds the line into a loop, so measure the radius and taper the
+    # offset away wherever it would.
+    ang = np.zeros(n)
+    ang[1:-1] = np.arccos(np.clip((U[:-1] * U[1:]).sum(axis=1), -1.0, 1.0))
+    span = np.zeros(n)
+    span[1:-1] = (Ls[:-1] + Ls[1:]) / 2.0
+    radius = np.where(ang > 1e-9, span / np.maximum(ang, 1e-9), np.inf)
+
+    # a bend is only safe if the whole neighbourhood is gentle, so take the
+    # tightest radius nearby, then ease the taper in and out
+    w = 15
+    pad = np.pad(radius, w // 2, mode="edge")
+    tight = np.array([pad[i:i + w].min() for i in range(n)])
+    scale = np.clip(tight / (2.0 * abs(d)), 0.0, 1.0)
+    box = np.ones(w) / w
+    scale = np.convolve(np.pad(scale, w // 2, mode="edge"), box, mode="valid")[:n]
+
     T = np.empty_like(P)
     T[0], T[-1] = U[0], U[-1]
     T[1:-1] = U[:-1] + U[1:]
     Lt = np.hypot(T[:, 0], T[:, 1])
-    Lt[Lt == 0] = 1.0
+    bad = Lt < 1e-12                          # a true reversal: heading is moot
+    Lt[bad] = 1.0
     N = np.column_stack([-T[:, 1] / Lt, T[:, 0] / Lt])
+    N[bad] = 0.0
 
-    out = []
-    for i in range(len(P)):
-        if 0 < i < len(P) - 1 and dots[i - 1] < -0.75:
-            a = P[i] + perp(U[i - 1]) * d
-            b = P[i] + perp(U[i]) * d
-            out += [(a[0] / k, a[1]), (float("nan"), float("nan")),
-                    (b[0] / k, b[1])]
+    Q = P + N * (d * scale)[:, None]
+    # tapering prevents nearly all folds; trim whatever slips through
+    trimmed = _trim_loops([tuple(q) for q in Q], tol=2.0 * abs(d))
+    return [(x / k, y) for x, y in trimmed]
+
+
+def _trim_loops(run, window=80, tol=None):
+    """Cut the little loops an offset throws off wherever the track turns
+    tighter than the offset distance.
+
+    Walk the line; where it crosses itself a short way ahead, jump straight to
+    the crossing point and drop the loop between. Taking the *farthest*
+    crossing in the window removes a whole tangle in one step. Unlike GEOS's
+    offset_curve this only ever deletes the spurious loop, never a stretch of
+    real route.
+    """
+    if len(run) < 4:
+        return run
+    A = np.asarray(run, dtype=float)
+    n = len(A)
+    out = [A[0]]
+    i = 0
+    while i < n - 1:
+        p, r = A[i], A[i + 1] - A[i]
+        jump = None
+        for j in range(min(i + window, n - 1) - 1, i + 1, -1):
+            q, s = A[j], A[j + 1] - A[j]
+            den = r[0] * s[1] - r[1] * s[0]
+            if den == 0:
+                continue
+            dq = q - p
+            t = (dq[0] * s[1] - dq[1] * s[0]) / den
+            u = (dq[0] * r[1] - dq[1] * r[0]) / den
+            if 0 < t < 1 and 0 < u < 1:
+                x = p + t * r
+                # Only snip a fold the offset itself created. A genuine loop —
+                # the boat actually circling — is far wider than the offset, so
+                # bail out rather than quietly straighten it away.
+                if tol is not None and np.abs(A[i:j + 1] - x).max() > tol:
+                    continue
+                jump = (j, x)
+                break
+        if jump:
+            out.append(jump[1])
+            i = jump[0] + 1
         else:
-            q = P[i] + N[i] * d
-            out.append((q[0] / k, q[1]))
-    return out
+            out.append(A[i + 1])
+            i += 1
+    return [tuple(v) for v in out]
 
 
 def draw_chart(ax, extent, land, days, tracks, *, detail=True, lw_scale=1.0,
@@ -626,7 +680,7 @@ def compass_rose(ax, lon, lat, R, lw_scale=1.0):
 
 
 # ------------------------------------------------------------------ poster ---
-def build(dpi, out_png, out_pdf=None):
+def build(dpi, out_png, out_pdf=None, spread=True):
     tracks = {d["file"]: load_day(d["file"], walk_split=d.get("walk_split"),
                                   road_split=d.get("road_split"))
               for d in DAYS}
@@ -657,7 +711,7 @@ def build(dpi, out_png, out_pdf=None):
 
     # ---- hero map
     ax = fig.add_axes([0.065, 0.225, 0.545, 0.685])
-    draw_chart(ax, extent, land, DAYS, tracks, lw_scale=1.0, spread=True)
+    draw_chart(ax, extent, land, DAYS, tracks, lw_scale=1.0, spread=spread)
     draw_badges(ax, DAYS, badge_positions(DAYS, tracks))
     compass_rose(ax, -76.9470, 26.3480, 0.0235)
     scale_bar(ax, extent)
@@ -798,12 +852,50 @@ def build(dpi, out_png, out_pdf=None):
     plt.close(fig)
 
 
+def compare(dpi=110):
+    """Two proofs, identical but for the lateral offset, plus a zoom on the
+    stretch that motivated it — so the distortion can be judged directly."""
+    out = os.path.join(HERE, "out")
+    build(dpi, os.path.join(out, "proof_true.png"), spread=False)
+    build(dpi, os.path.join(out, "proof_offset.png"), spread=True)
+
+    tracks = {d["file"]: load_day(d["file"], walk_split=d.get("walk_split"),
+                                  road_split=d.get("road_split"))
+              for d in DAYS}
+    land = land_polygons((-77.35, 26.15, -76.80, 26.85))
+    zoom = (-77.030, -76.958, 26.330, 26.560)     # the Tilloo/Elbow run
+
+    fig = plt.figure(figsize=(13, 17), dpi=dpi)
+    fig.patch.set_facecolor(C_PAPER)
+    for i, (spread, title) in enumerate(((False, "TRUE TRACKS"),
+                                         (True, "OFFSET FOR LEGIBILITY"))):
+        ax = fig.add_axes([0.035 + i * 0.485, 0.045, 0.455, 0.885])
+        draw_chart(ax, zoom, land, DAYS, tracks, detail=False, lw_scale=1.25,
+                   spread=spread)
+        ax.set_title(title, fontproperties=SANS_B, fontsize=15, color=C_INK,
+                     pad=10)
+    fig.text(0.5, 0.965, "Sea of Abaco · Tilloo Cut to Lynyard Cay",
+             fontproperties=SERIF, fontsize=25, color=C_INK, ha="center")
+    fig.text(0.5, 0.017,
+             "Same data both sides. On the right each day is shifted sideways by up "
+             "to 170 m perpendicular to its own heading.",
+             fontproperties=SANS, fontsize=11, color=C_INK_SOFT, ha="center")
+    dest = os.path.join(out, "compare_offset.png")
+    fig.savefig(dest, dpi=dpi, facecolor=C_PAPER)
+    plt.close(fig)
+    print("wrote", dest)
+
+
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--final", action="store_true", help="300 dpi PNG + PDF")
+    ap.add_argument("--compare", action="store_true",
+                    help="proofs with and without the lateral offset")
     a = ap.parse_args()
     os.makedirs(os.path.join(HERE, "out"), exist_ok=True)
-    if a.final:
+    if a.compare:
+        compare()
+    elif a.final:
         build(300, os.path.join(HERE, "out", "abaco_poster_18x24_300dpi.png"),
               os.path.join(HERE, "out", "abaco_poster_18x24.pdf"))
     else:
