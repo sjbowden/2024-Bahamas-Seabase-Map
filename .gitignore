@@ -7,8 +7,10 @@ __pycache__/
 # public repo. The hotel coordinate it yielded is recorded in poster.py.
 out/IMG_0496.JPG
 
-# working render
+# working renders (compare_offset.png is kept — it documents the offset)
 out/proof.png
+out/proof_true.png
+out/proof_offset.png
 
 # derived caches — regenerated from the committed geo/*.json, and pickles are
 # Python-version specific

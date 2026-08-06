@@ -94,9 +94,25 @@ The poster is drawn to read like a paper chart rather than a data plot:
   into a single stripe. On the hero chart each is shifted sideways by up to
   **~170 m** perpendicular to its own heading (`offset` per day, applied only
   when `spread=True`). The seven day panels are drawn true, with no offset, so
-  there is always an honest version of every track on the sheet. Where a boat
-  doubles back, the line is broken rather than offset: averaging two opposing
-  headings gives a meaningless normal and throws off spikes.
+  there is always an honest version of every track on the sheet.
+  `python poster.py --compare` renders both versions side by side plus
+  `out/compare_offset.png`, so the distortion can be judged directly.
+
+  Offsetting a polyline is deceptively fiddly, and two obvious approaches fail:
+
+  | approach | loops introduced | route dropped |
+  |---|---|---|
+  | naive per-vertex normal | 7→26, 4→18 | none |
+  | GEOS `offset_curve` | none | **4.9 km of day 3** |
+  | taper + bounded trim | none | none |
+
+  Offsetting a bend by more than its own radius folds the line into a loop, so
+  `offset_track` measures the local turn radius and **tapers the offset toward
+  zero** through tight turns — at a hairpin the line simply converges on the
+  truth. A trim pass removes any fold that survives, but only if it is small
+  relative to the offset; a genuine loop (the boat actually circling) is wider
+  than that and is left alone rather than quietly straightened out. Result:
+  zero introduced loops, full coverage of every metre of every track.
 - **The footer is a credit line, not a methods section** — it hangs on a wall.
   Every data caveat lives in this README instead.
 
