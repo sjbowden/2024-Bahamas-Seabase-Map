@@ -90,13 +90,13 @@ The poster is drawn to read like a paper chart rather than a data plot:
   figure isn't printed on the rose — the inner ring's rotation *is* the
   variation — so if you need the number, it's here.
 - **Offset tracks — the one deliberate inaccuracy, and it is confined.**
-  Between Tilloo Cut and Hope Town several days share one channel and would
-  otherwise overplot into a single stripe. Only along that run
-  (**26.420–26.520 N**, ramping to nothing over 0.012° at each end) is a day
-  shifted sideways, by up to ~170 m perpendicular to its own heading.
-  Everywhere else — Little Harbour, Lynyard Cay, Hope Town, Man-O-War, Great
-  Guana — **the tracks are drawn exactly as recorded**. The seven day panels
-  are true throughout.
+  In the channel along the west side of Elbow Cay several days share one lane
+  and would otherwise overplot into a single stripe. Only there
+  (**26.470–26.520 N**, Tilloo Cut to short of Hope Town, ramping to nothing
+  over 0.010° at each end) is a day shifted sideways, by up to ~170 m
+  perpendicular to its own heading. Everywhere else — Little Harbour, Lynyard
+  Cay, Tilloo Pond, Hope Town, Man-O-War, Great Guana — **the tracks are drawn
+  exactly as recorded**. The seven day panels are true throughout.
 
   The bounds were measured rather than guessed: counting day-pairs that come
   within 250 m per 0.005° band shows three-way congestion at 26.42–26.435 and
