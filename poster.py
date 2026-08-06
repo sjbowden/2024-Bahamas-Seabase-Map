@@ -193,11 +193,11 @@ def load_day(stem, min_step_m=22.0, max_kn=30.0, walk_split=None, road_split=Non
 # The offset applies only along the Tilloo/Elbow run, where four days share one
 # channel. Everywhere else the tracks are drawn exactly as recorded; the shift
 # ramps in and out over FADE so there is no kink at the boundary.
-# Bounds measured, not guessed: three days run within 250 m of each other from
-# about 26.42 to 26.52. South of 26.355 only one day is present at all, and
-# north of here the fan-out to Marsh Harbour separates them on its own — so the
-# run stops short of both Little Harbour and Hope Town.
-CORRIDOR_S, CORRIDOR_N, CORRIDOR_FADE = 26.420, 26.520, 0.012
+# Just the channel along the west side of Elbow Cay: from Tilloo Cut north to
+# short of Hope Town. That is where the days genuinely share one lane — three
+# run within 250 m of each other from 26.485 to 26.525. South of Tilloo Cut the
+# water opens onto Tilloo Bank and they separate on their own.
+CORRIDOR_S, CORRIDOR_N, CORRIDOR_FADE = 26.470, 26.520, 0.010
 
 
 def _corridor_gate(lat):
