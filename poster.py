@@ -190,11 +190,24 @@ def load_day(stem, min_step_m=22.0, max_kn=30.0, walk_split=None, road_split=Non
 
 
 # --------------------------------------------------------------- rendering ---
+# The offset applies only along the Tilloo/Elbow run, where four days share one
+# channel. Everywhere else the tracks are drawn exactly as recorded; the shift
+# ramps in and out over FADE so there is no kink at the boundary.
+CORRIDOR_S, CORRIDOR_N, CORRIDOR_FADE = 26.340, 26.545, 0.022
+
+
+def _corridor_gate(lat):
+    """1 inside the crowded run, 0 outside, linear across the margins."""
+    lo = np.clip((lat - (CORRIDOR_S - CORRIDOR_FADE)) / CORRIDOR_FADE, 0.0, 1.0)
+    hi = np.clip(((CORRIDOR_N + CORRIDOR_FADE) - lat) / CORRIDOR_FADE, 0.0, 1.0)
+    return np.minimum(lo, hi)
+
+
 def offset_track(pts, d):
     """Shift a track sideways by `d` degrees of latitude, perpendicular to its
-    own heading. Four of the days share the narrow run between Tilloo and Elbow
-    Cay; nudging them apart is the only way to tell them apart there. It is a
-    deliberate cartographic lie of up to ~170 m, and the poster admits to it."""
+    own heading — but only through the Tilloo/Elbow run, where four days share
+    one channel and would otherwise overplot. It is a deliberate cartographic
+    lie of up to ~170 m, confined to the one stretch that needs it."""
     if not d or len(pts) < 3:
         return pts
     k = math.cos(math.radians(LAT0))
@@ -237,6 +250,7 @@ def offset_track(pts, d):
     N = np.column_stack([-T[:, 1] / Lt, T[:, 0] / Lt])
     N[bad] = 0.0
 
+    scale = scale * _corridor_gate(P[:, 1])   # true outside the crowded run
     Q = P + N * (d * scale)[:, None]
     # tapering prevents nearly all folds; trim whatever slips through
     trimmed = _trim_loops([tuple(q) for q in Q], tol=2.0 * abs(d))
@@ -877,8 +891,9 @@ def compare(dpi=110):
     fig.text(0.5, 0.965, "Sea of Abaco · Tilloo Cut to Lynyard Cay",
              fontproperties=SERIF, fontsize=25, color=C_INK, ha="center")
     fig.text(0.5, 0.017,
-             "Same data both sides. On the right each day is shifted sideways by up "
-             "to 170 m perpendicular to its own heading.",
+             "Same data both sides. On the right the days are nudged apart only along "
+             "this run; everywhere else on the chart the tracks are drawn exactly as "
+             "recorded.",
              fontproperties=SANS, fontsize=11, color=C_INK_SOFT, ha="center")
     dest = os.path.join(out, "compare_offset.png")
     fig.savefig(dest, dpi=dpi, facecolor=C_PAPER)
