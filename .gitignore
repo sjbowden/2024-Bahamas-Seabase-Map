@@ -1,0 +1,15 @@
+# local python env
+.venv/
+__pycache__/
+*.pyc
+
+# personal photo: its EXIF pinpoints where the crew stayed — kept out of the
+# public repo. The hotel coordinate it yielded is recorded in poster.py.
+out/IMG_0496.JPG
+
+# working render
+out/proof.png
+
+# derived caches — regenerated from the committed geo/*.json, and pickles are
+# Python-version specific
+geo/*.pkl

@@ -1,0 +1,578 @@
+#!/usr/bin/env python3
+"""Frameable nautical-chart poster of the 2024 Bahamas Sea Base sailing tracks.
+
+Renders a hero map of the Sea of Abaco with every day's GPS track, a strip of
+per-day thumbnails, and a chart-style title block.
+
+    python poster.py            # 200 dpi proof PNG
+    python poster.py --final    # 300 dpi PNG + vector PDF
+"""
+import argparse
+import csv
+import glob
+import math
+import os
+from datetime import datetime, timedelta, timezone
+
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+import numpy as np
+from matplotlib.collections import LineCollection
+from matplotlib.font_manager import FontProperties
+from matplotlib.patches import Polygon as MplPolygon, FancyArrow
+from matplotlib.path import Path
+from matplotlib.patches import PathPatch
+
+from abaco_geo import land_polygons
+from roads import route as road_route
+
+
+def transfer_route():
+    """Friday's airport→hotel drive, routed over OSM roads. The recorded log
+    for that day is unusable (all dead-reckoning), so this is a reconstruction,
+    and the poster says so."""
+    pts, _ = road_route((AIRPORT[1], AIRPORT[0]), (HOTEL[1], HOTEL[0]))
+    return pts
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+EDT = timezone(timedelta(hours=-4))
+NM = 1852.0
+LAT0 = 26.5
+ASPECT = 1.0 / math.cos(math.radians(LAT0))   # deg lon -> deg lat scaling
+
+# ---------------------------------------------------------------- palette ---
+C_WATER      = "#CFE0E8"
+C_SHOAL_1    = "#E2EDF1"
+C_SHOAL_2    = "#D8E7ED"
+C_LAND       = "#F2E7CE"
+C_LAND_EDGE  = "#8A7F6A"
+C_INK        = "#2E3A42"
+C_INK_SOFT   = "#5C6B75"
+C_PAPER      = "#FBF6EA"
+C_RULE       = "#B9AC91"
+
+SERIF = FontProperties(family="P052")
+SERIF_I = FontProperties(family="P052", style="italic")
+SANS = FontProperties(family="Lato")
+SANS_B = FontProperties(family="Lato", weight="bold")
+
+# ------------------------------------------------------------------- days ---
+DAYS = [
+    dict(file="GPS_20240322_163426", label="Fri 22 Mar", n=None, color="#8A8073",
+         sail=False, ashore=True, transfer=True, title="Arrival",
+         route="Flew in · airport → hotel by road"),
+    # the shakedown never leaves the harbour, so its badge has to be placed by
+    # hand — every point on it is close to the marina
+    dict(file="GPS_20240323_144533", label="Sat 23 Mar", n=1, color="#0F7B6C",
+         sail=True, title="Shakedown", badge_at=(-77.0836, 26.5585),
+         walk_split="2024-03-23T14:57:23Z",
+         route="Walked to the marina, then out into the harbour"),
+    dict(file="GPS_20240324_105625", label="Sun 24 Mar", n=2, color="#B3312C",
+         sail=True, title="Man-O-War & Tahiti Beach",
+         route="Marsh Harbour → Man-O-War Cay → Tahiti Beach → Tilloo Pond"),
+    dict(file="GPS_20240325_111604", label="Mon 25 Mar", n=3, color="#E8820C",
+         sail=True, title="Hope Town",
+         route="Tilloo Pond → Hope Town Harbour → Lynyard Cay"),
+    dict(file="GPS_20240326_114752", label="Tue 26 Mar", n=4, color="#4B2E83",
+         sail=True, title="Little Harbour",
+         route="Lynyard Cay → Little Harbour → north to Tilloo"),
+    dict(file="GPS_20240327_122052", label="Wed 27 Mar", n=5, color="#C2185B",
+         sail=True, title="Great Guana Cay",
+         route="Tilloo → Great Guana Cay → Marsh Harbour"),
+    # afloat until 09:52:40 EDT, when the van left for the airport
+    dict(file="GPS_20240328_111720", label="Thu 28 Mar", n=None, color="#8A8073",
+         sail=False, airport=True, title="Departure", sail_color="#35708E",
+         road_split="2024-03-28T13:52:40Z", show_nm=True,
+         route="Off the mooring to the dock, then MHH by road"),
+]
+
+# hand-placed chart labels: (lon, lat, text, kind, ha, va)
+PLACES = [
+    (-77.0640, 26.5310, "MARSH HARBOUR", "town", "right", "center"),
+    (-76.9594, 26.5407, "HOPE TOWN", "town", "left", "center"),
+    (-77.0002, 26.3242, "LITTLE HARBOUR", "town", "left", "center"),
+    (-77.1310, 26.6790, "Great Guana Cay", "isle", "center", "bottom"),
+    (-77.0030, 26.5930, "Man-O-War Cay", "isle", "left", "center"),
+    (-76.9700, 26.4950, "Elbow Cay", "isle", "left", "center"),
+    (-77.0270, 26.4700, "Lubbers\nQuarters", "isle", "right", "center"),
+    (-76.9830, 26.4400, "Tilloo Cay", "isle", "left", "center"),
+    (-77.1550, 26.4300, "G R E A T   A B A C O", "big", "center", "center"),
+    (-77.0450, 26.6300, "S E A   O F   A B A C O", "water", "center", "center"),
+    (-76.9430, 26.6250, "A T L A N T I C\nO C E A N", "water", "center", "center"),
+]
+
+# overnight anchorages worth marking: (lon, lat, text, ha)
+AIRPORT = (-77.0782, 26.5135, "MHH", "Leonard M. Thompson Intl")
+# hotel fixed from the EXIF of IMG_0496.JPG (14:43 EDT, 22 Mar, ±4.6 m); the
+# marina is where Saturday's walk ends and the boat then sits for 90 minutes
+HOTEL = (-77.048906, 26.545222)
+MARINA = (-77.05192, 26.54688)
+
+ANCHORAGES = [
+    (-76.9907, 26.4488, "Tilloo Pond", "left"),
+    (-76.9849, 26.3568, "Lynyard Cay", "left"),
+]
+
+
+# ------------------------------------------------------------------ tracks ---
+def haversine(a_lat, a_lon, b_lat, b_lon):
+    R = 6371000.0
+    p1, p2 = math.radians(a_lat), math.radians(b_lat)
+    h = (math.sin((p2 - p1) / 2) ** 2
+         + math.cos(p1) * math.cos(p2) * math.sin(math.radians(b_lon - a_lon) / 2) ** 2)
+    return 2 * R * math.asin(math.sqrt(h))
+
+
+GOOD_QUALITY = (1, 2, 4, 5)     # GPS / DGPS / RTK; 6 is dead-reckoning guesswork
+MIN_SATS = 4
+MAX_HDOP = 4.0
+MOVING_KN = 0.5                 # below this the boat is swinging on its hook
+
+
+def _split_at(pts, iso):
+    """Cut a day in two at a UTC instant: (before, after)."""
+    cut = datetime.strptime(iso, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+    return [p for p in pts if p[0] <= cut], [p for p in pts if p[0] > cut]
+
+
+def _thin(pts, step=3):
+    return [p for i, p in enumerate(pts) if i % step == 0 or i == len(pts) - 1]
+
+
+def load_day(stem, min_step_m=22.0, max_kn=30.0, walk_split=None, road_split=None):
+    """Read a day's fixes, discard low-quality ones, and thin anchor jitter.
+
+    Distance only accumulates while the receiver reports real way on the boat,
+    so hours of swinging at anchor don't quietly add miles to the day.
+    """
+    path = os.path.join(HERE, "tracks", stem + ".csv")
+    raw, dropped = [], 0
+    with open(path) as fh:
+        for r in csv.DictReader(fh):
+            lat, lon = float(r["lat"]), float(r["lon"])
+            if lat >= 30.0:                         # Bahamas only, no PDX legs
+                continue
+            if (int(r["quality"]) not in GOOD_QUALITY
+                    or int(r["sats"]) < MIN_SATS
+                    or float(r["hdop"]) > MAX_HDOP):
+                dropped += 1
+                continue
+            raw.append((datetime.strptime(r["utc"], "%Y-%m-%dT%H:%M:%SZ")
+                        .replace(tzinfo=timezone.utc),
+                        lat, lon, float(r["sog_kn"])))
+    if len(raw) < 2:
+        return dict(afloat=[], nm=0.0, max_kn=0.0, fixes=0, dropped=dropped,
+                    walk=[], road=[])
+    n_raw = len(raw)
+    # Saturday begins on foot; Thursday ends in a van. Note the two splits keep
+    # opposite halves, so an absent split must default the opposite way.
+    walk_raw, raw = _split_at(raw, walk_split) if walk_split else ([], raw)
+    raw, road_raw = _split_at(raw, road_split) if road_split else (raw, [])
+    kept, dist, prev = [raw[0]], 0.0, raw[0]
+    for p in raw[1:]:
+        dt = (p[0] - prev[0]).total_seconds()
+        step = haversine(prev[1], prev[2], p[1], p[2])
+        if dt > 0 and step / dt * 1.94384 > max_kn and step > 60:
+            continue                                # residual spike
+        if p[3] > MOVING_KN:
+            dist += step                            # measure against the last
+        prev = p                                    # accepted fix, not the last
+        if haversine(kept[-1][1], kept[-1][2],      # *plotted* one
+                     p[1], p[2]) >= min_step_m:     # thin stationary jitter
+            kept.append(p)
+    speeds = [p[3] for p in raw if p[3] > 0.8]
+    return dict(afloat=kept, nm=dist / NM, max_kn=(max(speeds) if speeds else 0.0),
+                fixes=n_raw, dropped=dropped,
+                walk=_thin(walk_raw), road=_thin(road_raw))
+
+
+# --------------------------------------------------------------- rendering ---
+def draw_chart(ax, extent, land, days, tracks, *, detail=True, lw_scale=1.0,
+               show_airport=False):
+    w, e, s, n = extent
+    ax.set_xlim(w, e)
+    ax.set_ylim(s, n)
+    ax.set_aspect(ASPECT)
+    ax.set_facecolor(C_WATER)
+    for spine in ax.spines.values():
+        spine.set_color(C_INK)
+        spine.set_linewidth(1.1 * lw_scale)
+    ax.set_xticks([])
+    ax.set_yticks([])
+
+    # shoal halo around the land, then land itself
+    for buf, col in ((0.0060, C_SHOAL_1), (0.0026, C_SHOAL_2)):
+        _fill(ax, _shoal(land, buf), col, None, 0)
+    _fill(ax, land, C_LAND, C_LAND_EDGE, 0.5 * lw_scale)
+
+    # tracks — a pale casing under each line keeps crossings readable where
+    # five days share the same channel
+    def line(pts, color, lw, dash=None, case=3.2):
+        if len(pts) < 2:
+            return
+        xy = np.array([(p[2], p[1]) if len(p) > 2 else p for p in pts])
+        ax.plot(xy[:, 0], xy[:, 1], lw=case * lw_scale, color=C_PAPER,
+                alpha=0.88, zorder=5, solid_capstyle="round",
+                solid_joinstyle="round")
+        ax.plot(xy[:, 0], xy[:, 1], lw=lw * lw_scale, color=color, zorder=6,
+                ls=dash or "-", solid_capstyle="round",
+                solid_joinstyle="round", dash_capstyle="round")
+
+    for d in days:
+        t = tracks[d["file"]]
+        if not d.get("ashore"):
+            # everything afloat gets the day's colour, even Thursday's 270 m
+            # hop off the mooring — it was still time on the water
+            line(t["afloat"], d.get("sail_color", d["color"]),
+                 2.0 if d["sail"] else 1.8, case=4.4 if d["sail"] else 3.6)
+        if d.get("transfer"):
+            line(transfer_route(), d["color"], 1.4, (0, (1, 2.2)), case=3.0)
+        line(t["walk"], d.get("sail_color", d["color"]), 1.6, (0, (1, 2.0)), 3.0)
+        line(t["road"], d["color"], 1.3, (0, (4, 3)), 3.2)
+
+    if not detail:
+        if show_airport:                          # only where it's meaningful
+            draw_airport(ax, lw_scale, label=False)
+        return
+
+    draw_airport(ax, lw_scale)
+
+    # anchorages
+    for lon, lat, text, ha in ANCHORAGES:
+        ax.plot([lon], [lat], marker="o", ms=6 * lw_scale, mfc=C_PAPER,
+                mec=C_INK, mew=1.3 * lw_scale, zorder=8)
+        off = 0.006 if ha == "left" else -0.006
+        ax.text(lon + off, lat, text, fontproperties=SANS_B, fontsize=9.5 * lw_scale,
+                color=C_INK, ha=ha, va="center", zorder=8,
+                path_effects=_halo(2.6 * lw_scale))
+
+    # place names
+    sizes = {"town": 10.5, "isle": 9.5, "big": 15.0, "water": 13.0}
+    for lon, lat, text, kind, ha, va in PLACES:
+        fp = SERIF_I if kind == "water" else SERIF
+        col = "#5E7C8A" if kind == "water" else C_INK
+        if kind == "big":
+            col = "#7A6E58"
+        pad = 0.004 if ha == "left" else (-0.004 if ha == "right" else 0)
+        ax.text(lon + pad, lat, text, fontproperties=fp,
+                fontsize=sizes[kind] * lw_scale, color=col, ha=ha, va=va,
+                zorder=9, path_effects=_halo(3.0 * lw_scale))
+
+
+_SHOAL_CACHE = {}
+
+
+def _shoal(land, buf):
+    """Buffered 'shallows' ring around the land — expensive, so memoize it."""
+    if buf not in _SHOAL_CACHE:
+        _SHOAL_CACHE[buf] = land.buffer(buf, join_style=1).buffer(
+            -buf * 0.15, join_style=1)
+    return _SHOAL_CACHE[buf]
+
+
+def badge_positions(days, tracks):
+    """Pick where to stamp each day's number: the point on that day's track
+    that sits farthest from every other day's track, so the badge lands on the
+    stretch of water unique to that day rather than in the shared channel."""
+    def arr(d, step):
+        pts = tracks[d["file"]]["afloat"][::step]
+        return np.array([(p[2] * math.cos(math.radians(p[1])), p[1]) for p in pts])
+
+    # keep badges off the labelled features too, not just off other tracks
+    avoid = [(lon, lat) for lon, lat, *_ in ANCHORAGES]
+    avoid.append((AIRPORT[0], AIRPORT[1]))
+    avoid += [(lon, lat) for lon, lat, _t, kind, *_ in PLACES if kind != "water"]
+    avoid_xy = np.array([(lon * math.cos(math.radians(lat)), lat)
+                         for lon, lat in avoid])
+
+    sailing = [d for d in days if d["sail"]]
+    out = {}
+    for d in sailing:
+        if d.get("badge_at"):
+            out[d["file"]] = d["badge_at"]
+            continue
+        mine = arr(d, 3)
+        others = [arr(o, 2) for o in sailing if o is not d]
+        if not len(mine) or not others:
+            continue
+        other = np.vstack(others + [avoid_xy])
+        best, bestd = None, -1.0
+        for i in range(0, len(mine), max(1, len(mine) // 400)):
+            dd = np.min(np.hypot(other[:, 0] - mine[i, 0], other[:, 1] - mine[i, 1]))
+            if dd > bestd:
+                bestd, best = dd, i
+        raw = tracks[d["file"]]["afloat"][::3][best]
+        out[d["file"]] = (raw[2], raw[1])
+    return out
+
+
+def draw_badges(ax, days, badges, lw_scale=1.0):
+    for d in days:
+        if d.get("n") is None or d["file"] not in badges:
+            continue
+        lon, lat = badges[d["file"]]
+        ax.plot([lon], [lat], marker="o", ms=15 * lw_scale, mfc=d["color"],
+                mec=C_PAPER, mew=1.8 * lw_scale, zorder=11)
+        ax.text(lon, lat, str(d["n"]), fontproperties=SANS_B,
+                fontsize=10.5 * lw_scale, color=C_PAPER, ha="center",
+                va="center_baseline", zorder=12)
+
+
+def _plane_marker(rotate_deg=45.0):
+    """Top-down airliner silhouette, as a matplotlib marker path."""
+    v = [(0.00, 1.00), (0.11, 0.60), (0.11, 0.30), (1.00, -0.06), (1.00, -0.26),
+         (0.11, -0.16), (0.09, -0.62), (0.40, -0.86), (0.40, -1.00),
+         (0.00, -0.88), (-0.40, -1.00), (-0.40, -0.86), (-0.09, -0.62),
+         (-0.11, -0.16), (-1.00, -0.26), (-1.00, -0.06), (-0.11, 0.30),
+         (-0.11, 0.60)]
+    a = math.radians(rotate_deg)
+    ca, sa = math.cos(a), math.sin(a)
+    v = [(x * ca - y * sa, x * sa + y * ca) for x, y in v]
+    codes = [Path.MOVETO] + [Path.LINETO] * (len(v) - 1) + [Path.CLOSEPOLY]
+    return Path(v + [v[0]], codes)
+
+
+PLANE = _plane_marker()
+
+
+def draw_airport(ax, lw_scale=1.0, label=True):
+    lon, lat, code, name = AIRPORT
+    ax.plot([lon], [lat], marker=PLANE, ms=15 * lw_scale, mfc=C_INK,
+            mec=C_PAPER, mew=0.9 * lw_scale, zorder=10, clip_on=True,
+            linestyle="none")
+    text = f"{code}  {name}" if label else code
+    ax.text(lon, lat - 0.0075 * lw_scale, text, fontproperties=SANS,
+            fontsize=8.5 * lw_scale, color=C_INK, ha="center", va="top",
+            zorder=10, clip_on=True,      # text is unclipped by default and
+            path_effects=_halo(2.6 * lw_scale))   # leaks outside the panel
+
+
+def _fill(ax, geom, face, edge, lw):
+    if geom is None or geom.is_empty:
+        return
+    verts, codes = [], []
+    for g in getattr(geom, "geoms", [geom]):
+        if g.geom_type != "Polygon":
+            continue
+        for ring in [g.exterior] + list(g.interiors):
+            c = list(ring.coords)
+            verts.extend(c)
+            codes.extend([Path.MOVETO] + [Path.LINETO] * (len(c) - 2) + [Path.CLOSEPOLY])
+    if not verts:
+        return
+    patch = PathPatch(Path(verts, codes), facecolor=face,
+                      edgecolor=edge or "none", lw=lw, zorder=2,
+                      antialiased=True)
+    ax.add_patch(patch)
+
+
+def _halo(lw):
+    import matplotlib.patheffects as pe
+    return [pe.withStroke(linewidth=lw, foreground=C_PAPER, alpha=0.85)]
+
+
+def scale_bar(ax, extent, y_frac=0.045, x_frac=0.06, nm_len=5, lw_scale=1.0):
+    w, e, s, n = extent
+    dlon = nm_len * NM / (111320.0 * math.cos(math.radians(LAT0)))
+    x0 = w + (e - w) * x_frac
+    y0 = s + (n - s) * y_frac
+    h = (n - s) * 0.006
+    for i in range(nm_len):
+        ax.add_patch(plt.Rectangle((x0 + i * dlon / nm_len, y0), dlon / nm_len, h,
+                                   facecolor=C_INK if i % 2 == 0 else C_PAPER,
+                                   edgecolor=C_INK, lw=0.8 * lw_scale, zorder=10))
+    ax.text(x0, y0 - h * 2.2, "0", fontproperties=SANS, fontsize=8 * lw_scale,
+            ha="center", va="top", color=C_INK, zorder=10)
+    ax.text(x0 + dlon, y0 - h * 2.2, f"{nm_len} nautical miles",
+            fontproperties=SANS, fontsize=8 * lw_scale, ha="center", va="top",
+            color=C_INK, zorder=10)
+
+
+def north_arrow(ax, extent, lw_scale=1.0):
+    w, e, s, n = extent
+    x = w + (e - w) * 0.90
+    y = s + (n - s) * 0.055
+    L = (n - s) * 0.045
+    ax.add_patch(FancyArrow(x, y, 0, L, width=0.0004 * lw_scale,
+                            head_width=0.0035 * lw_scale, head_length=L * 0.32,
+                            facecolor=C_INK, edgecolor=C_INK, zorder=10,
+                            length_includes_head=True))
+    ax.text(x, y + L * 1.18, "N", fontproperties=SERIF, fontsize=11 * lw_scale,
+            ha="center", va="bottom", color=C_INK, zorder=10)
+
+
+# ------------------------------------------------------------------ poster ---
+def build(dpi, out_png, out_pdf=None):
+    tracks = {d["file"]: load_day(d["file"], walk_split=d.get("walk_split"),
+                                  road_split=d.get("road_split"))
+              for d in DAYS}
+    walk_m = sum(haversine(w[a][1], w[a][2], w[a + 1][1], w[a + 1][2])
+                 for d in DAYS for w in [tracks[d["file"]]["walk"]]
+                 for a in range(len(w) - 1))
+    total_nm = sum(tracks[d["file"]]["nm"] for d in DAYS if d["sail"])
+    max_kn = max(tracks[d["file"]]["max_kn"] for d in DAYS if d["sail"])
+    dropped = sum(tracks[d["file"]]["dropped"] for d in DAYS)
+
+    extent = (-77.185, -76.912, 26.298, 26.712)
+    land = land_polygons((-77.35, 26.15, -76.80, 26.85))
+
+    fig = plt.figure(figsize=(18, 24), dpi=dpi)
+    fig.patch.set_facecolor(C_PAPER)
+
+    # ---- title block
+    fig.text(0.065, 0.972, "SEA OF ABACO", fontproperties=SERIF, fontsize=62,
+             color=C_INK, ha="left", va="top")
+    fig.text(0.0675, 0.9345, "ABACO · THE BAHAMAS", fontproperties=SANS,
+             fontsize=17, color=C_INK_SOFT, ha="left", va="top")
+    fig.text(0.935, 0.9695, "BOY SCOUT SEA BASE", fontproperties=SANS_B,
+             fontsize=17, color=C_INK, ha="right", va="top")
+    fig.text(0.935, 0.9495, "22–28 MARCH 2024", fontproperties=SANS,
+             fontsize=15, color=C_INK_SOFT, ha="right", va="top")
+    fig.lines.append(plt.Line2D([0.065, 0.935], [0.9235, 0.9235],
+                                transform=fig.transFigure, color=C_RULE, lw=1.4))
+
+    # ---- hero map
+    ax = fig.add_axes([0.065, 0.225, 0.545, 0.685])
+    draw_chart(ax, extent, land, DAYS, tracks, lw_scale=1.0)
+    draw_badges(ax, DAYS, badge_positions(DAYS, tracks))
+    scale_bar(ax, extent)
+    north_arrow(ax, extent)
+
+    # ---- right-hand legend column
+    x = 0.655
+    y = 0.885
+    fig.text(x, y, "THE PASSAGE, DAY BY DAY", fontproperties=SANS_B, fontsize=14,
+             color=C_INK, ha="left", va="top")
+    fig.lines.append(plt.Line2D([x, 0.935], [y - 0.012, y - 0.012],
+                                transform=fig.transFigure, color=C_RULE, lw=1.0))
+    y -= 0.034
+    for d in DAYS:
+        nm = tracks[d["file"]]["nm"]
+        if d.get("n") is not None:                  # numbered badge, keyed to
+            fig.text(x + 0.011, y + 0.006, str(d["n"]),  # the same one on the map
+                     fontproperties=SANS_B, fontsize=13, color=C_PAPER,
+                     ha="center", va="center", zorder=4,
+                     bbox=dict(boxstyle="circle,pad=0.42", facecolor=d["color"],
+                               edgecolor="none"))
+        elif d.get("sail_color"):        # part afloat, part by road
+            fig.lines.append(plt.Line2D([x + 0.001, x + 0.009], [y + 0.005, y + 0.005],
+                                        transform=fig.transFigure,
+                                        color=d["sail_color"], lw=3.0,
+                                        solid_capstyle="round"))
+            fig.lines.append(plt.Line2D([x + 0.013, x + 0.022], [y + 0.005, y + 0.005],
+                                        transform=fig.transFigure, color=d["color"],
+                                        lw=1.8, ls=(0, (3, 2))))
+        else:
+            fig.lines.append(plt.Line2D([x + 0.001, x + 0.021], [y + 0.005, y + 0.005],
+                                        transform=fig.transFigure, color=d["color"],
+                                        lw=1.8, ls=(0, (3, 2))))
+        fig.text(x + 0.040, y + 0.012, d["label"].upper(), fontproperties=SANS_B,
+                 fontsize=11.5, color=C_INK, ha="left", va="center")
+        # only ever quote distances made on the water
+        nm_txt = f"{nm:.1f} nm" if (d["sail"] or d.get("show_nm")) else ""
+        fig.text(0.935, y + 0.012, nm_txt, fontproperties=SANS,
+                 fontsize=11.5, color=C_INK_SOFT, ha="right", va="center")
+        fig.text(x + 0.040, y - 0.006, d["title"], fontproperties=SERIF,
+                 fontsize=12.5, color=C_INK, ha="left", va="center")
+        fig.text(x + 0.040, y - 0.023, d["route"], fontproperties=SANS,
+                 fontsize=9.0, color=C_INK_SOFT, ha="left", va="center")
+        y -= 0.062
+
+    # ---- stats block
+    y -= 0.006
+    fig.lines.append(plt.Line2D([x, 0.935], [y + 0.020, y + 0.020],
+                                transform=fig.transFigure, color=C_RULE, lw=1.0))
+    stats = [(f"{total_nm:.0f}", "NAUTICAL MILES SAILED"),
+             ("5", "DAYS UNDER SAIL"),
+             (f"{max_kn:.1f}", "KNOTS, BEST SPEED"),
+             (f"{sum(tracks[d['file']]['fixes'] for d in DAYS):,}", "GPS FIXES RECORDED")]
+    for i, (big, cap) in enumerate(stats):
+        yy = y - 0.052 * i
+        fig.text(x, yy, big, fontproperties=SERIF, fontsize=40, color=C_INK,
+                 ha="left", va="center")
+        fig.text(x + 0.105, yy, cap, fontproperties=SANS, fontsize=10.5,
+                 color=C_INK_SOFT, ha="left", va="center")
+
+    # ---- bottom strip of per-day thumbnails
+    strip_y, strip_h = 0.058, 0.134
+    left, right, gap = 0.065, 0.935, 0.010
+    wid = (right - left - gap * (len(DAYS) - 1)) / len(DAYS)
+    for i, d in enumerate(DAYS):
+        t = tracks[d["file"]]
+        pts = t["afloat"] + t["walk"] + t["road"]
+        axd = fig.add_axes([left + i * (wid + gap), strip_y, wid, strip_h])
+        if len(pts) >= 2:
+            lons = [p[2] for p in pts]
+            lats = [p[1] for p in pts]
+            cx, cy = (min(lons) + max(lons)) / 2, (min(lats) + max(lats)) / 2
+            if d.get("ashore"):        # no passage; frame airport→hotel→marina
+                cx, cy = -77.0618, 26.5305
+                need_w, need_h = 0.047, 0.047
+            else:
+                need_w = max(max(lons) - min(lons), 0.012) * 1.35
+                need_h = max(max(lats) - min(lats), 0.012) * 1.35
+            box_ratio = (strip_h * 24) / (wid * 18)     # inches h/w
+            if need_h / (need_w / ASPECT) < box_ratio:
+                need_h = need_w / ASPECT * box_ratio
+            else:
+                need_w = need_h / box_ratio * ASPECT
+            sub = (cx - need_w / 2, cx + need_w / 2, cy - need_h / 2, cy + need_h / 2)
+        else:
+            sub = extent
+        # the arrival panel is the harbour inset, so it also carries the walk
+        shown = [d] + [o for o in DAYS if d.get("ashore") and o.get("walk_split")]
+        draw_chart(axd, sub, land, shown, tracks, detail=False, lw_scale=0.62,
+                   show_airport=bool(d.get("transfer") or d.get("airport")))
+        if d.get("ashore"):        # doubles as the Marsh Harbour detail inset
+            for (lon, lat), name, dx, dy, ha, va in (
+                    (HOTEL, "Hotel", 0.0016, 0.0012, "left", "bottom"),
+                    (MARINA, "Marina", -0.0016, 0.0012, "right", "bottom")):
+                axd.plot([lon], [lat], marker="o", ms=6.5, mfc=C_PAPER,
+                         mec=C_INK, mew=1.3, zorder=9)
+                axd.text(lon + dx, lat + dy, name, fontproperties=SANS_B,
+                         fontsize=8, color=C_INK, ha=ha, va=va, zorder=9,
+                         path_effects=_halo(2.2))
+        if d.get("n") is not None:
+            axd.text(0.10, 0.895, str(d["n"]), transform=axd.transAxes,
+                     fontproperties=SANS_B, fontsize=11, color=C_PAPER,
+                     ha="center", va="center", zorder=10,
+                     bbox=dict(boxstyle="circle,pad=0.40", facecolor=d["color"],
+                               edgecolor="none"))
+        head = (f"   ·   {tracks[d['file']]['nm']:.1f} nm"
+                if (d["sail"] or d.get("show_nm")) else "")
+        axd.set_title(f"{d['label'].upper()}{head}",
+                      fontproperties=SANS_B, fontsize=10, color=C_INK, pad=6)
+        axd.text(0.5, -0.075, d["title"], transform=axd.transAxes,
+                 fontproperties=SERIF, fontsize=10.5, color=C_INK_SOFT,
+                 ha="center", va="top")
+
+    fig.text(0.5, 0.0225,
+             f"Recorded on a handheld GPS receiver · {dropped:,} low-quality fixes "
+             "discarded (dead-reckoning, HDOP > 4, fewer than 4 satellites) · "
+             "coastline © OpenStreetMap contributors",
+             fontproperties=SANS, fontsize=9, color=C_INK_SOFT, ha="center", va="bottom")
+    fig.text(0.5, 0.0095,
+             "Dotted lines are ashore. Friday's arrival was not usably recorded, so the "
+             "airport–hotel drive is routed over roads and the hotel fixed from a "
+             f"photograph; Saturday's {walk_m:.0f} m walk to the marina is as recorded.",
+             fontproperties=SANS, fontsize=9, color=C_INK_SOFT, ha="center", va="bottom")
+
+    fig.savefig(out_png, dpi=dpi, facecolor=C_PAPER)
+    print("wrote", out_png)
+    if out_pdf:
+        fig.savefig(out_pdf, facecolor=C_PAPER)
+        print("wrote", out_pdf)
+    plt.close(fig)
+
+
+if __name__ == "__main__":
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--final", action="store_true", help="300 dpi PNG + PDF")
+    a = ap.parse_args()
+    os.makedirs(os.path.join(HERE, "out"), exist_ok=True)
+    if a.final:
+        build(300, os.path.join(HERE, "out", "abaco_poster_18x24_300dpi.png"),
+              os.path.join(HERE, "out", "abaco_poster_18x24.pdf"))
+    else:
+        build(100, os.path.join(HERE, "out", "proof.png"))
