@@ -86,7 +86,19 @@ The poster is drawn to read like a paper chart rather than a data plot:
   fleur-de-lis north. Variation is **9°05′ W (2024)**, computed from the WMM
   2020 coefficients at 26°30′N 77°03′W for epoch 2024.22 and cross-checked
   against WMM 2025 (−9.12° at epoch 2025.0). It is baked in as a constant in
-  `poster.py`; `pygeomag` is only needed to re-derive it, not to build.
+  `poster.py`; `pygeomag` is only needed to re-derive it, not to build. The
+  figure isn't printed on the rose — the inner ring's rotation *is* the
+  variation — so if you need the number, it's here.
+- **Offset tracks — the one deliberate inaccuracy.** Four days share the
+  narrow run between Tilloo and Elbow Cay, where they'd otherwise overplot
+  into a single stripe. On the hero chart each is shifted sideways by up to
+  **~170 m** perpendicular to its own heading (`offset` per day, applied only
+  when `spread=True`). The seven day panels are drawn true, with no offset, so
+  there is always an honest version of every track on the sheet. Where a boat
+  doubles back, the line is broken rather than offset: averaging two opposing
+  headings gives a meaningless normal and throws off spikes.
+- **The footer is a credit line, not a methods section** — it hangs on a wall.
+  Every data caveat lives in this README instead.
 
 ## Itinerary
 

@@ -65,20 +65,20 @@ DAYS = [
          route="Flew in · airport → hotel by road"),
     # the shakedown never leaves the harbour, so its badge has to be placed by
     # hand — every point on it is close to the marina
-    dict(file="GPS_20240323_144533", label="Sat 23 Mar", n=1, color="#0F7B6C",
-         sail=True, title="Shakedown", badge_at=(-77.0836, 26.5585),
+    dict(file="GPS_20240323_144533", label="Sat 23 Mar", n=1, color="#0B6E4F",
+         sail=True, title="Shakedown", badge_at=(-77.0836, 26.5585), offset=0.0,
          walk_split="2024-03-23T14:57:23Z",
          route="Walked to the marina, then out into the harbour"),
-    dict(file="GPS_20240324_105625", label="Sun 24 Mar", n=2, color="#B3312C",
+    dict(file="GPS_20240324_105625", label="Sun 24 Mar", n=2, color="#C1272D", offset=-0.0015,
          sail=True, title="Man-O-War & Tahiti Beach",
          route="Marsh Harbour → Man-O-War Cay → Tahiti Beach → Tilloo Pond"),
-    dict(file="GPS_20240325_111604", label="Mon 25 Mar", n=3, color="#E8820C",
+    dict(file="GPS_20240325_111604", label="Mon 25 Mar", n=3, color="#D97706", offset=-0.0005,
          sail=True, title="Hope Town",
          route="Tilloo Pond → Hope Town Harbour → Lynyard Cay"),
-    dict(file="GPS_20240326_114752", label="Tue 26 Mar", n=4, color="#4B2E83",
+    dict(file="GPS_20240326_114752", label="Tue 26 Mar", n=4, color="#1D4E89", offset=0.0005,
          sail=True, title="Little Harbour",
          route="Lynyard Cay → Little Harbour → north to Tilloo"),
-    dict(file="GPS_20240327_122052", label="Wed 27 Mar", n=5, color="#C2185B",
+    dict(file="GPS_20240327_122052", label="Wed 27 Mar", n=5, color="#8E2E8E", offset=0.0015,
          sail=True, title="Great Guana Cay",
          route="Tilloo → Great Guana Cay → Marsh Harbour"),
     # afloat until 09:52:40 EDT, when the van left for the airport
@@ -190,8 +190,52 @@ def load_day(stem, min_step_m=22.0, max_kn=30.0, walk_split=None, road_split=Non
 
 
 # --------------------------------------------------------------- rendering ---
+def offset_track(pts, d):
+    """Shift a track sideways by `d` degrees of latitude, perpendicular to its
+    own heading. Four of the days share the narrow run between Tilloo and Elbow
+    Cay; nudging them apart is the only way to tell them apart there. It is a
+    deliberate cartographic lie of up to ~170 m, and the poster admits to it."""
+    if not d or len(pts) < 3:
+        return pts
+    k = math.cos(math.radians(LAT0))
+    P = np.array([(p[2] * k, p[1]) if len(p) > 2 else (p[0] * k, p[1])
+                  for p in pts])
+    S = P[1:] - P[:-1]
+    Ls = np.hypot(S[:, 0], S[:, 1])
+    keep = Ls > 0
+    P = np.vstack([P[:-1][keep], P[-1]])
+    S, Ls = S[keep], Ls[keep]
+    if len(S) < 2:
+        return pts
+    U = S / Ls[:, None]                       # unit heading of each segment
+    perp = lambda u: np.array([-u[1], u[0]])
+
+    # Where the boat doubles back, the two headings cancel and the averaged
+    # normal is meaningless — that's what threw off spikes. Break the line
+    # there instead, so an out-and-back becomes two parallel passes.
+    dots = (U[:-1] * U[1:]).sum(axis=1)
+    T = np.empty_like(P)
+    T[0], T[-1] = U[0], U[-1]
+    T[1:-1] = U[:-1] + U[1:]
+    Lt = np.hypot(T[:, 0], T[:, 1])
+    Lt[Lt == 0] = 1.0
+    N = np.column_stack([-T[:, 1] / Lt, T[:, 0] / Lt])
+
+    out = []
+    for i in range(len(P)):
+        if 0 < i < len(P) - 1 and dots[i - 1] < -0.75:
+            a = P[i] + perp(U[i - 1]) * d
+            b = P[i] + perp(U[i]) * d
+            out += [(a[0] / k, a[1]), (float("nan"), float("nan")),
+                    (b[0] / k, b[1])]
+        else:
+            q = P[i] + N[i] * d
+            out.append((q[0] / k, q[1]))
+    return out
+
+
 def draw_chart(ax, extent, land, days, tracks, *, detail=True, lw_scale=1.0,
-               show_airport=False):
+               show_airport=False, spread=False):
     w, e, s, n = extent
     ax.set_xlim(w, e)
     ax.set_ylim(s, n)
@@ -226,7 +270,9 @@ def draw_chart(ax, extent, land, days, tracks, *, detail=True, lw_scale=1.0,
         if not d.get("ashore"):
             # everything afloat gets the day's colour, even Thursday's 270 m
             # hop off the mooring — it was still time on the water
-            line(t["afloat"], d.get("sail_color", d["color"]),
+            afloat = (offset_track(t["afloat"], d.get("offset", 0.0))
+                      if spread else t["afloat"])
+            line(afloat, d.get("sail_color", d["color"]),
                  2.0 if d["sail"] else 1.8, case=4.4 if d["sail"] else 3.6)
         if d.get("transfer"):
             line(transfer_route(), d["color"], 1.4, (0, (1, 2.2)), case=3.0)
@@ -574,14 +620,9 @@ def compass_rose(ax, lon, lat, R, lw_scale=1.0):
         ax.add_patch(PathPatch(p, transform=tr, facecolor=C_ROSE,
                                edgecolor=C_ROSE, lw=0.4 * lw_scale, zorder=13))
 
-    # no cardinal letters: the fleur marks north and the ring is graduated, so
-    # they'd only add clutter and crowd the labels around Lynyard Cay
-    ax.text(lon, lat - R * 1.14, VARIATION_TEXT, fontproperties=SANS_B,
-            fontsize=7.0 * lw_scale, color=C_ROSE_MAG, ha="center", va="top",
-            zorder=12, path_effects=_halo(3.0 * lw_scale))
-    ax.text(lon, lat - R * 1.28, VARIATION_RATE, fontproperties=SANS,
-            fontsize=6.0 * lw_scale, color=C_INK_SOFT, ha="center", va="top",
-            zorder=12, path_effects=_halo(3.0 * lw_scale))
+    # No cardinal letters and no variation caption: the fleur marks north, the
+    # rings carry the bearings, and the inner ring's offset shows the variation
+    # without spelling it out.
 
 
 # ------------------------------------------------------------------ poster ---
@@ -616,7 +657,7 @@ def build(dpi, out_png, out_pdf=None):
 
     # ---- hero map
     ax = fig.add_axes([0.065, 0.225, 0.545, 0.685])
-    draw_chart(ax, extent, land, DAYS, tracks, lw_scale=1.0)
+    draw_chart(ax, extent, land, DAYS, tracks, lw_scale=1.0, spread=True)
     draw_badges(ax, DAYS, badge_positions(DAYS, tracks))
     compass_rose(ax, -76.9470, 26.3480, 0.0235)
     scale_bar(ax, extent)
@@ -703,19 +744,27 @@ def build(dpi, out_png, out_pdf=None):
             sub = (cx - need_w / 2, cx + need_w / 2, cy - need_h / 2, cy + need_h / 2)
         else:
             sub = extent
-        # the arrival panel is the harbour inset, so it also carries the walk
-        shown = [d] + [o for o in DAYS if d.get("ashore") and o.get("walk_split")]
+        # The arrival panel doubles as the harbour inset, so it carries
+        # Saturday's walk — but marking that day ashore here keeps its sailing
+        # track out of a day on which nobody sailed.
+        shown = [d] + [dict(o, ashore=True)
+                       for o in DAYS if d.get("ashore") and o.get("walk_split")]
         draw_chart(axd, sub, land, shown, tracks, detail=False, lw_scale=0.62,
                    show_airport=bool(d.get("transfer") or d.get("airport")))
-        if d.get("ashore"):        # doubles as the Marsh Harbour detail inset
-            for (lon, lat), name, dx, dy, ha, va in (
-                    (HOTEL, "Hotel", 0.0016, 0.0012, "left", "bottom"),
-                    (MARINA, "Marina", -0.0016, 0.0012, "right", "bottom")):
-                axd.plot([lon], [lat], marker="o", ms=6.5, mfc=C_PAPER,
-                         mec=C_INK, mew=1.3, zorder=9)
-                axd.text(lon + dx, lat + dy, name, fontproperties=SANS_B,
-                         fontsize=8, color=C_INK, ha=ha, va=va, zorder=9,
-                         path_effects=_halo(2.2))
+        # the arrival panel doubles as the Marsh Harbour detail inset; the
+        # departure panel needs the marina too, since that's where it starts
+        marks = []
+        if d.get("ashore"):
+            marks = [(HOTEL, "Hotel", 0.0016, 0.0012, "left", "bottom"),
+                     (MARINA, "Marina", -0.0016, 0.0012, "right", "bottom")]
+        elif d.get("airport"):
+            marks = [(MARINA, "Marina", 0.0016, 0.0009, "left", "bottom")]
+        for (lon, lat), name, dx, dy, ha, va in marks:
+            axd.plot([lon], [lat], marker="o", ms=6.5, mfc=C_PAPER,
+                     mec=C_INK, mew=1.3, zorder=9)
+            axd.text(lon + dx, lat + dy, name, fontproperties=SANS_B,
+                     fontsize=8, color=C_INK, ha=ha, va=va, zorder=9,
+                     path_effects=_halo(2.2))
         if d.get("n") is not None:
             axd.text(0.10, 0.895, str(d["n"]), transform=axd.transAxes,
                      fontproperties=SANS_B, fontsize=11, color=C_PAPER,
@@ -730,15 +779,11 @@ def build(dpi, out_png, out_pdf=None):
                  fontproperties=SERIF, fontsize=10.5, color=C_INK_SOFT,
                  ha="center", va="top")
 
-    fig.text(0.5, 0.0225,
-             f"Recorded on a handheld GPS receiver · {dropped:,} low-quality fixes "
-             "discarded (dead-reckoning, HDOP > 4, fewer than 4 satellites) · "
-             "coastline © OpenStreetMap contributors",
-             fontproperties=SANS, fontsize=9, color=C_INK_SOFT, ha="center", va="bottom")
-    fig.text(0.5, 0.0095,
-             "Dotted lines are ashore. Friday's arrival was not usably recorded, so the "
-             "airport–hotel drive is routed over roads and the hotel fixed from a "
-             f"photograph; Saturday's {walk_m:.0f} m walk to the marina is as recorded.",
+    # This hangs on a wall, so the footer is a credit line, not a methods
+    # section — the data caveats all live in the README instead.
+    fig.text(0.5, 0.016,
+             "Recorded on a handheld GPS receiver  ·  Dotted lines are ashore"
+             "  ·  Coastline © OpenStreetMap contributors",
              fontproperties=SANS, fontsize=9, color=C_INK_SOFT, ha="center", va="bottom")
 
     fig.savefig(out_png, dpi=dpi, facecolor=C_PAPER)
