@@ -72,6 +72,22 @@ Other things worth remembering:
   the poster are made on the water only; the road legs are drawn but never
   counted.
 
+## Chart conventions
+
+The poster is drawn to read like a paper chart rather than a data plot:
+
+- **Neatline.** The border is graduated in whole minutes of arc, alternating
+  light and dark, labelled every 5′ along the south and west edges.
+- **Depth tinting.** Deep water is near-white and the tint deepens inshore,
+  following chart convention. These are buffers around the coastline, not
+  surveyed contours — there is no bathymetry in this repo.
+- **Compass rose.** A true ring graduated every 1°, an inner magnetic ring
+  turned by the local variation, and a 16-point faceted star with a
+  fleur-de-lis north. Variation is **9°05′ W (2024)**, computed from the WMM
+  2020 coefficients at 26°30′N 77°03′W for epoch 2024.22 and cross-checked
+  against WMM 2025 (−9.12° at epoch 2025.0). It is baked in as a constant in
+  `poster.py`; `pygeomag` is only needed to re-derive it, not to build.
+
 ## Itinerary
 
 | Local day | Route | Track |
