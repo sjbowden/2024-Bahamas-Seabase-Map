@@ -89,12 +89,14 @@ The poster is drawn to read like a paper chart rather than a data plot:
   `poster.py`; `pygeomag` is only needed to re-derive it, not to build. The
   figure isn't printed on the rose — the inner ring's rotation *is* the
   variation — so if you need the number, it's here.
-- **Offset tracks — the one deliberate inaccuracy.** Four days share the
-  narrow run between Tilloo and Elbow Cay, where they'd otherwise overplot
-  into a single stripe. On the hero chart each is shifted sideways by up to
-  **~170 m** perpendicular to its own heading (`offset` per day, applied only
-  when `spread=True`). The seven day panels are drawn true, with no offset, so
-  there is always an honest version of every track on the sheet.
+- **Offset tracks — the one deliberate inaccuracy, and it is confined.** Four
+  days share the narrow run between Tilloo and Elbow Cay, where they'd
+  otherwise overplot into a single stripe. Only along that run is each day
+  shifted sideways (up to ~170 m, perpendicular to its own heading); the shift
+  ramps to nothing over 0.022° at either end, so **everywhere else on the
+  chart the tracks are drawn exactly as recorded** — measured at 0.00 m
+  displacement outside the corridor. See `CORRIDOR_S` / `CORRIDOR_N` in
+  `poster.py`. The seven day panels are true throughout.
   `python poster.py --compare` renders both versions side by side plus
   `out/compare_offset.png`, so the distortion can be judged directly.
 
