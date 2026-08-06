@@ -753,10 +753,14 @@ def build(dpi, out_png, out_pdf=None):
                    show_airport=bool(d.get("transfer") or d.get("airport")))
         # the arrival panel doubles as the Marsh Harbour detail inset; the
         # departure panel needs the marina too, since that's where it starts
+        # Friday ends at the hotel; the marina only enters the story on
+        # Saturday, when the crew walks to it and boards
         marks = []
         if d.get("ashore"):
-            marks = [(HOTEL, "Hotel", 0.0016, 0.0012, "left", "bottom"),
-                     (MARINA, "Marina", -0.0016, 0.0012, "right", "bottom")]
+            marks = [(HOTEL, "Hotel", 0.0016, 0.0012, "left", "bottom")]
+        elif d.get("walk_split"):   # the hotel sits hard against the panel
+            marks = [(HOTEL, "Hotel", -0.0012, -0.0010, "right", "top"),
+                     (MARINA, "Marina", -0.0014, 0.0010, "right", "bottom")]
         elif d.get("airport"):
             marks = [(MARINA, "Marina", 0.0016, 0.0009, "left", "bottom")]
         for (lon, lat), name, dx, dy, ha, va in marks:
