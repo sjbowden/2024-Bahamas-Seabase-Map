@@ -708,6 +708,29 @@ def compass_rose(ax, lon, lat, R, lw_scale=1.0):
 
 
 # ------------------------------------------------------------------ poster ---
+def fit_fontsize(fig, txt, fp, size, avail, floor=8.5, step=0.25, pad=0.006):
+    """Largest size at or below `size` whose text fits `avail` figure widths.
+
+    The longest route line runs to within 0.02 in of the margin at 10.5 pt, so
+    one more character would overflow — and on a machine without Lato the
+    DejaVu fallback overflows outright. Measure instead of trusting the number.
+
+    `pad` reserves a visible sliver of margin. It also keeps the answer stable
+    between the 100 dpi proof and the 300 dpi final: font metrics round
+    differently at each, and without it the two picked different sizes.
+    """
+    r = fig.canvas.get_renderer()
+    while size > floor:
+        probe = fig.text(0, 0, txt, fontproperties=fp, fontsize=size)
+        w = (probe.get_window_extent(renderer=r)
+             .transformed(fig.transFigure.inverted()).width)
+        probe.remove()
+        if w <= avail - pad:
+            break
+        size -= step
+    return size
+
+
 def build(dpi, out_png, out_pdf=None, spread=True):
     tracks = {d["file"]: load_day(d["file"], walk_split=d.get("walk_split"),
                                   road_split=d.get("road_split"))
@@ -782,7 +805,9 @@ def build(dpi, out_png, out_pdf=None, spread=True):
         fig.text(x + 0.046, y - 0.008, d["title"], fontproperties=SERIF,
                  fontsize=16, color=C_INK, ha="left", va="center")
         fig.text(x + 0.046, y - 0.027, d["route"], fontproperties=SANS,
-                 fontsize=10.5, color=C_INK_SOFT, ha="left", va="center")
+                 fontsize=fit_fontsize(fig, d["route"], SANS, 10.5,
+                                       0.935 - (x + 0.046)),
+                 color=C_INK_SOFT, ha="left", va="center")
         y -= 0.0660
 
     # ---- stats block
