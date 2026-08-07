@@ -15,3 +15,7 @@ out/proof_offset.png
 # derived caches — regenerated from the committed geo/*.json, and pickles are
 # Python-version specific
 geo/*.pkl
+
+# fonts are loaded from here but not redistributed; populate from the system
+# copies (see README) -- P052 is AGPL-with-font-exception, Lato is OFL-1.1
+fonts/
