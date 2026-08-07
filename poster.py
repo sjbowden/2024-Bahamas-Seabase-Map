@@ -635,11 +635,15 @@ def compass_rose(ax, lon, lat, R, lw_scale=1.0):
         return (lon + r * ASPECT * math.sin(a), lat + r * math.cos(a))
 
     def ring(radius, rot, every, med, long_, numerals, color, fs, halo=False):
-        for rr in (radius, radius * 0.885):
-            ax.add_patch(plt.Circle((lon, lat), rr, fill=False, ec=color,
-                                    lw=(0.9 if rr == radius else 0.6) * lw_scale,
-                                    zorder=11, transform=ax.transData))
-        # the ring is a true circle only if x is stretched by the map aspect
+        # Draw the rings through P() as well. A plt.Circle in data coordinates
+        # uses one radius for both axes, but a degree of latitude is 1.118x a
+        # degree of longitude here, so it comes out an ellipse — narrowest
+        # east–west, right where it used to slice through the numerals.
+        a = np.linspace(0.0, 2.0 * math.pi, 721)
+        for rr, wdt in ((radius, 0.9), (radius * 0.885, 0.6)):
+            ax.plot(lon + rr * ASPECT * np.sin(a), lat + rr * np.cos(a),
+                    color=color, lw=wdt * lw_scale, zorder=11,
+                    solid_joinstyle="round")
         for deg in range(0, 360, every):
             if deg % long_ == 0:
                 inner, wdt = radius * 0.885, 0.9
@@ -722,11 +726,11 @@ def build(dpi, out_png, out_pdf=None, spread=True):
     fig.patch.set_facecolor(C_PAPER)
 
     # ---- title block
-    fig.text(0.065, 0.972, "SEA OF ABACO", fontproperties=SERIF, fontsize=62,
+    fig.text(0.065, 0.972, "SEA BASE", fontproperties=SERIF, fontsize=62,
              color=C_INK, ha="left", va="top")
     fig.text(0.0675, 0.9345, "ABACO · THE BAHAMAS", fontproperties=SANS,
              fontsize=17, color=C_INK_SOFT, ha="left", va="top")
-    fig.text(0.935, 0.9695, "BOY SCOUT SEA BASE", fontproperties=SANS_B,
+    fig.text(0.935, 0.9695, "SEA OF ABACO", fontproperties=SANS_B,
              fontsize=17, color=C_INK, ha="right", va="top")
     fig.text(0.935, 0.9495, "22–28 MARCH 2024", fontproperties=SANS,
              fontsize=15, color=C_INK_SOFT, ha="right", va="top")
@@ -743,17 +747,17 @@ def build(dpi, out_png, out_pdf=None, spread=True):
 
     # ---- right-hand legend column
     x = 0.655
-    y = 0.885
-    fig.text(x, y, "THE PASSAGE, DAY BY DAY", fontproperties=SANS_B, fontsize=14,
+    y = 0.902
+    fig.text(x, y, "THE PASSAGE, DAY BY DAY", fontproperties=SANS_B, fontsize=16,
              color=C_INK, ha="left", va="top")
-    fig.lines.append(plt.Line2D([x, 0.935], [y - 0.012, y - 0.012],
+    fig.lines.append(plt.Line2D([x, 0.935], [y - 0.014, y - 0.014],
                                 transform=fig.transFigure, color=C_RULE, lw=1.0))
-    y -= 0.034
+    y -= 0.042
     for d in DAYS:
         nm = tracks[d["file"]]["nm"]
         if d.get("n") is not None:                  # numbered badge, keyed to
             fig.text(x + 0.011, y + 0.006, str(d["n"]),  # the same one on the map
-                     fontproperties=SANS_B, fontsize=13, color=C_PAPER,
+                     fontproperties=SANS_B, fontsize=15, color=C_PAPER,
                      ha="center", va="center", zorder=4,
                      bbox=dict(boxstyle="circle,pad=0.42", facecolor=d["color"],
                                edgecolor="none"))
@@ -769,20 +773,20 @@ def build(dpi, out_png, out_pdf=None, spread=True):
             fig.lines.append(plt.Line2D([x + 0.001, x + 0.021], [y + 0.005, y + 0.005],
                                         transform=fig.transFigure, color=d["color"],
                                         lw=1.8, ls=(0, (3, 2))))
-        fig.text(x + 0.040, y + 0.012, d["label"].upper(), fontproperties=SANS_B,
-                 fontsize=11.5, color=C_INK, ha="left", va="center")
+        fig.text(x + 0.046, y + 0.014, d["label"].upper(), fontproperties=SANS_B,
+                 fontsize=13.5, color=C_INK, ha="left", va="center")
         # only ever quote distances made on the water
         nm_txt = f"{nm:.1f} nm" if (d["sail"] or d.get("show_nm")) else ""
-        fig.text(0.935, y + 0.012, nm_txt, fontproperties=SANS,
-                 fontsize=11.5, color=C_INK_SOFT, ha="right", va="center")
-        fig.text(x + 0.040, y - 0.006, d["title"], fontproperties=SERIF,
-                 fontsize=12.5, color=C_INK, ha="left", va="center")
-        fig.text(x + 0.040, y - 0.023, d["route"], fontproperties=SANS,
-                 fontsize=9.0, color=C_INK_SOFT, ha="left", va="center")
-        y -= 0.062
+        fig.text(0.935, y + 0.014, nm_txt, fontproperties=SANS,
+                 fontsize=13.5, color=C_INK_SOFT, ha="right", va="center")
+        fig.text(x + 0.046, y - 0.008, d["title"], fontproperties=SERIF,
+                 fontsize=16, color=C_INK, ha="left", va="center")
+        fig.text(x + 0.046, y - 0.027, d["route"], fontproperties=SANS,
+                 fontsize=10.5, color=C_INK_SOFT, ha="left", va="center")
+        y -= 0.0660
 
     # ---- stats block
-    y -= 0.006
+    y -= 0.004
     fig.lines.append(plt.Line2D([x, 0.935], [y + 0.020, y + 0.020],
                                 transform=fig.transFigure, color=C_RULE, lw=1.0))
     stats = [(f"{total_nm:.0f}", "NAUTICAL MILES SAILED"),
@@ -790,10 +794,10 @@ def build(dpi, out_png, out_pdf=None, spread=True):
              (f"{max_kn:.1f}", "KNOTS, BEST SPEED"),
              (f"{sum(tracks[d['file']]['fixes'] for d in DAYS):,}", "GPS FIXES RECORDED")]
     for i, (big, cap) in enumerate(stats):
-        yy = y - 0.052 * i
+        yy = y - 0.050 * i
         fig.text(x, yy, big, fontproperties=SERIF, fontsize=40, color=C_INK,
                  ha="left", va="center")
-        fig.text(x + 0.105, yy, cap, fontproperties=SANS, fontsize=10.5,
+        fig.text(x + 0.112, yy, cap, fontproperties=SANS, fontsize=11.5,
                  color=C_INK_SOFT, ha="left", va="center")
 
     # ---- bottom strip of per-day thumbnails
@@ -836,11 +840,15 @@ def build(dpi, out_png, out_pdf=None, spread=True):
         marks = []
         if d.get("ashore"):
             marks = [(HOTEL, "Hotel", 0.0016, 0.0012, "left", "bottom")]
-        elif d.get("walk_split"):   # the hotel sits hard against the panel
+        elif d.get("walk_split"):
+            # the sail track comes in from the west and the hotel sits hard
+            # against the panel edge, so the marina reads up and to the right
             marks = [(HOTEL, "Hotel", -0.0012, -0.0010, "right", "top"),
-                     (MARINA, "Marina", -0.0014, 0.0010, "right", "bottom")]
+                     (MARINA, "Marina", 0.0009, 0.0008, "left", "bottom")]
         elif d.get("airport"):
-            marks = [(MARINA, "Marina", 0.0016, 0.0009, "left", "bottom")]
+            # the marina is near the right edge here; label it underneath,
+            # inboard of the road heading off to the airport
+            marks = [(MARINA, "Marina", 0.0, -0.0009, "center", "top")]
         for (lon, lat), name, dx, dy, ha, va in marks:
             axd.plot([lon], [lat], marker="o", ms=6.5, mfc=C_PAPER,
                      mec=C_INK, mew=1.3, zorder=9)
