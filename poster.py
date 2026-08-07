@@ -812,13 +812,38 @@ def build(dpi, out_png, out_pdf=None, spread=True):
     chart_neatline(ax, extent, fig)
 
     # ---- right-hand legend column
+    #
+    # Every size here is measured up to the point where the line would wrap,
+    # rather than picked by eye. The route line is the one that can't grow —
+    # it's the longest string in the narrowest slot — so it stays small and the
+    # day title carries the weight. The label/nm pair is deliberately held
+    # below the title so the serif stays the dominant thing in each row.
     x = 0.655
+    ind = x + 0.046
+    wide, narrow = 0.935 - x, 0.935 - ind
+    hdr_size = fit_fontsize(fig, "THE PASSAGE, DAY BY DAY", SANS_B, 26, wide)
+    ttl_size = min(fit_fontsize(fig, d["title"], SERIF, 26, narrow) for d in DAYS)
+    rte_size = min(fit_fontsize(fig, d["route"], SANS, 14, narrow) for d in DAYS)
+    lab_size = min(18.0, ttl_size)
+    line_h = lambda s: 1.15 * s / 1728.0          # 24 in tall = 1728 pt
+    intra = 0.005                                 # between lines within a row
+    min_row = (line_h(lab_size) + line_h(ttl_size) + line_h(rte_size)
+               + 2 * intra + 0.010)
     y = 0.902
-    fig.text(x, y, "THE PASSAGE, DAY BY DAY", fontproperties=SANS_B, fontsize=16,
-             color=C_INK, ha="left", va="top")
-    fig.lines.append(plt.Line2D([x, 0.935], [y - 0.014, y - 0.014],
+    fig.text(x, y, "THE PASSAGE, DAY BY DAY", fontproperties=SANS_B,
+             fontsize=hdr_size, color=C_INK, ha="left", va="top")
+    rule_y = y - line_h(hdr_size) - 0.006
+    fig.lines.append(plt.Line2D([x, 0.935], [rule_y, rule_y],
                                 transform=fig.transFigure, color=C_RULE, lw=1.0))
-    y -= 0.042
+    # Spread the seven rows so the column reaches the stats block instead of
+    # stopping short — but never tighter than the type itself needs.
+    STAT_GAP, STAT_FLOOR = 0.050, 0.216
+    top = rule_y - 0.012
+    row_h = max(min_row, (top - 0.030 - 3 * STAT_GAP - STAT_FLOOR) / 7)
+    off_lab = row_h / 2 - 0.006 - line_h(lab_size) / 2
+    off_ttl = off_lab - line_h(lab_size) / 2 - intra - line_h(ttl_size) / 2
+    off_rte = off_ttl - line_h(ttl_size) / 2 - intra - line_h(rte_size) / 2
+    y = top - row_h / 2
     for d in DAYS:
         nm = tracks[d["file"]]["nm"]
         if d.get("n") is not None:                  # numbered badge, keyed to
@@ -839,33 +864,35 @@ def build(dpi, out_png, out_pdf=None, spread=True):
             fig.lines.append(plt.Line2D([x + 0.001, x + 0.021], [y + 0.005, y + 0.005],
                                         transform=fig.transFigure, color=d["color"],
                                         lw=1.8, ls=(0, (3, 2))))
-        fig.text(x + 0.046, y + 0.014, d["label"].upper(), fontproperties=SANS_B,
-                 fontsize=13.5, color=C_INK, ha="left", va="center")
+        fig.text(ind, y + off_lab, d["label"].upper(), fontproperties=SANS_B,
+                 fontsize=lab_size, color=C_INK, ha="left", va="center")
         # only ever quote distances made on the water
         nm_txt = f"{nm:.1f} nm" if (d["sail"] or d.get("show_nm")) else ""
-        fig.text(0.935, y + 0.014, nm_txt, fontproperties=SANS,
-                 fontsize=13.5, color=C_INK_SOFT, ha="right", va="center")
-        fig.text(x + 0.046, y - 0.008, d["title"], fontproperties=SERIF,
-                 fontsize=16, color=C_INK, ha="left", va="center")
-        fig.text(x + 0.046, y - 0.027, d["route"], fontproperties=SANS,
-                 fontsize=fit_fontsize(fig, d["route"], SANS, 10.5,
-                                       0.935 - (x + 0.046)),
-                 color=C_INK_SOFT, ha="left", va="center")
-        y -= 0.0660
+        fig.text(0.935, y + off_lab, nm_txt, fontproperties=SANS,
+                 fontsize=lab_size, color=C_INK_SOFT, ha="right", va="center")
+        fig.text(ind, y + off_ttl, d["title"], fontproperties=SERIF,
+                 fontsize=ttl_size, color=C_INK, ha="left", va="center")
+        fig.text(ind, y + off_rte, d["route"], fontproperties=SANS,
+                 fontsize=rte_size, color=C_INK_SOFT, ha="left", va="center")
+        y -= row_h
 
     # ---- stats block
-    y -= 0.004
+    y += row_h / 2 - 0.030
     fig.lines.append(plt.Line2D([x, 0.935], [y + 0.020, y + 0.020],
                                 transform=fig.transFigure, color=C_RULE, lw=1.0))
     stats = [(f"{total_nm:.0f}", "NAUTICAL MILES SAILED"),
              ("5", "DAYS UNDER SAIL"),
              (f"{max_kn:.1f}", "KNOTS, BEST SPEED"),
              (f"{sum(tracks[d['file']]['fixes'] for d in DAYS):,}", "GPS FIXES RECORDED")]
+    # space the stats to fit between the rule and the thumbnail strip: the
+    # 40 pt numerals need ~0.014 of clearance below the last baseline
+    stat_gap = min(STAT_GAP, (y - STAT_FLOOR) / (len(stats) - 1))
     for i, (big, cap) in enumerate(stats):
-        yy = y - 0.050 * i
+        yy = y - stat_gap * i
         fig.text(x, yy, big, fontproperties=SERIF, fontsize=40, color=C_INK,
                  ha="left", va="center")
-        fig.text(x + 0.112, yy, cap, fontproperties=SANS, fontsize=11.5,
+        fig.text(x + 0.112, yy, cap, fontproperties=SANS,
+                 fontsize=fit_fontsize(fig, cap, SANS, 17, 0.935 - (x + 0.112)),
                  color=C_INK_SOFT, ha="left", va="center")
 
     # ---- bottom strip of per-day thumbnails
