@@ -12,6 +12,7 @@ import csv
 import glob
 import math
 import os
+import sys
 from datetime import datetime, timedelta, timezone
 
 import matplotlib
@@ -19,6 +20,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.collections import LineCollection
+from matplotlib import font_manager
 from matplotlib.font_manager import FontProperties
 from matplotlib.patches import Polygon as MplPolygon, FancyArrow
 from matplotlib.path import Path
@@ -52,6 +54,47 @@ C_INK        = "#2E3A42"
 C_INK_SOFT   = "#5C6B75"
 C_PAPER      = "#FBF6EA"
 C_RULE       = "#B9AC91"
+
+# ------------------------------------------------------------------- fonts ---
+# The poster is set in P052 (a Palatino) and Lato. If matplotlib can't find
+# them it doesn't complain — it quietly resolves *both* to DejaVu Sans, so the
+# sheet loses its serif altogether and every string sets 7–29% wider. Register
+# whatever is in fonts/ first, then say plainly whether it worked.
+FONT_DIR = os.path.join(HERE, "fonts")
+FONT_FAMILIES = ("P052", "Lato")
+
+
+def _have_family(name):
+    try:
+        font_manager.findfont(FontProperties(family=name),
+                              fallback_to_default=False)
+        return True
+    except ValueError:
+        return False
+
+
+def register_fonts(verbose=True):
+    """Load font files kept beside the script. The directory is gitignored, so
+    populate it from the system copies (see the README) or drop the files in."""
+    loaded = 0
+    if os.path.isdir(FONT_DIR):
+        for fn in sorted(os.listdir(FONT_DIR)):
+            if fn.lower().endswith((".otf", ".ttf")):
+                try:
+                    font_manager.fontManager.addfont(os.path.join(FONT_DIR, fn))
+                    loaded += 1
+                except Exception as exc:
+                    print(f"  font {fn}: {exc}", file=sys.stderr)
+    missing = [f for f in FONT_FAMILIES if not _have_family(f)]
+    if missing and verbose:
+        print(f"WARNING: {', '.join(missing)} not available — matplotlib will "
+              f"substitute DejaVu Sans and the poster will not look right.\n"
+              f"         Put the font files in {FONT_DIR}/ (see README).",
+              file=sys.stderr)
+    return loaded, missing
+
+
+register_fonts()
 
 SERIF = FontProperties(family="P052")
 SERIF_I = FontProperties(family="P052", style="italic")
