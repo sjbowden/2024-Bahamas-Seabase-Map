@@ -16,6 +16,6 @@ out/proof_offset.png
 # Python-version specific
 geo/*.pkl
 
-# fonts are loaded from here but not redistributed; populate from the system
-# copies (see README) -- P052 is AGPL-with-font-exception, Lato is OFL-1.1
+# optional local override for P052/Lato when they aren't installed system-wide.
+# Not redistributed here: P052 is AGPL-with-font-exception, Lato is OFL-1.1.
 fonts/

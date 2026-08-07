@@ -37,28 +37,28 @@ Outputs, all under `out/`:
 
 ### Fonts
 
-The poster is set in **P052** (URW's Palatino) and **Lato**. Both matter: if
-matplotlib can't find a family it doesn't raise or warn through `warnings` — it
-logs one line and resolves the name through the sans-serif chain, so *both*
-families become **DejaVu Sans**. The sheet loses its serif altogether and every
-string sets 7–29% wider (the 40 pt stat numbers are the worst case).
-
-`poster.py` registers anything in `fonts/` at import and prints a loud warning
-if a family is still unavailable. That directory is **gitignored** — the files
-are loaded locally, not redistributed. Populate it once:
+The poster is set in **P052** (URW's Palatino) and **Lato**, and both need to be
+installed:
 
 ```bash
-mkdir -p fonts
-# Debian/Ubuntu: apt install fonts-urw-base35 fonts-lato, then
-cp /usr/share/fonts/opentype/urw-base35/P052-{Roman,Italic,Bold}.otf fonts/
-cp /usr/share/fonts/truetype/lato/Lato-{Regular,Bold}.ttf            fonts/
+sudo apt install fonts-urw-base35 fonts-lato    # Debian/Ubuntu
+rm -rf ~/.cache/matplotlib                      # if matplotlib doesn't see them
 ```
 
-Upstream if you don't have the packages: P052 from
-[ArtifexSoftware/urw-base35-fonts](https://github.com/ArtifexSoftware/urw-base35-fonts)
-(AGPL-3 with font exception), Lato from [latofonts.com](http://www.latofonts.com)
-(SIL OFL 1.1). Five files, ~1.6 MB. `fit_fontsize` still guards the route lines
-against overflow under fallback, but it can't restore the serif.
+This matters more than it looks. If matplotlib can't find a family it doesn't
+raise, and doesn't warn through `warnings` — it logs a single line and resolves
+the name down the sans-serif chain, so *both* families become **DejaVu Sans**.
+The sheet loses its serif altogether and every string sets 7–29% wider (the
+40 pt stat numbers are the worst case). `fit_fontsize` still keeps the route
+lines inside the column under fallback, but it can't restore the serif.
+
+So `poster.py` checks at import and prints a loud warning naming any family it
+couldn't find, rather than letting a wrong-looking poster render quietly. If the
+system packages aren't an option, drop the font files into a `fonts/` directory
+beside the script and they'll be registered automatically — that path is
+gitignored, so nothing is redistributed here. Upstream:
+[P052](https://github.com/ArtifexSoftware/urw-base35-fonts) (AGPL-3 with font
+exception), [Lato](http://www.latofonts.com) (SIL OFL 1.1).
 
 ## Notes on the data
 
