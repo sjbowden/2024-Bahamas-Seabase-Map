@@ -374,7 +374,7 @@ def draw_chart(ax, extent, land, days, tracks, *, detail=True, lw_scale=1.0,
     _fill(ax, land, C_LAND, C_LAND_EDGE, 0.5 * lw_scale)
 
     if detail:                       # the vessel belongs on the hero chart only
-        draw_vessel(ax, -76.9515, 26.6440, 0.0500)
+        draw_vessel(ax, -76.9515, 26.6460, 0.0570)
 
     # tracks — a pale casing under each line keeps crossings readable where
     # five days share the same channel
