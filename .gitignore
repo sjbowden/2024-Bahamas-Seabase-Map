@@ -19,3 +19,6 @@ geo/*.pkl
 # optional local override for P052/Lato when they aren't installed system-wide.
 # Not redistributed here: P052 is AGPL-with-font-exception, Lato is OFL-1.1.
 fonts/
+
+# the original flattened export, superseded by catamaran_fixed.png
+catamaran.png

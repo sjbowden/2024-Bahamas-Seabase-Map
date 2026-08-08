@@ -273,6 +273,13 @@ The poster is drawn to read like a paper chart rather than a data plot:
   radius in data units, and since a degree of latitude is 1.118× a degree of
   longitude here it draws an ellipse that pinches east–west and slices through
   the numerals.
+- **The vessel.** An engraving of the catamaran sits in the open Atlantic top
+  right, balancing the rose bottom right. `catamaran_fixed.png` carries an
+  alpha channel but is fully opaque — a flattened export — so `vessel_rgba()`
+  keys one at render time: the background is neutral and the engraving sepia,
+  so it keys on chroma plus lightness and takes opacity from darkness. That
+  also lets the chart show through between the hatch lines instead of sitting
+  on an opaque plate.
 - **The footer is a credit line, not a methods section** — it hangs on a wall.
   Every data caveat lives in this README instead.
 
