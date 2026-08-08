@@ -509,7 +509,7 @@ def _plane_marker(rotate_deg=45.0):
 PLANE = _plane_marker()
 
 
-VESSEL_ART = os.path.join(HERE, "catamaran-new.png")
+VESSEL_ART = os.path.join(HERE, "catamaran.png")
 _VESSEL_CACHE = {}
 
 
