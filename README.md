@@ -241,6 +241,13 @@ The poster is drawn to read like a paper chart rather than a data plot:
   figure isn't printed on the rose — the inner ring's rotation *is* the
   variation — so if you need the number, it's here.
 
+  The fleur-de-lis at north is built as four pieces, because that is how the
+  emblem is actually composed: a centre petal, two side petals, a banded waist
+  and a flared foot. The side petals are the part that matters — they are
+  tapering *ribbons* swept along a curved spine that curls out, over and back
+  under, not lobes. Every attempt to draw them as a filled outline with
+  hand-placed control points came out as horns or moth wings.
+
   The star follows the engraved roses of period charts: eight faceted points
   split light and dark, the four cardinals continuing straight through both
   rings to a spearhead and eyelet outside, and the letters replacing the ring
