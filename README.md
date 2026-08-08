@@ -37,6 +37,11 @@ Outputs, all under `out/`:
 | `compare_offset.png` | side-by-side proof of the one deliberate distortion | yes |
 | `proof.png`, `proof_true.png`, `proof_offset.png` | 100 dpi working renders | no |
 
+The two finished renders are committed so the poster is downloadable without
+running anything, but they are ~20 MB a pair — commit them when the sheet is
+meaningfully final, not on every tweak. Re-committing them each time is what
+took this repo's history to 510 MB before it was rewritten back down to 17 MB.
+
 ### Fonts
 
 The poster is set in **P052** (URW's Palatino) and **Lato**, and both need to be
