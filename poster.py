@@ -8,12 +8,10 @@ per-day thumbnails, and a chart-style title block.
     python poster.py --final    # 300 dpi PNG + vector PDF
 """
 import argparse
-import csv
 import glob
 import math
 import os
 import sys
-from datetime import datetime, timedelta, timezone
 
 import matplotlib
 matplotlib.use("Agg")
@@ -28,6 +26,7 @@ from matplotlib.patches import PathPatch
 
 from abaco_geo import land_polygons
 from roads import route as road_route
+from trip import DAYS, LAT0, NM, haversine, load_day, shoal
 
 
 def transfer_route():
@@ -38,9 +37,6 @@ def transfer_route():
     return pts
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-EDT = timezone(timedelta(hours=-4))
-NM = 1852.0
-LAT0 = 26.5
 ASPECT = 1.0 / math.cos(math.radians(LAT0))   # deg lon -> deg lat scaling
 
 # ---------------------------------------------------------------- palette ---
@@ -101,35 +97,8 @@ SERIF_I = FontProperties(family="P052", style="italic")
 SANS = FontProperties(family="Lato")
 SANS_B = FontProperties(family="Lato", weight="bold")
 
-# ------------------------------------------------------------------- days ---
-DAYS = [
-    dict(file="GPS_20240322_163426", label="Fri 22 Mar", n=None, color="#8A8073",
-         sail=False, ashore=True, transfer=True, title="Arrival",
-         route="Flew in · airport → hotel by road"),
-    # the shakedown never leaves the harbour, so its badge has to be placed by
-    # hand — every point on it is close to the marina
-    dict(file="GPS_20240323_144533", label="Sat 23 Mar", n=1, color="#0B6E4F",
-         sail=True, title="Shakedown", badge_at=(-77.0836, 26.5585), offset=0.0,
-         walk_split="2024-03-23T14:57:23Z",
-         route="Walked to the marina, then out into the harbour"),
-    dict(file="GPS_20240324_105625", label="Sun 24 Mar", n=2, color="#C1272D", offset=-0.0015,
-         sail=True, title="Man-O-War & Tahiti Beach",
-         route="Marsh Harbour → Man-O-War Cay → Tahiti Beach → Tilloo Pond"),
-    dict(file="GPS_20240325_111604", label="Mon 25 Mar", n=3, color="#D97706", offset=-0.0005,
-         sail=True, title="Hope Town",
-         route="Tilloo Pond → Hope Town Harbour → Lynyard Cay"),
-    dict(file="GPS_20240326_114752", label="Tue 26 Mar", n=4, color="#1D4E89", offset=0.0005,
-         sail=True, title="Little Harbour",
-         route="Lynyard Cay → Little Harbour → north to Tilloo"),
-    dict(file="GPS_20240327_122052", label="Wed 27 Mar", n=5, color="#8E2E8E", offset=0.0015,
-         sail=True, title="Great Guana Cay",
-         route="Tilloo → Great Guana Cay → Marsh Harbour"),
-    # afloat until 09:52:40 EDT, when the van left for the airport
-    dict(file="GPS_20240328_111720", label="Thu 28 Mar", n=None, color="#8A8073",
-         sail=False, airport=True, title="Departure", sail_color="#35708E",
-         road_split="2024-03-28T13:52:40Z", show_nm=True,
-         route="Off the mooring to the dock, then MHH by road"),
-]
+# DAYS, load_day() and the rest of "what a sailing day is" live in trip.py, so
+# the map build can read them without importing matplotlib.
 
 # hand-placed chart labels: (lon, lat, text, kind, ha, va)
 PLACES = [
@@ -158,78 +127,6 @@ ANCHORAGES = [
     (-76.9907, 26.4488, "Tilloo Pond", "left", "center"),
     (-76.9849, 26.3568, "Lynyard Cay", "center", "top"),
 ]
-
-
-# ------------------------------------------------------------------ tracks ---
-def haversine(a_lat, a_lon, b_lat, b_lon):
-    R = 6371000.0
-    p1, p2 = math.radians(a_lat), math.radians(b_lat)
-    h = (math.sin((p2 - p1) / 2) ** 2
-         + math.cos(p1) * math.cos(p2) * math.sin(math.radians(b_lon - a_lon) / 2) ** 2)
-    return 2 * R * math.asin(math.sqrt(h))
-
-
-GOOD_QUALITY = (1, 2, 4, 5)     # GPS / DGPS / RTK; 6 is dead-reckoning guesswork
-MIN_SATS = 4
-MAX_HDOP = 4.0
-MOVING_KN = 0.5                 # below this the boat is swinging on its hook
-
-
-def _split_at(pts, iso):
-    """Cut a day in two at a UTC instant: (before, after)."""
-    cut = datetime.strptime(iso, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
-    return [p for p in pts if p[0] <= cut], [p for p in pts if p[0] > cut]
-
-
-def _thin(pts, step=3):
-    return [p for i, p in enumerate(pts) if i % step == 0 or i == len(pts) - 1]
-
-
-def load_day(stem, min_step_m=22.0, max_kn=30.0, walk_split=None, road_split=None):
-    """Read a day's fixes, discard low-quality ones, and thin anchor jitter.
-
-    Distance only accumulates while the receiver reports real way on the boat,
-    so hours of swinging at anchor don't quietly add miles to the day.
-    """
-    path = os.path.join(HERE, "tracks", stem + ".csv")
-    raw, dropped = [], 0
-    with open(path) as fh:
-        for r in csv.DictReader(fh):
-            lat, lon = float(r["lat"]), float(r["lon"])
-            if lat >= 30.0:                         # Bahamas only, no PDX legs
-                continue
-            if (int(r["quality"]) not in GOOD_QUALITY
-                    or int(r["sats"]) < MIN_SATS
-                    or float(r["hdop"]) > MAX_HDOP):
-                dropped += 1
-                continue
-            raw.append((datetime.strptime(r["utc"], "%Y-%m-%dT%H:%M:%SZ")
-                        .replace(tzinfo=timezone.utc),
-                        lat, lon, float(r["sog_kn"])))
-    if len(raw) < 2:
-        return dict(afloat=[], nm=0.0, max_kn=0.0, fixes=0, dropped=dropped,
-                    walk=[], road=[])
-    n_raw = len(raw)
-    # Saturday begins on foot; Thursday ends in a van. Note the two splits keep
-    # opposite halves, so an absent split must default the opposite way.
-    walk_raw, raw = _split_at(raw, walk_split) if walk_split else ([], raw)
-    raw, road_raw = _split_at(raw, road_split) if road_split else (raw, [])
-    kept, dist, prev = [raw[0]], 0.0, raw[0]
-    for p in raw[1:]:
-        dt = (p[0] - prev[0]).total_seconds()
-        step = haversine(prev[1], prev[2], p[1], p[2])
-        if dt > 0 and step / dt * 1.94384 > max_kn and step > 60:
-            continue                                # residual spike
-        if p[3] > MOVING_KN:
-            dist += step                            # measure against the last
-        prev = p                                    # accepted fix, not the last
-        if haversine(kept[-1][1], kept[-1][2],      # *plotted* one
-                     p[1], p[2]) >= min_step_m:     # thin stationary jitter
-            kept.append(p)
-    speeds = [p[3] for p in raw if p[3] > 0.8]
-    return dict(afloat=kept, nm=dist / NM, max_kn=(max(speeds) if speeds else 0.0),
-                fixes=n_raw, dropped=dropped,
-                walk=_thin(walk_raw), road=_thin(road_raw))
 
 
 # --------------------------------------------------------------- rendering ---
@@ -370,7 +267,7 @@ def draw_chart(ax, extent, land, days, tracks, *, detail=True, lw_scale=1.0,
 
     # shoal halo around the land, then land itself
     for buf, col in ((0.0060, C_SHOAL_1), (0.0026, C_SHOAL_2)):
-        _fill(ax, _shoal(land, buf), col, None, 0)
+        _fill(ax, shoal(land, buf), col, None, 0)
     _fill(ax, land, C_LAND, C_LAND_EDGE, 0.5 * lw_scale)
 
     if detail:                       # the vessel belongs on the hero chart only
@@ -431,17 +328,6 @@ def draw_chart(ax, extent, land, days, tracks, *, detail=True, lw_scale=1.0,
         ax.text(lon + pad, lat, text, fontproperties=fp,
                 fontsize=sizes[kind] * lw_scale, color=col, ha=ha, va=va,
                 zorder=9, path_effects=_halo(3.0 * lw_scale))
-
-
-_SHOAL_CACHE = {}
-
-
-def _shoal(land, buf):
-    """Buffered 'shallows' ring around the land — expensive, so memoize it."""
-    if buf not in _SHOAL_CACHE:
-        _SHOAL_CACHE[buf] = land.buffer(buf, join_style=1).buffer(
-            -buf * 0.15, join_style=1)
-    return _SHOAL_CACHE[buf]
 
 
 def badge_positions(days, tracks):

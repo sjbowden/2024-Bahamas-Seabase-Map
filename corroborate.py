@@ -20,43 +20,13 @@ import math
 import os
 import sys
 import xml.etree.ElementTree as ET
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
-import poster as P
+from trip import (DAYS, EDT, LAT0, OFFSHORE_KM, haversine, load_day,
+                  offshore_km)
 
-EDT = timezone(timedelta(hours=-4))
 NS = "{http://www.topografix.com/GPX/1/1}"
 HERE = os.path.dirname(os.path.abspath(__file__))
-
-# The barrier chain, NW->SE: the outer cays dividing the Sea of Abaco from the
-# Atlantic. Hand-drawn, so treat anything within ~0.5 km of it as "on the cays"
-# rather than offshore.
-BARRIER = [(-77.190, 26.720), (-77.145, 26.690), (-77.090, 26.652),
-           (-77.045, 26.628), (-77.003, 26.596), (-76.972, 26.560),
-           (-76.955, 26.535), (-76.968, 26.500), (-76.975, 26.455),
-           (-76.978, 26.410), (-76.982, 26.365), (-76.995, 26.322),
-           (-77.010, 26.280)]
-OFFSHORE_KM = 0.5
-
-
-def haversine(a_lat, a_lon, b_lat, b_lon):
-    return P.haversine(a_lat, a_lon, b_lat, b_lon)
-
-
-def offshore_km(lon, lat):
-    """Signed distance from the barrier chain; positive is the Atlantic side."""
-    import numpy as np
-    k = math.cos(math.radians(P.LAT0))
-    b = np.array([(lo * k, la) for lo, la in BARRIER])
-    p = np.array([lon * k, lat])
-    seg = b[1:] - b[:-1]
-    t = np.clip(((p - b[:-1]) * seg).sum(1) / (seg ** 2).sum(1), 0, 1)
-    proj = b[:-1] + seg * t[:, None]
-    i = int(np.argmin(((p - proj) ** 2).sum(1)))
-    d = math.hypot(*(p - proj[i])) * 111.0
-    s = seg[i]
-    out = (s[0] * (p[1] - b[i][1]) - s[1] * (p[0] - b[i][0])) > 0
-    return d if out else -d
 
 
 def load_gpx(path):
@@ -74,9 +44,9 @@ def load_gpx(path):
 def handheld_windows():
     """One (start, end, label) per log — i.e. per battery charge."""
     out = []
-    for d in P.DAYS:
-        t = P.load_day(d["file"], walk_split=d.get("walk_split"),
-                       road_split=d.get("road_split"))
+    for d in DAYS:
+        t = load_day(d["file"], walk_split=d.get("walk_split"),
+                     road_split=d.get("road_split"))
         pts = sorted(t["afloat"] + t["walk"] + t["road"], key=lambda p: p[0])
         if pts:
             out.append((pts[0][0], pts[-1][0], d["label"]))
@@ -85,9 +55,9 @@ def handheld_windows():
 
 def all_fixes():
     fixes = []
-    for d in P.DAYS:
-        t = P.load_day(d["file"], walk_split=d.get("walk_split"),
-                       road_split=d.get("road_split"))
+    for d in DAYS:
+        t = load_day(d["file"], walk_split=d.get("walk_split"),
+                     road_split=d.get("road_split"))
         fixes += t["afloat"] + t["walk"] + t["road"]
     return sorted(fixes, key=lambda p: p[0])
 
@@ -133,7 +103,7 @@ def main():
     # (b) same route? distance from each inReach point to the handheld's path,
     # ignoring time — this is what tells you the two tracks trace one voyage
     from shapely.geometry import LineString, Point
-    k = math.cos(math.radians(P.LAT0))
+    k = math.cos(math.radians(LAT0))
     path_line = LineString([(p[2] * k, p[1]) for p in fixes])
     onpath = sorted(path_line.distance(Point(lo * k, la)) * 111000.0
                     for _, la, lo in inr)
@@ -164,9 +134,9 @@ def main():
               f"{'   <-- MOVED' if net > 300 else ''}")
 
     rule("Outside the barrier cays")
-    for d in P.DAYS:
-        t = P.load_day(d["file"], walk_split=d.get("walk_split"),
-                       road_split=d.get("road_split"))
+    for d in DAYS:
+        t = load_day(d["file"], walk_split=d.get("walk_split"),
+                     road_split=d.get("road_split"))
         out = [p for p in t["afloat"] if offshore_km(p[2], p[1]) > OFFSHORE_KM]
         if not out:
             continue
