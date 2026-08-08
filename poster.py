@@ -684,7 +684,7 @@ def draw_fleur(ax, cx, cy, height, color, lw_scale=1.0, zorder=13):
         [M, C4, C4, C4, C4, C4, C4, L, C4, C4, C4, C4, C4, C4])
     right = Path(ribbon([[(0.055, 0.420), (0.095, 0.605), (0.205, 0.660), (0.340, 0.600)],
                          [(0.340, 0.600), (0.470, 0.542), (0.500, 0.355), (0.360, 0.272)]],
-                        0.125, 0.004))
+                        0.150, 0.006))
     left = Path(np.column_stack([-right.vertices[:, 0], right.vertices[:, 1]]))
     foot = Path(
         [(-0.072, 0.30),
@@ -695,18 +695,31 @@ def draw_fleur(ax, cx, cy, height, color, lw_scale=1.0, zorder=13):
          (0.056, 0.15), (0.062, 0.22), (0.072, 0.30)],
         [M, C4, C4, C4, C4, C4, C4, C4, C4, C4, C4, C4, C4, C4, C4, C4])
 
+    # a dark core inside the centre petal — the engraving is an outline
+    # drawing with the parchment showing through, not a silhouette, but the
+    # centre petal keeps a filled heart
+    core = Path([(x * 0.42, 0.40 + (y - 0.40) * 0.88) for x, y in centre.vertices],
+                centre.codes)
+
     tr = (matplotlib.transforms.Affine2D()
           .scale(height * ASPECT, height).translate(cx, cy - height * 0.5)
           + ax.transData)
-    for p in (centre, right, left, foot):
-        ax.add_patch(PathPatch(p, transform=tr, facecolor=color,
-                               edgecolor=color, lw=0.4 * lw_scale,
+    for p in (right, left, foot, centre):
+        ax.add_patch(PathPatch(p, transform=tr, facecolor=C_PAPER,
+                               edgecolor=color, lw=0.55 * lw_scale,
                                zorder=zorder, joinstyle="round"))
-    # the banded waist, a capsule across the three petals
+    ax.add_patch(PathPatch(core, transform=tr, facecolor=color,
+                           edgecolor=color, lw=0.3 * lw_scale,
+                           zorder=zorder + 1))
+    # the banded waist: a light capsule with a dark edge, drawn as a dark line
+    # cased by a slightly thinner light one
     y = cy - height * 0.5 + height * 0.330
-    ax.plot([cx - height * ASPECT * 0.165, cx + height * ASPECT * 0.165],
-            [y, y], color=color, lw=2.6 * lw_scale, zorder=zorder + 1,
-            solid_capstyle="round")
+    x0 = cx - height * ASPECT * 0.175
+    x1 = cx + height * ASPECT * 0.175
+    ax.plot([x0, x1], [y, y], color=color, lw=2.6 * lw_scale,
+            zorder=zorder + 2, solid_capstyle="round")
+    ax.plot([x0, x1], [y, y], color=C_PAPER, lw=1.5 * lw_scale,
+            zorder=zorder + 3, solid_capstyle="round")
 
 
 def compass_rose(ax, lon, lat, R, lw_scale=1.0):

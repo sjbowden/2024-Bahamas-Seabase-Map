@@ -248,6 +248,13 @@ The poster is drawn to read like a paper chart rather than a data plot:
   under, not lobes. Every attempt to draw them as a filled outline with
   hand-placed control points came out as horns or moth wings.
 
+  It is drawn as an **outline with the paper showing through**, not a
+  silhouette — that is what the engraved original does, and a solid fill reads
+  as a blob. Only the centre petal keeps a dark core. Stroke weight has to be
+  set against the printed size rather than the drawing: at a quarter of an inch
+  tall, an outline that looks delicate when zoomed in closes up the interiors
+  entirely.
+
   The star follows the engraved roses of period charts: eight faceted points
   split light and dark, the four cardinals continuing straight through both
   rings to a spearhead and eyelet outside, and the letters replacing the ring
