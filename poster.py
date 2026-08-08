@@ -143,7 +143,7 @@ PLACES = [
     (-76.9830, 26.4400, "Tilloo Cay", "isle", "left", "center"),
     (-77.1550, 26.4300, "G R E A T   A B A C O", "big", "center", "center"),
     (-77.0450, 26.6300, "S E A   O F   A B A C O", "water", "center", "center"),
-    (-76.9430, 26.6250, "A T L A N T I C\nO C E A N", "water", "center", "center"),
+    (-76.9400, 26.4780, "A T L A N T I C\nO C E A N", "water", "center", "center"),
 ]
 
 # overnight anchorages worth marking: (lon, lat, text, ha)
@@ -373,6 +373,9 @@ def draw_chart(ax, extent, land, days, tracks, *, detail=True, lw_scale=1.0,
         _fill(ax, _shoal(land, buf), col, None, 0)
     _fill(ax, land, C_LAND, C_LAND_EDGE, 0.5 * lw_scale)
 
+    if detail:                       # the vessel belongs on the hero chart only
+        draw_vessel(ax, -76.9550, 26.6520, 0.0700)
+
     # tracks — a pale casing under each line keeps crossings readable where
     # five days share the same channel
     def line(pts, color, lw, dash=None, case=3.2):
@@ -504,6 +507,40 @@ def _plane_marker(rotate_deg=45.0):
 
 
 PLANE = _plane_marker()
+
+
+VESSEL_ART = os.path.join(HERE, "catamaran_fixed.png")
+_VESSEL_CACHE = {}
+
+
+def vessel_rgba():
+    """The catamaran engraving, keyed to a real alpha channel.
+
+    The source PNG carries an alpha channel but it is fully opaque — a
+    flattened export. The background is neutral while the engraving is sepia,
+    so key on chroma-plus-lightness and take opacity from darkness, which also
+    lets the chart show through between the hatch lines.
+    """
+    if "img" not in _VESSEL_CACHE:
+        from PIL import Image
+        src = np.asarray(Image.open(VESSEL_ART).convert("RGB"), dtype=float)
+        sat = src.max(axis=2) - src.min(axis=2)
+        lum = src.mean(axis=2)
+        alpha = np.clip((255.0 - lum) / 255.0 * 1.35, 0, 1)
+        alpha[(sat <= 8) & (lum > 150)] = 0.0
+        _VESSEL_CACHE["img"] = np.dstack([src / 255.0, alpha])
+    return _VESSEL_CACHE["img"]
+
+
+def draw_vessel(ax, lon, lat, width_deg, alpha=0.92, zorder=4):
+    """Drop the engraving into open water, sized so it keeps its own aspect
+    once the map's longitude stretch is accounted for."""
+    img = vessel_rgba()
+    h, w = img.shape[:2]
+    height_deg = width_deg * (h / w) / ASPECT
+    ax.imshow(img, extent=(lon - width_deg / 2, lon + width_deg / 2,
+                           lat - height_deg / 2, lat + height_deg / 2),
+              aspect="auto", zorder=zorder, alpha=alpha, interpolation="bilinear")
 
 
 def draw_airport(ax, lw_scale=1.0, label=True):
