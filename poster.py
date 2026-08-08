@@ -671,22 +671,37 @@ def _fleur_paths():
 
 
 def compass_rose(ax, lon, lat, R, lw_scale=1.0):
-    """A vintage chart rose: 32-point faceted star, fleur-de-lis north, a
-    graduated true ring and a magnetic ring turned by the local variation."""
-    def P(bearing_deg, r):
-        a = math.radians(bearing_deg)
-        return (lon + r * ASPECT * math.sin(a), lat + r * math.cos(a))
+    """An engraved chart rose.
 
-    def ring(radius, rot, every, med, long_, numerals, color, fs, halo=False):
-        # Draw the rings through P() as well. A plt.Circle in data coordinates
-        # uses one radius for both axes, but a degree of latitude is 1.118x a
-        # degree of longitude here, so it comes out an ellipse — narrowest
-        # east–west, right where it used to slice through the numerals.
+    Star, rhumb fan and cardinal spears follow the hand-drawn roses of period
+    charts: narrow points shaded with strokes running along their own axis, and
+    cardinals that break clean through the ring to a spearhead outside it. The
+    two graduated rings are the modern part and carry the actual information —
+    true bearings on the outer, magnetic within, offset by the local variation.
+    Numerals are dropped at the four cardinals to give the spears somewhere to
+    go, and the letters take their place.
+
+    All geometry is built in unit space (1.0 == R, x already stretched by the
+    map aspect) so circles stay circular and hatch spacing stays even.
+    """
+    def XY(xu, yu):
+        return (lon + xu * R * ASPECT, lat + yu * R)
+
+    def axes_for(bearing):
+        a = math.radians(bearing)
+        return (np.array([math.sin(a), math.cos(a)]),      # along
+                np.array([math.cos(a), -math.sin(a)]))     # across
+
+    def upoly(pts, face, edge, lw, z=11):
+        ax.add_patch(MplPolygon([XY(*p) for p in pts], closed=True,
+                                facecolor=face, edgecolor=edge,
+                                lw=lw * lw_scale, zorder=z, joinstyle="miter"))
+
+    def ring(radius, rot, every, med, long_, numerals, color, fs, skip=()):
         a = np.linspace(0.0, 2.0 * math.pi, 721)
         for rr, wdt in ((radius, 0.9), (radius * 0.885, 0.6)):
-            ax.plot(lon + rr * ASPECT * np.sin(a), lat + rr * np.cos(a),
-                    color=color, lw=wdt * lw_scale, zorder=11,
-                    solid_joinstyle="round")
+            ax.plot(lon + rr * R * ASPECT * np.sin(a), lat + rr * R * np.cos(a),
+                    color=color, lw=wdt * lw_scale, zorder=11)
         for deg in range(0, 360, every):
             if deg % long_ == 0:
                 inner, wdt = radius * 0.885, 0.9
@@ -694,63 +709,70 @@ def compass_rose(ax, lon, lat, R, lw_scale=1.0):
                 inner, wdt = radius * 0.925, 0.65
             else:
                 inner, wdt = radius * 0.950, 0.35
-            a, b = P(deg + rot, inner), P(deg + rot, radius)
-            ax.plot([a[0], b[0]], [a[1], b[1]], color=color, lw=wdt * lw_scale,
+            al, _ = axes_for(deg + rot)
+            p, q = XY(*(al * inner)), XY(*(al * radius))
+            ax.plot([p[0], q[0]], [p[1], q[1]], color=color, lw=wdt * lw_scale,
                     zorder=11, solid_capstyle="butt")
         for deg in range(0, 360, numerals):
-            x, y = P(deg + rot, radius * 0.805)
+            if deg in skip:
+                continue
+            al, _ = axes_for(deg + rot)
+            x, y = XY(*(al * radius * 0.805))
             ax.text(x, y, f"{deg:d}", fontproperties=SANS,
                     fontsize=fs * lw_scale, color=color, ha="center",
                     va="center", zorder=12, rotation=-(deg + rot),
-                    rotation_mode="anchor",
-                    path_effects=_halo(2.2 * lw_scale) if halo else None)
+                    rotation_mode="anchor")
 
-    ring(R, 0.0, 1, 5, 10, 30, C_ROSE, 6.0)
-    ring(R * 0.79, VARIATION_DEG, 5, 15, 30, 30, C_ROSE_MAG, 5.4)
+    ring(1.00, 0.0, 1, 5, 10, 30, C_ROSE, 6.0, skip=(0, 90, 180, 270))
+    ring(0.79, VARIATION_DEG, 5, 15, 30, 30, C_ROSE_MAG, 5.4,
+         skip=(0, 90, 180, 270))
 
-    # hairline rays at the 32-point bearings, under the star
-    for k in range(32):
-        if k % 4:
-            a, b = P(k * 11.25, R * 0.10), P(k * 11.25, R * 0.30)
-            ax.plot([a[0], b[0]], [a[1], b[1]], color=C_ROSE,
-                    lw=0.35 * lw_scale, zorder=10)
+    # The star. A cardinal point and its spear are one continuous shape, not a
+    # bar laid over the star — drawing them separately reads as a heavy cross
+    # sitting on top. Facets are solid rather than hatched: the engraved roses
+    # shade theirs with fine strokes, but at a two-inch printed rose those can
+    # never resolve, and they come out looking like stray drafting lines.
+    CARDINAL, INTER, MINOR = 1.16, 0.56, 0.28
+    points = ([(b, CARDINAL, 0.150) for b in (0, 90, 180, 270)]
+              + [(b, INTER, 0.150) for b in (45, 135, 225, 315)]
+              + [(22.5 + 45 * k, MINOR, 0.070) for k in range(8)])
+    for b, r_tip, r_valley in sorted(points, key=lambda p: p[1]):
+        al, _ = axes_for(b)
+        vl, _ = axes_for(b - 22.5)
+        vr, _ = axes_for(b + 22.5)
+        tip = al * r_tip
+        upoly([(0.0, 0.0), tuple(vl * r_valley), tuple(tip)],
+              C_ROSE, C_ROSE, 0.4, z=12)
+        upoly([(0.0, 0.0), tuple(tip), tuple(vr * r_valley)],
+              C_PAPER, C_ROSE, 0.4, z=12)
 
-    # Two overlaid 8-point stars give the classic 16-point rose. Each point is
-    # split down its centreline into a lit and a shadowed half; the base
-    # vertices sit a full half-sector away so the facets read as solids rather
-    # than spokes.
-    def star(bearings, r_tip, r_base, half=22.5, skip=()):
-        for b in bearings:
-            if b in skip:
-                continue
-            tip = P(b, r_tip)
-            vl, vr = P(b - half, r_base), P(b + half, r_base)
-            ax.add_patch(MplPolygon([(lon, lat), vl, tip], closed=True,
-                                    facecolor=C_ROSE, edgecolor=C_ROSE,
-                                    lw=0.3 * lw_scale, zorder=11))
-            ax.add_patch(MplPolygon([(lon, lat), tip, vr], closed=True,
-                                    facecolor=C_PAPER, edgecolor=C_ROSE,
-                                    lw=0.3 * lw_scale, zorder=11))
+    # spearhead and eyelet where the cardinals break out past the ring
+    for b in (0, 90, 180, 270):
+        al, ac = axes_for(b)
+        upoly([tuple(al * CARDINAL), tuple(al * 1.055 + ac * 0.050),
+               tuple(al * 1.015), tuple(al * 1.055 - ac * 0.050)],
+              C_ROSE, C_ROSE, 0.4, z=13)
+        cx, cy = XY(*(al * 0.985))
+        ax.plot([cx], [cy], marker="o", ms=3.6 * lw_scale, mfc=C_PAPER,
+                mec=C_ROSE, mew=0.8 * lw_scale, zorder=13)
 
-    star([22.5 + 45 * k for k in range(8)], R * 0.32, R * 0.085)
-    star([45 * k for k in range(8)], R * 0.58, R * 0.150, skip=(0,))
-    star([0], R * 0.30, R * 0.150)          # stub for the fleur to stand on
+    for b, ch in ((0, "N"), (90, "E"), (180, "S"), (270, "W")):
+        al, _ = axes_for(b)
+        x, y = XY(*(al * 1.26))
+        ax.text(x, y, ch, fontproperties=SERIF_I, fontsize=12 * lw_scale,
+                color=C_ROSE, ha="center", va="center", zorder=13,
+                path_effects=_halo(3.0 * lw_scale))
 
-    # fleur-de-lis rising from the north point
-    fh = R * 0.52
+    # fleur-de-lis riding above the north spear
+    fh = R * 0.34
     tr = (matplotlib.transforms.Affine2D()
-          .scale(fh * ASPECT * 0.62, fh).translate(lon, lat + R * 0.20)
+          .scale(fh * ASPECT * 0.62, fh).translate(lon, lat + R * 1.38)
           + ax.transData)
     for p in _fleur_paths():
         ax.add_patch(PathPatch(p, transform=tr, facecolor=C_ROSE,
                                edgecolor=C_ROSE, lw=0.4 * lw_scale, zorder=13))
 
-    # No cardinal letters and no variation caption: the fleur marks north, the
-    # rings carry the bearings, and the inner ring's offset shows the variation
-    # without spelling it out.
 
-
-# ------------------------------------------------------------------ poster ---
 def text_width(fig, txt, fp, size):
     """Rendered width of a string, as a fraction of figure width."""
     probe = fig.text(0, 0, txt, fontproperties=fp, fontsize=size)
@@ -811,7 +833,7 @@ def build(dpi, out_png, out_pdf=None, spread=True):
     ax = fig.add_axes([0.065, 0.225, 0.545, 0.685])
     draw_chart(ax, extent, land, DAYS, tracks, lw_scale=1.0, spread=spread)
     draw_badges(ax, DAYS, badge_positions(DAYS, tracks))
-    compass_rose(ax, -76.9470, 26.3480, 0.0235)
+    compass_rose(ax, -76.9450, 26.3520, 0.0195)
     scale_bar(ax, extent)
     chart_neatline(ax, extent, fig)
 

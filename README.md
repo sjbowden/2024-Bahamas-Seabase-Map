@@ -241,10 +241,19 @@ The poster is drawn to read like a paper chart rather than a data plot:
   figure isn't printed on the rose — the inner ring's rotation *is* the
   variation — so if you need the number, it's here.
 
-  Everything in the rose is placed through one aspect-corrected helper. Don't
-  reach for `plt.Circle` for the rings: it takes a single radius in data units,
-  and since a degree of latitude is 1.118× a degree of longitude here, it draws
-  an ellipse that pinches east–west and slices through the numerals.
+  The star follows the engraved roses of period charts: eight faceted points
+  split light and dark, the four cardinals continuing straight through both
+  rings to a spearhead and eyelet outside, and the letters replacing the ring
+  numerals at those four bearings so the spears have somewhere to go.
+
+  Two things learned the hard way. The engraved originals shade each facet with
+  fine strokes running along its own axis — worth trying, but at a two-inch
+  printed rose they never resolve and read as stray drafting lines, so the
+  facets are solid. And everything is placed through one aspect-corrected
+  helper: don't reach for `plt.Circle` for the rings, because it takes a single
+  radius in data units, and since a degree of latitude is 1.118× a degree of
+  longitude here it draws an ellipse that pinches east–west and slices through
+  the numerals.
 - **The footer is a credit line, not a methods section** — it hangs on a wall.
   Every data caveat lives in this README instead.
 
