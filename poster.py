@@ -687,9 +687,9 @@ def draw_fleur(ax, cx, cy, height, color, lw_scale=1.0, zorder=13):
          (-0.080, 0.66), (-0.030, 0.82), (0, 1.00)],
         [M, C4, C4, C4, C4, C4, C4, L, C4, C4, C4, C4, C4, C4])
     # outer petal: the big scroll, out over the top and hooked back under
-    outer = Path(ribbon([[(0.055, 0.420), (0.095, 0.605), (0.205, 0.660), (0.340, 0.600)],
-                         [(0.340, 0.600), (0.470, 0.542), (0.500, 0.355), (0.360, 0.272)]],
-                        0.150, 0.006))
+    outer = Path(ribbon([[(0.055, 0.420), (0.092, 0.588), (0.192, 0.642), (0.310, 0.592)],
+                         [(0.310, 0.592), (0.402, 0.552), (0.430, 0.452), (0.352, 0.410)]],
+                        0.145, 0.006))
     # inner tendril: the second, smaller curl that rises beside the centre
     # petal and hooks outward — the reference has two curls a side, not one
     inner = Path(ribbon([[(0.068, 0.380), (0.100, 0.545), (0.145, 0.665), (0.212, 0.722)],
