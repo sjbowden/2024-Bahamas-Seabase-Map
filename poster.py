@@ -673,6 +673,10 @@ def draw_fleur(ax, cx, cy, height, color, lw_scale=1.0, zorder=13):
         w = np.linspace(w_start, w_end, len(spine))[:, None] / 2.0
         return np.vstack([spine + nrm * w, (spine - nrm * w)[::-1]])
 
+    def mirror(p):
+        return Path(np.column_stack([-p.vertices[:, 0], p.vertices[:, 1]]),
+                    p.codes)
+
     # centre petal: a slender leaf, flanks slightly concave below the tip
     centre = Path(
         [(0, 1.00),
@@ -682,18 +686,25 @@ def draw_fleur(ax, cx, cy, height, color, lw_scale=1.0, zorder=13):
          (-0.108, 0.42), (-0.108, 0.46), (-0.098, 0.50),
          (-0.080, 0.66), (-0.030, 0.82), (0, 1.00)],
         [M, C4, C4, C4, C4, C4, C4, L, C4, C4, C4, C4, C4, C4])
-    right = Path(ribbon([[(0.055, 0.420), (0.095, 0.605), (0.205, 0.660), (0.340, 0.600)],
+    # outer petal: the big scroll, out over the top and hooked back under
+    outer = Path(ribbon([[(0.055, 0.420), (0.095, 0.605), (0.205, 0.660), (0.340, 0.600)],
                          [(0.340, 0.600), (0.470, 0.542), (0.500, 0.355), (0.360, 0.272)]],
                         0.150, 0.006))
-    left = Path(np.column_stack([-right.vertices[:, 0], right.vertices[:, 1]]))
-    foot = Path(
-        [(-0.072, 0.30),
-         (-0.062, 0.22), (-0.056, 0.15), (-0.062, 0.095),
-         (-0.090, 0.045), (-0.105, 0.030), (-0.118, 0.022),
-         (-0.050, 0.006), (0.050, 0.006), (0.118, 0.022),
-         (0.105, 0.030), (0.090, 0.045), (0.062, 0.095),
-         (0.056, 0.15), (0.062, 0.22), (0.072, 0.30)],
-        [M, C4, C4, C4, C4, C4, C4, C4, C4, C4, C4, C4, C4, C4, C4, C4])
+    # inner tendril: the second, smaller curl that rises beside the centre
+    # petal and hooks outward — the reference has two curls a side, not one
+    inner = Path(ribbon([[(0.068, 0.380), (0.100, 0.545), (0.145, 0.665), (0.212, 0.722)],
+                         [(0.212, 0.722), (0.268, 0.768), (0.312, 0.706), (0.268, 0.664)]],
+                        0.052, 0.005))
+    # foot: a stem between two scrolls that curl outward and back up
+    stem = Path(
+        [(-0.058, 0.320),
+         (-0.052, 0.240), (-0.048, 0.150), (-0.052, 0.070),
+         (-0.030, 0.030), (0.030, 0.030), (0.052, 0.070),
+         (0.048, 0.150), (0.052, 0.240), (0.058, 0.320)],
+        [M, C4, C4, C4, C4, C4, C4, C4, C4, C4])
+    curl = Path(ribbon([[(0.030, 0.220), (0.100, 0.160), (0.175, 0.098), (0.240, 0.130)],
+                        [(0.240, 0.130), (0.302, 0.161), (0.284, 0.248), (0.212, 0.244)]],
+                       0.066, 0.006))
 
     # a dark core inside the centre petal — the engraving is an outline
     # drawing with the parchment showing through, not a silhouette, but the
@@ -704,7 +715,11 @@ def draw_fleur(ax, cx, cy, height, color, lw_scale=1.0, zorder=13):
     tr = (matplotlib.transforms.Affine2D()
           .scale(height * ASPECT, height).translate(cx, cy - height * 0.5)
           + ax.transData)
-    for p in (right, left, foot, centre):
+    # All outline with the paper showing through — filling the side petals
+    # solid was tried and reads as heavy horns; the engraving's value is much
+    # lighter than it first appears, carried by line rather than mass.
+    for p in (outer, mirror(outer), inner, mirror(inner),
+              stem, curl, mirror(curl), centre):
         ax.add_patch(PathPatch(p, transform=tr, facecolor=C_PAPER,
                                edgecolor=color, lw=0.55 * lw_scale,
                                zorder=zorder, joinstyle="round"))

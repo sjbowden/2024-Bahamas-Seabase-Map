@@ -241,16 +241,21 @@ The poster is drawn to read like a paper chart rather than a data plot:
   figure isn't printed on the rose — the inner ring's rotation *is* the
   variation — so if you need the number, it's here.
 
-  The fleur-de-lis at north is built as four pieces, because that is how the
-  emblem is actually composed: a centre petal, two side petals, a banded waist
-  and a flared foot. The side petals are the part that matters — they are
+  The fleur-de-lis at north is built from the pieces the emblem actually has:
+  one central point, **two** curls a side — a big outer scroll plus a finer
+  tendril rising beside the centre — a banded waist, and a foot that resolves
+  into two more scrolls curling outward. A single curl a side and a plain
+  flared foot look approximately right and are visibly wrong next to the
+  original. The side petals are the part that matters — they are
   tapering *ribbons* swept along a curved spine that curls out, over and back
   under, not lobes. Every attempt to draw them as a filled outline with
   hand-placed control points came out as horns or moth wings.
 
   It is drawn as an **outline with the paper showing through**, not a
   silhouette — that is what the engraved original does, and a solid fill reads
-  as a blob. Only the centre petal keeps a dark core. Stroke weight has to be
+  as a blob. Only the centre petal keeps a dark core. Filling the outer petals
+  dark was tried too and is also wrong: the engraving's value is much lighter
+  than it first appears, carried by line rather than mass. Stroke weight has to be
   set against the printed size rather than the drawing: at a quarter of an inch
   tall, an outline that looks delicate when zoomed in closes up the interiors
   entirely.
