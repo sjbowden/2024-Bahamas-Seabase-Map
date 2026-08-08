@@ -816,7 +816,7 @@ def compass_rose(ax, lon, lat, R, lw_scale=1.0):
                 path_effects=_halo(3.0 * lw_scale))
 
     # fleur-de-lis riding above the north spear
-    draw_fleur(ax, lon, lat + R * 1.82, R * 0.42, C_ROSE, lw_scale, zorder=13)
+    draw_fleur(ax, lon, lat + R * 1.68, R * 0.42, C_ROSE, lw_scale, zorder=13)
 
 
 def text_width(fig, txt, fp, size):
