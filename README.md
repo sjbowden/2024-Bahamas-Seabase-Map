@@ -118,11 +118,16 @@ other. That is what makes the chart checkable rather than merely plausible.
 | source | cadence | coverage |
 |---|---|---|
 | handheld GPS receiver (`GPSFILES/*.log`) | a fix every ~5 s | 10–13 h a day, one battery charge |
-| inReach satellite communicator (`explore.gpx`) | 10 min by day, 4 h overnight | continuous, including nights |
+| inReach satellite communicator (`geo/inreach.gpx`) | 10 min by day, 4 h overnight | continuous, including nights |
 | crew cameras (EXIF) | per shot | 458 located photos |
 
-`python corroborate.py path/to/explore.gpx [photos.csv]` regenerates every
-number below.
+`python corroborate.py` regenerates every number below.
+
+The inReach export is committed as `geo/inreach.gpx`, exactly as Garmin Explore
+wrote it except that the two device IDs have been replaced with `00000001` and
+`00000002`. It holds two *sequential* tracking sessions — 23–25 Mar and 25–27
+Mar, handing over during a 2.4 hour gap on the Monday evening — not two devices
+running at once, so combining them double-counts nothing.
 
 ### The inReach track is from the satellite communicator, not the handheld
 
@@ -136,8 +141,8 @@ handheld log. Four independent tells:
   not a logger. The handheld writes every ~5 s.
 - **It was recording while the handheld was off**, overnight on the charger.
   One device cannot be both.
-- The track is named for the crew rather than a file — `Sea Base 1830
-  (24950241)` — and every point carries `<fix>none</fix>`, which NMEA never says.
+- The tracks are named for the crew rather than a file — `Sea Base 1830
+  (…)` — and every point carries `<fix>none</fix>`, which NMEA never says.
 
 ### Do the two tracks match? Yes
 
