@@ -796,7 +796,7 @@ def build(dpi, out_png, out_pdf=None, spread=True):
     fig.patch.set_facecolor(C_PAPER)
 
     # ---- title block
-    fig.text(0.065, 0.972, "1830 SEA BASE", fontproperties=SERIF, fontsize=62,
+    fig.text(0.065, 0.972, "SEA BASE 1830", fontproperties=SERIF, fontsize=62,
              color=C_INK, ha="left", va="top")
     fig.text(0.0675, 0.9345, "ABACO · THE BAHAMAS", fontproperties=SANS,
              fontsize=17, color=C_INK_SOFT, ha="left", va="top")
