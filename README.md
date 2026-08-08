@@ -273,13 +273,18 @@ The poster is drawn to read like a paper chart rather than a data plot:
   radius in data units, and since a degree of latitude is 1.118× a degree of
   longitude here it draws an ellipse that pinches east–west and slices through
   the numerals.
-- **The vessel.** An engraving of the catamaran sits in the open Atlantic top
-  right, balancing the rose bottom right. `catamaran_fixed.png` carries an
-  alpha channel but is fully opaque — a flattened export — so `vessel_rgba()`
-  keys one at render time: the background is neutral and the engraving sepia,
-  so it keys on chroma plus lightness and takes opacity from darkness. That
-  also lets the chart show through between the hatch lines instead of sitting
-  on an opaque plate.
+- **The vessel.** A pen-and-ink drawing of the catamaran sits in the open
+  Atlantic top right, balancing the rose bottom right. `vessel_rgba()` keys the
+  alpha at render time and crops to the ink: the paper is neutral (saturation
+  ~3) while the ink is sepia (~25), so it keys on chroma plus lightness and
+  takes opacity from darkness. The chart therefore shows *between* the strokes,
+  which is what makes it read as drawn on the chart rather than pasted onto it.
+
+  Line art is essential here and a tonal engraving will not substitute. The
+  first artwork was a photographic engraving of the boat at anchor, complete
+  with sky, clouds and a full water field inside a circular vignette. The
+  water hatching is exactly as dark as the vessel, so no threshold separates
+  them — several were tried. Isolated line art is the thing to ask for.
 - **The footer is a credit line, not a methods section** — it hangs on a wall.
   Every data caveat lives in this README instead.
 

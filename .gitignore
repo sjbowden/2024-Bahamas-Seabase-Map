@@ -20,5 +20,7 @@ geo/*.pkl
 # Not redistributed here: P052 is AGPL-with-font-exception, Lato is OFL-1.1.
 fonts/
 
-# the original flattened export, superseded by catamaran_fixed.png
+# earlier catamaran artwork, superseded by catamaran-new.png
 catamaran.png
+catamaran_alt.png
+catamaran_fixed.png
