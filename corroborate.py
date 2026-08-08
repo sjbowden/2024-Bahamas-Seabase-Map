@@ -5,7 +5,7 @@ Three devices recorded this trip independently:
 
   * the handheld receiver  — GPSFILES/*.log, a fix every ~5 s while it had
     battery, which is roughly one 10–13 hour day per charge
-  * an inReach satellite communicator — explore.gpx, a position report every
+  * an inReach satellite communicator — geo/inreach.gpx, a position report every
     10 minutes by day and every 4 hours overnight, and crucially still running
     while the handheld was on the charger
   * the crew's cameras — EXIF GPS, mostly iPhone
@@ -13,7 +13,7 @@ Three devices recorded this trip independently:
 Agreement between them is what makes the chart trustworthy, and the inReach is
 the only thing that can say what happened overnight.
 
-    python corroborate.py [path/to/explore.gpx] [path/to/photos.csv]
+    python corroborate.py [path/to/inreach.gpx] [path/to/photos.csv]
 """
 import csv
 import math
@@ -97,7 +97,7 @@ def rule(title):
 
 
 def main():
-    gpx = sys.argv[1] if len(sys.argv) > 1 else os.path.join(HERE, "geo", "explore.gpx")
+    gpx = sys.argv[1] if len(sys.argv) > 1 else os.path.join(HERE, "geo", "inreach.gpx")
     photos = sys.argv[2] if len(sys.argv) > 2 else os.path.join(HERE, "photos.csv")
 
     windows = handheld_windows()
@@ -107,8 +107,7 @@ def main():
         print(f"  {label:12s} {a:%H:%M}-{b:%H:%M}   {(b-a).total_seconds()/3600:5.1f} h")
 
     if not os.path.exists(gpx):
-        print(f"\n(no inReach track at {gpx} — extract explore.gpx from the "
-              f"photo archive to run the rest)")
+        print(f"\n(no inReach track at {gpx})")
         return
 
     inr = load_gpx(gpx)
@@ -138,7 +137,6 @@ def main():
     path_line = LineString([(p[2] * k, p[1]) for p in fixes])
     onpath = sorted(path_line.distance(Point(lo * k, la)) * 111000.0
                     for _, la, lo in inr)
-    covered = [d for d in onpath if d < 5000]     # exclude the overnight gaps
     print(f"  same route, {len(inr)} points measured against the handheld path: "
           f"median {onpath[len(onpath)//2]:.0f} m, "
           f"90th {onpath[int(len(onpath)*0.9)]:.0f} m, max {onpath[-1]:.0f} m")
