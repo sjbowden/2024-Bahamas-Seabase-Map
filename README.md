@@ -1,8 +1,9 @@
-# 1830 Sea Base — Sea of Abaco, March 2024
+# Sea Base 1830 — Sea of Abaco, March 2024
 
-GPS tracks from a Boy Scout Sea Base sailing trek out of Marsh Harbour, Abaco,
-**22–28 March 2024**, rendered as a print-quality nautical-chart poster. (The
-logs also cover 21 March, which is the drive to Portland airport.)
+GPS tracks from Boy Scout Sea Base crew 1830's sailing trek out of Marsh
+Harbour, Abaco, **22–28 March 2024**, rendered as a print-quality
+nautical-chart poster. (The logs also cover 21 March, the drive to Portland
+airport.)
 
 ## Pipeline
 
