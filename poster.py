@@ -751,6 +751,15 @@ def compass_rose(ax, lon, lat, R, lw_scale=1.0):
 
 
 # ------------------------------------------------------------------ poster ---
+def text_width(fig, txt, fp, size):
+    """Rendered width of a string, as a fraction of figure width."""
+    probe = fig.text(0, 0, txt, fontproperties=fp, fontsize=size)
+    w = (probe.get_window_extent(renderer=fig.canvas.get_renderer())
+         .transformed(fig.transFigure.inverted()).width)
+    probe.remove()
+    return w
+
+
 def fit_fontsize(fig, txt, fp, size, avail, floor=8.5, step=0.25, pad=0.006):
     """Largest size at or below `size` whose text fits `avail` figure widths.
 
@@ -762,13 +771,8 @@ def fit_fontsize(fig, txt, fp, size, avail, floor=8.5, step=0.25, pad=0.006):
     between the 100 dpi proof and the 300 dpi final: font metrics round
     differently at each, and without it the two picked different sizes.
     """
-    r = fig.canvas.get_renderer()
     while size > floor:
-        probe = fig.text(0, 0, txt, fontproperties=fp, fontsize=size)
-        w = (probe.get_window_extent(renderer=r)
-             .transformed(fig.transFigure.inverted()).width)
-        probe.remove()
-        if w <= avail - pad:
+        if text_width(fig, txt, fp, size) <= avail - pad:
             break
         size -= step
     return size
@@ -829,6 +833,18 @@ def build(dpi, out_png, out_pdf=None, spread=True):
     intra = 0.005                                 # between lines within a row
     min_row = (line_h(lab_size) + line_h(ttl_size) + line_h(rte_size)
                + 2 * intra + 0.010)
+    # Stats: dropping the fix count removes the one wide numeral, which frees
+    # the number column and lets the captions grow from 11.5 pt to ~24, so the
+    # pair reads as a unit instead of a big number beside a small label.
+    stats = [(f"{total_nm:.0f}", "NAUTICAL MILES SAILED"),
+             ("5", "DAYS UNDER SAIL"),
+             (f"{max_kn:.1f}", "KNOTS, BEST SPEED")]
+    num_size = 40
+    cap_x = x + max(text_width(fig, n, SERIF, num_size) for n, _ in stats) + 0.022
+    cap_size = min(fit_fontsize(fig, c, SANS, 26, 0.935 - cap_x) for _, c in stats)
+    stat_gap = 1.45 * line_h(num_size)            # snug, not the old fixed 0.05
+    stats_span = stat_gap * (len(stats) - 1)
+
     y = 0.902
     fig.text(x, y, "THE PASSAGE, DAY BY DAY", fontproperties=SANS_B,
              fontsize=hdr_size, color=C_INK, ha="left", va="top")
@@ -837,9 +853,10 @@ def build(dpi, out_png, out_pdf=None, spread=True):
                                 transform=fig.transFigure, color=C_RULE, lw=1.0))
     # Spread the seven rows so the column reaches the stats block instead of
     # stopping short — but never tighter than the type itself needs.
-    STAT_GAP, STAT_FLOOR = 0.050, 0.216
+    STAT_FLOOR = 0.212
     top = rule_y - 0.012
-    row_h = max(min_row, (top - 0.030 - 3 * STAT_GAP - STAT_FLOOR) / 7)
+    fill = (top - 0.030 - stats_span - STAT_FLOOR) / 7
+    row_h = max(min_row, min(fill, 1.35 * min_row))   # fill, but stay readable
     off_lab = row_h / 2 - 0.006 - line_h(lab_size) / 2
     off_ttl = off_lab - line_h(lab_size) / 2 - intra - line_h(ttl_size) / 2
     off_rte = off_ttl - line_h(ttl_size) / 2 - intra - line_h(rte_size) / 2
@@ -880,19 +897,11 @@ def build(dpi, out_png, out_pdf=None, spread=True):
     y += row_h / 2 - 0.030
     fig.lines.append(plt.Line2D([x, 0.935], [y + 0.020, y + 0.020],
                                 transform=fig.transFigure, color=C_RULE, lw=1.0))
-    stats = [(f"{total_nm:.0f}", "NAUTICAL MILES SAILED"),
-             ("5", "DAYS UNDER SAIL"),
-             (f"{max_kn:.1f}", "KNOTS, BEST SPEED"),
-             (f"{sum(tracks[d['file']]['fixes'] for d in DAYS):,}", "GPS FIXES RECORDED")]
-    # space the stats to fit between the rule and the thumbnail strip: the
-    # 40 pt numerals need ~0.014 of clearance below the last baseline
-    stat_gap = min(STAT_GAP, (y - STAT_FLOOR) / (len(stats) - 1))
     for i, (big, cap) in enumerate(stats):
         yy = y - stat_gap * i
-        fig.text(x, yy, big, fontproperties=SERIF, fontsize=40, color=C_INK,
-                 ha="left", va="center")
-        fig.text(x + 0.112, yy, cap, fontproperties=SANS,
-                 fontsize=fit_fontsize(fig, cap, SANS, 17, 0.935 - (x + 0.112)),
+        fig.text(x, yy, big, fontproperties=SERIF, fontsize=num_size,
+                 color=C_INK, ha="left", va="center")
+        fig.text(cap_x, yy, cap, fontproperties=SANS, fontsize=cap_size,
                  color=C_INK_SOFT, ha="left", va="center")
 
     # ---- bottom strip of per-day thumbnails
