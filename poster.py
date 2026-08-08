@@ -374,7 +374,7 @@ def draw_chart(ax, extent, land, days, tracks, *, detail=True, lw_scale=1.0,
     _fill(ax, land, C_LAND, C_LAND_EDGE, 0.5 * lw_scale)
 
     if detail:                       # the vessel belongs on the hero chart only
-        draw_vessel(ax, -76.9550, 26.6520, 0.0700)
+        draw_vessel(ax, -76.9515, 26.6440, 0.0500)
 
     # tracks — a pale casing under each line keeps crossings readable where
     # five days share the same channel
@@ -509,30 +509,36 @@ def _plane_marker(rotate_deg=45.0):
 PLANE = _plane_marker()
 
 
-VESSEL_ART = os.path.join(HERE, "catamaran_fixed.png")
+VESSEL_ART = os.path.join(HERE, "catamaran-new.png")
 _VESSEL_CACHE = {}
 
 
-def vessel_rgba():
-    """The catamaran engraving, keyed to a real alpha channel.
+def vessel_rgba(margin=12):
+    """The catamaran, keyed to a real alpha channel and cropped to its ink.
 
-    The source PNG carries an alpha channel but it is fully opaque — a
-    flattened export. The background is neutral while the engraving is sepia,
-    so key on chroma-plus-lightness and take opacity from darkness, which also
-    lets the chart show through between the hatch lines.
+    The supplied PNG carries an alpha channel but is fully opaque — a flattened
+    export. The paper is neutral (saturation ~3) while the ink is sepia
+    (~25), so key on chroma plus lightness and take opacity from darkness.
+    That also lets the chart show through between the strokes, which is what
+    makes it sit *on* the chart rather than on an opaque plate.
     """
     if "img" not in _VESSEL_CACHE:
         from PIL import Image
         src = np.asarray(Image.open(VESSEL_ART).convert("RGB"), dtype=float)
         sat = src.max(axis=2) - src.min(axis=2)
         lum = src.mean(axis=2)
-        alpha = np.clip((255.0 - lum) / 255.0 * 1.35, 0, 1)
-        alpha[(sat <= 8) & (lum > 150)] = 0.0
-        _VESSEL_CACHE["img"] = np.dstack([src / 255.0, alpha])
+        alpha = np.clip((255.0 - lum) / 255.0 * 1.9, 0, 1)
+        alpha[(sat <= 8) & (lum > 170)] = 0.0
+        ys, xs = np.nonzero(alpha > 0.02)          # trim the empty margin so
+        y0 = max(ys.min() - margin, 0)             # placement is predictable
+        y1 = min(ys.max() + margin + 1, alpha.shape[0])
+        x0 = max(xs.min() - margin, 0)
+        x1 = min(xs.max() + margin + 1, alpha.shape[1])
+        _VESSEL_CACHE["img"] = np.dstack([src / 255.0, alpha])[y0:y1, x0:x1]
     return _VESSEL_CACHE["img"]
 
 
-def draw_vessel(ax, lon, lat, width_deg, alpha=0.92, zorder=4):
+def draw_vessel(ax, lon, lat, width_deg, alpha=1.0, zorder=4):
     """Drop the engraving into open water, sized so it keeps its own aspect
     once the map's longitude stretch is accounted for."""
     img = vessel_rgba()
