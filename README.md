@@ -15,6 +15,7 @@ GPSFILES/*.log        raw NMEA 0183 straight off the handheld receiver
    ├─ abaco_geo.py        coastline ways → land polygons (left-hand-rule polygonize)
    ├─ roads.py            OSM road graph + Dijkstra, for the ashore legs
    ├─ analyze.py          per-day distance, speeds, anchorage detection
+   ├─ corroborate.py      cross-check against the inReach track and camera GPS
    └─ poster.py           the poster → out/
 ```
 
@@ -109,6 +110,111 @@ Other things worth remembering:
   the next day's first, i.e. anchor swing, not an unrecorded passage. (Only the
   22 Mar arrival log has gaps: five of them, totalling 133 m of movement.)
 
+## Three independent records
+
+The trip was recorded three times over, by devices that knew nothing about each
+other. That is what makes the chart checkable rather than merely plausible.
+
+| source | cadence | coverage |
+|---|---|---|
+| handheld GPS receiver (`GPSFILES/*.log`) | a fix every ~5 s | 10–13 h a day, one battery charge |
+| inReach satellite communicator (`explore.gpx`) | 10 min by day, 4 h overnight | continuous, including nights |
+| crew cameras (EXIF) | per shot | 458 located photos |
+
+`python corroborate.py path/to/explore.gpx [photos.csv]` regenerates every
+number below.
+
+### The inReach track is from the satellite communicator, not the handheld
+
+Worth stating because the file is easy to mistake for a second copy of the
+handheld log. Four independent tells:
+
+- `creator="http://www.delorme.com"` in the GPX header — DeLorme built the
+  inReach, Garmin bought them in 2016, and the Explore platform still writes
+  that string. The `explore.gpx` / `explore.kmz` pair is a Garmin Explore export.
+- **116 of 149 gaps are exactly 10 minutes** — a scheduled reporting interval,
+  not a logger. The handheld writes every ~5 s.
+- **It was recording while the handheld was off**, overnight on the charger.
+  One device cannot be both.
+- The track is named for the crew rather than a file — `Sea Base 1830
+  (24950241)` — and every point carries `<fix>none</fix>`, which NMEA never says.
+
+### Do the two tracks match? Yes
+
+| test | median | 90th | max |
+|---|---|---|---|
+| same place at the same moment (108 coincident fixes) | 10 m | 23 m | 34 m |
+| **same route** — each inReach point vs the handheld's path | **3 m** | 10 m | 20 m |
+
+**All 150 inReach points lie within 50 m of the handheld's path.** The second
+test is the more telling one: it ignores timing and asks whether the two
+devices traced the same voyage. They did.
+
+### Overnight the boat only swung at anchor
+
+The handheld ran out of battery each evening and charged overnight, so every
+night is a hole in the primary record. The inReach fills it:
+
+| handheld off | fixes | path | net move | longest unwatched |
+|---|---|---|---|---|
+| Sat 20:06 → Sun 06:56 | 2 | 17 m | 17 m | 4.0 h |
+| Sun 18:46 → Mon 07:17 | 3 | 27 m | 27 m | 4.0 h |
+| Mon 20:05 → Tue 07:49 | 4 | 24 m | 5 m | 4.0 h |
+| Tue 19:28 → Wed 08:20 | 4 | 18 m | 13 m | 4.0 h |
+| Wed 18:20 → Thu 07:17 | 4 | 20 m | 4 m | 9.0 h |
+
+Tens of metres — anchor swing, no night passages. This measures directly what
+was previously only inferred from where one day's log stopped and the next
+began.
+
+The limit worth stating: the inReach drops to roughly 4-hourly overnight, so a
+departure and return between two fixes isn't strictly excluded — but each
+night's bracketing fixes sit within tens of metres of each other. The Fri→Sat
+night has a single fix in 18.4 hours and is effectively unobserved; the crew
+was ashore at the hotel, so there was no boat to move.
+
+### The one trip outside the barrier cays
+
+**Sunday 24 March, 10:05–12:03 EDT** — out through the cut by Man-O-War Cay to
+**1.57 km beyond the cay chain**, including 97 minutes anchored at
+26.6006, −76.9870 with 42% of fixes under 0.5 kn. A reef stop, on the ocean
+side. Every other day stayed inside the Sea of Abaco.
+
+All three records agree on it:
+
+- the handheld logs the passage out and back,
+- the inReach caught 4 position reports during it, two at the offshore anchorage,
+- and `IMG_0606/0607/0608` were shot at 10:12 from 1.32 km offshore — deep blue
+  Atlantic water rather than the turquoise shallows inside the cays.
+
+`corroborate.py` locates this with a hand-drawn barrier polyline
+(`BARRIER`), so anything within 0.5 km of the line is treated as "on the cays"
+rather than offshore. Without that threshold the test also flags 76 photos taken
+standing on Hope Town, Tahiti Beach, Lynyard Cay and Great Guana, where the
+polyline simply runs a little inshore of the beach.
+
+### Camera GPS
+
+458 photos carry coordinates, and they agree with the boat's track to a
+**median of 10 m** (90th percentile 34 m). Placement differs by camera, which
+matters for putting photos on an interactive map:
+
+| camera | images | with GPS | how to place |
+|---|---|---|---|
+| Apple iPhone 15 Pro | 543 | 466 | own GPS |
+| FujiFilm XP90 | 148 | 0 | timestamp → track |
+| GoPro HERO5 Session | 114 | 0 | timestamp → track |
+| Mavic Mini (drone) | 22 | 22 | own GPS, with altitude |
+
+**312 images have no GPS but do have a timestamp**, so the track places them.
+That is the more general technique anyway: a photo's time pins it to the track
+within metres, and the track is more accurate than the phone's own fix.
+
+Note that Google Photos **strips latitude and longitude** from anything served
+through a share link — the `GPSHPositioningError` tag survives, proving a fix
+existed, while the coordinates are gone. Use the originals, Takeout, or
+timestamp matching.
+
 ## Chart conventions
 
 The poster is drawn to read like a paper chart rather than a data plot:
@@ -187,7 +293,9 @@ than that and is left alone rather than quietly straightened out.
 | Thu 28 Mar | Off the mooring to the dock, then MHH by road (2.7 nm) | 0.6 nm |
 
 **89 nm under sail** over five sailing days; best speed 8.3 kn. The 235-minute
-stop at 26.5135, −77.0782 on the last morning is the airport terminal.
+stop at 26.5135, −77.0782 on the last morning is the airport terminal, and the
+only excursion outside the barrier cays was Sunday's two-hour reef stop off
+Man-O-War — see [Three independent records](#three-independent-records).
 
 ## Next
 
