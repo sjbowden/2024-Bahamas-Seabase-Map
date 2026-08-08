@@ -682,9 +682,9 @@ def draw_fleur(ax, cx, cy, height, color, lw_scale=1.0, zorder=13):
          (-0.108, 0.42), (-0.108, 0.46), (-0.098, 0.50),
          (-0.080, 0.66), (-0.030, 0.82), (0, 1.00)],
         [M, C4, C4, C4, C4, C4, C4, L, C4, C4, C4, C4, C4, C4])
-    right = Path(ribbon([[(0.050, 0.400), (0.170, 0.548), (0.310, 0.568), (0.395, 0.452)],
-                         [(0.395, 0.452), (0.450, 0.344), (0.402, 0.245), (0.302, 0.228)]],
-                        0.080, 0.014))
+    right = Path(ribbon([[(0.055, 0.420), (0.095, 0.605), (0.205, 0.660), (0.340, 0.600)],
+                         [(0.340, 0.600), (0.470, 0.542), (0.500, 0.355), (0.360, 0.272)]],
+                        0.125, 0.004))
     left = Path(np.column_stack([-right.vertices[:, 0], right.vertices[:, 1]]))
     foot = Path(
         [(-0.072, 0.30),
@@ -703,9 +703,9 @@ def draw_fleur(ax, cx, cy, height, color, lw_scale=1.0, zorder=13):
                                edgecolor=color, lw=0.4 * lw_scale,
                                zorder=zorder, joinstyle="round"))
     # the banded waist, a capsule across the three petals
-    y = cy - height * 0.5 + height * 0.345
-    ax.plot([cx - height * ASPECT * 0.195, cx + height * ASPECT * 0.195],
-            [y, y], color=color, lw=3.4 * lw_scale, zorder=zorder + 1,
+    y = cy - height * 0.5 + height * 0.330
+    ax.plot([cx - height * ASPECT * 0.165, cx + height * ASPECT * 0.165],
+            [y, y], color=color, lw=2.6 * lw_scale, zorder=zorder + 1,
             solid_capstyle="round")
 
 
@@ -803,7 +803,7 @@ def compass_rose(ax, lon, lat, R, lw_scale=1.0):
                 path_effects=_halo(3.0 * lw_scale))
 
     # fleur-de-lis riding above the north spear
-    draw_fleur(ax, lon, lat + R * 1.56, R * 0.46, C_ROSE, lw_scale, zorder=13)
+    draw_fleur(ax, lon, lat + R * 1.82, R * 0.42, C_ROSE, lw_scale, zorder=13)
 
 
 def text_width(fig, txt, fp, size):
@@ -866,7 +866,7 @@ def build(dpi, out_png, out_pdf=None, spread=True):
     ax = fig.add_axes([0.065, 0.225, 0.545, 0.685])
     draw_chart(ax, extent, land, DAYS, tracks, lw_scale=1.0, spread=spread)
     draw_badges(ax, DAYS, badge_positions(DAYS, tracks))
-    compass_rose(ax, -76.9450, 26.3520, 0.0195)
+    compass_rose(ax, -76.9450, 26.3520, 0.0160)
     scale_bar(ax, extent)
     chart_neatline(ax, extent, fig)
 
