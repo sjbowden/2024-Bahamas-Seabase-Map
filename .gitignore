@@ -19,3 +19,11 @@ geo/*.pkl
 # optional local override for P052/Lato when they aren't installed system-wide.
 # Not redistributed here: P052 is AGPL-with-font-exception, Lato is OFL-1.1.
 fonts/
+
+# the crew's photo archives — 32 GB of zips, read in place by the map build and
+# never unpacked. Source material, not source code.
+photos/
+
+# the map's build output: ~1 GB across ~5,000 files, all of it regenerable.
+# Committing rendered output is what took this repo's history to 510 MB once.
+site_build/
