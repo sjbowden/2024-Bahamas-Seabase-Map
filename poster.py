@@ -639,35 +639,74 @@ C_ROSE = "#43362B"          # sepia engraving ink
 C_ROSE_MAG = "#8C4A32"      # faded red for the magnetic ring
 
 
-def _fleur_paths():
-    """Fleur-de-lis pointing +y across y in [0,1], x in [-0.5,0.5] — the north
-    point of a vintage rose. Pieces are filled separately."""
-    C4, M, L, CP = Path.CURVE4, Path.MOVETO, Path.LINETO, Path.CLOSEPOLY
-    # tall centre petal — cubic down the right flank, straight across the foot,
-    # cubic back up the left. Codes must come in groups of three per CURVE4.
+def draw_fleur(ax, cx, cy, height, color, lw_scale=1.0, zorder=13):
+    """A heraldic fleur-de-lis, drawn about (cx, cy) with the given height.
+
+    Built as four pieces because that is how the emblem is actually composed:
+    a tall centre petal, two side petals that sweep out and curl *downward*
+    into a scroll, a banded waist, and a flared foot beneath it. Earlier
+    versions had the side petals pointing up like horns and no foot at all,
+    which is what made it read as a trident.
+
+    Unit space runs y 0..1 with the tip at the top; x is scaled by the map
+    aspect so the emblem stays upright and unsquashed.
+    """
+    C4, M, L = Path.CURVE4, Path.MOVETO, Path.LINETO
+
+    def bez(pts, t):
+        p0, p1, p2, p3 = (np.asarray(p, float) for p in pts)
+        t = t[:, None]
+        return ((1 - t) ** 3 * p0 + 3 * (1 - t) ** 2 * t * p1
+                + 3 * (1 - t) * t ** 2 * p2 + t ** 3 * p3)
+
+    def ribbon(segments, w_start, w_end):
+        """A tapering band of constant-ish width following a curved spine.
+
+        The side petal is a ribbon that curls down and under, not a lobe — so
+        sweep a width along a spine rather than trying to guess the outline's
+        control points directly.
+        """
+        spine = np.vstack([bez(sg, np.linspace(0, 1, 60)) for sg in segments])
+        d = np.gradient(spine, axis=0)
+        d /= np.maximum(np.hypot(d[:, 0], d[:, 1]), 1e-9)[:, None]
+        nrm = np.column_stack([-d[:, 1], d[:, 0]])
+        w = np.linspace(w_start, w_end, len(spine))[:, None] / 2.0
+        return np.vstack([spine + nrm * w, (spine - nrm * w)[::-1]])
+
+    # centre petal: a slender leaf, flanks slightly concave below the tip
     centre = Path(
-        [(0.0, 1.0),
-         (0.050, 0.80), (0.100, 0.55), (0.115, 0.33),   # right flank
-         (-0.115, 0.33),                                # foot
-         (-0.100, 0.55), (-0.050, 0.80), (0.0, 1.0),    # left flank
-         (0.0, 1.0)],
-        [M, C4, C4, C4, L, C4, C4, C4, CP])
-    # side petal: sweeps out and down from the band, then hooks up to a point
-    # side petal: swells outward from a narrow base, then tapers to a cusp —
-    # the two curves meet at the tip with no rounding, so it comes to a point
-    right = Path(
-        [(0.06, 0.30),
-         (0.30, 0.25), (0.48, 0.35), (0.500, 0.625),    # outer edge to the tip,
-         (0.38, 0.50), (0.24, 0.37), (0.06, 0.30),      # which is the outermost
-         (0.06, 0.30)],                                 # point so it flares out
-        [M, C4, C4, C4, C4, C4, C4, CP])
-    left = Path([(-x, y) for x, y in right.vertices], right.codes)
-    # the band that cinches the three petals together
-    band = Path(
-        [(-0.205, 0.195), (0.205, 0.195), (0.165, 0.315), (-0.165, 0.315),
-         (-0.205, 0.195), (-0.205, 0.195)],
-        [M, L, L, L, L, CP])
-    return [centre, right, left, band]
+        [(0, 1.00),
+         (0.030, 0.82), (0.080, 0.66), (0.098, 0.50),
+         (0.108, 0.46), (0.108, 0.42), (0.098, 0.360),
+         (-0.098, 0.360),
+         (-0.108, 0.42), (-0.108, 0.46), (-0.098, 0.50),
+         (-0.080, 0.66), (-0.030, 0.82), (0, 1.00)],
+        [M, C4, C4, C4, C4, C4, C4, L, C4, C4, C4, C4, C4, C4])
+    right = Path(ribbon([[(0.050, 0.400), (0.170, 0.548), (0.310, 0.568), (0.395, 0.452)],
+                         [(0.395, 0.452), (0.450, 0.344), (0.402, 0.245), (0.302, 0.228)]],
+                        0.080, 0.014))
+    left = Path(np.column_stack([-right.vertices[:, 0], right.vertices[:, 1]]))
+    foot = Path(
+        [(-0.072, 0.30),
+         (-0.062, 0.22), (-0.056, 0.15), (-0.062, 0.095),
+         (-0.090, 0.045), (-0.105, 0.030), (-0.118, 0.022),
+         (-0.050, 0.006), (0.050, 0.006), (0.118, 0.022),
+         (0.105, 0.030), (0.090, 0.045), (0.062, 0.095),
+         (0.056, 0.15), (0.062, 0.22), (0.072, 0.30)],
+        [M, C4, C4, C4, C4, C4, C4, C4, C4, C4, C4, C4, C4, C4, C4, C4])
+
+    tr = (matplotlib.transforms.Affine2D()
+          .scale(height * ASPECT, height).translate(cx, cy - height * 0.5)
+          + ax.transData)
+    for p in (centre, right, left, foot):
+        ax.add_patch(PathPatch(p, transform=tr, facecolor=color,
+                               edgecolor=color, lw=0.4 * lw_scale,
+                               zorder=zorder, joinstyle="round"))
+    # the banded waist, a capsule across the three petals
+    y = cy - height * 0.5 + height * 0.345
+    ax.plot([cx - height * ASPECT * 0.195, cx + height * ASPECT * 0.195],
+            [y, y], color=color, lw=3.4 * lw_scale, zorder=zorder + 1,
+            solid_capstyle="round")
 
 
 def compass_rose(ax, lon, lat, R, lw_scale=1.0):
@@ -764,13 +803,7 @@ def compass_rose(ax, lon, lat, R, lw_scale=1.0):
                 path_effects=_halo(3.0 * lw_scale))
 
     # fleur-de-lis riding above the north spear
-    fh = R * 0.34
-    tr = (matplotlib.transforms.Affine2D()
-          .scale(fh * ASPECT * 0.62, fh).translate(lon, lat + R * 1.38)
-          + ax.transData)
-    for p in _fleur_paths():
-        ax.add_patch(PathPatch(p, transform=tr, facecolor=C_ROSE,
-                               edgecolor=C_ROSE, lw=0.4 * lw_scale, zorder=13))
+    draw_fleur(ax, lon, lat + R * 1.56, R * 0.46, C_ROSE, lw_scale, zorder=13)
 
 
 def text_width(fig, txt, fp, size):
