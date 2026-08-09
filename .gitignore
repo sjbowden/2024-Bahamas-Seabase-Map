@@ -27,3 +27,8 @@ photos/
 # the map's build output: ~1 GB across ~5,000 files, all of it regenerable.
 # Committing rendered output is what took this repo's history to 510 MB once.
 site_build/
+
+# the photo index: regenerable from photos/ in 4 s, and it carries 512 EXIF
+# coordinates — the anchorages, and the hotel the crew slept in. Same reason
+# out/IMG_0496.JPG is kept out.
+out/photo_index.json
