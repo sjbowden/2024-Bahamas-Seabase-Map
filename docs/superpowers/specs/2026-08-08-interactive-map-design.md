@@ -114,57 +114,130 @@ The whole design turns on one question: where was each photograph taken?
 
 ### Sources
 
-- **Crew archive** — 2,479 images, the superset. GPS mostly stripped; ~97.5%
-  retain timestamps; 11 camera models.
-- **Your archive** — 845 images, 819 of them also in the crew archive, with GPS
-  intact on 499.
+- **Crew archive** — `photos/Seabase 2024-1-001.zip`, 2,479 images, the superset.
+- **Your archive** — `photos/Seabase 2024.zip`, 845 images, 819 also in the
+  crew's.
 
-Photographs join on filename, guarded by size and hash so a coincidental name
-clash cannot attach one photo's coordinates to another. The crew archive
-supplies pixels; yours supplies GPS where the crew copy was stripped. That
-restores coordinates to 819 photographs and, more valuably, spreads calibration
-anchors across the week.
+2,505 photographs, indexed in 4.3 s without unpacking 32 GB. Milestone 2 built
+this and three of the assumptions above did not survive it:
+
+**There is nothing to transplant.** The crew's copies were said to be stripped of
+GPS, with yours donating it back to 819 photographs. Across all 819 shared
+photographs there is not one where either copy carries GPS the other lacks. The
+premise was simply wrong, and the "restores coordinates to 819" benefit does not
+exist.
+
+**Size and hash are the wrong join guard.** 653 of the 819 shared photographs
+differ in bytes, because rewriting EXIF rewrites the file — so a content guard
+rejects the matches it exists to confirm. Identity is the basename confirmed by
+camera model. The zip's own central directory carries a CRC32 per member, which
+makes an exact-bytes comparison free where it is actually wanted, with no hashing
+of 32 GB.
+
+**The archives disagree about time for 148 photographs** — every one the FinePix,
+every one by exactly 975 min. One copy had that camera's clock corrected and the
+other did not. Both readings are recorded and flagged rather than picked; the fit
+settles it (below).
 
 ### Camera identity
 
-Cameras group by EXIF **serial number**, falling back to model. Two crew
-members with iPhone 15 Pros are two independent clocks; grouping by model would
-average their offsets into an answer wrong for both.
+Cameras group by EXIF **serial number**, falling back to model — but only the
+Canon, the two GoPros and the drone report one. **Every phone leaves the tag
+blank**, so eleven cameras collapse to their models, and two crew members with
+the same phone would be one clock here. Nothing in the EXIF can separate them;
+`camera_key()` names the limit rather than inventing a discriminator.
 
-### Fitting a clock
+### Getting to UTC
 
-Only for cameras that have GPS-less photographs to place. **A camera whose
-photographs all carry GPS needs no fit.**
+Everything downstream needs one thing from a timestamp: the real instant, so it
+can be looked up against the track. Three methods of decreasing strength, and
+each photograph carries the name of the one that resolved it.
 
-- **With anchors** — search offsets across ±6 h coarsely, refine to 5 s,
-  minimising median distance between each photograph's own GPS and the track
-  position at the corrected time. Record the residual. This method returned
-  exactly +0 min at 10 m median for 436 iPhone 15 Pro photographs.
-- **Without anchors** — score candidate offsets by plausibility: what fraction
-  of that camera's photographs land near the track, inside hours the receiver
-  was actually recording. Best score wins; marked `inferred`.
+| | photographs | how |
+|---|---|---|
+| `gps_utc` | 490 | `GPSDateStamp`/`GPSTimeStamp` — UTC off the satellites, the camera's clock playing no part |
+| `tz_tag` | 1,093 | local minus `OffsetTimeOriginal` |
+| `correlate` | 810 | fitted against when every other camera was shooting |
+| unresolved | 112 | no timestamp, or no camera to group by |
+
+The design imagined one method — minimise the distance between a photograph's own
+GPS and the track position at the corrected time — and it turns out to be needed
+for none of them. 490 photographs already know their UTC exactly. Another 1,093
+carry a timezone tag, and against the photographs that have both, that tag is
+right to a second: median (local − tag − satellite UTC) is **+0.017 min over 480
+samples**.
+
+That measurement also kills the idea of one offset per camera. The iPhone 15
+Pro's tag reads −07:00 in Portland, −04:00 all week in Abaco, and −07:00 again
+flying home. **A camera's offset is not a constant; it is a timezone, and it
+moves.** Only cameras with no tag at all get a single fitted number, and only
+because they sat in one zone all week.
+
+### Fitting the cameras that have neither
+
+Three cameras carry no GPS and no timezone tag: the Canon (547), the FinePix
+(149) and a GoPro (114). For these the design's anchorless method was undefined —
+it scores offsets by "what fraction land near the track", and a camera with no
+GPS has no position to measure. What these cameras have instead is company:
+eleven cameras photographed one week and the crew pointed them at the same things
+at the same moments.
+
+So the statistic is **coincidence**: how many of this camera's frames land within
+20 s of a frame whose UTC is already known. The offset maximising it is the
+offset that makes the clock true, and the null distribution comes free — the same
+count evaluated at every other candidate offset in the search.
+
+| camera | coincidences | null | offset | localised to |
+|---|---|---|---|---|
+| Canon EOS REBEL T3i | 176 / 547 | 27.6 ± 25.0 | +401.4 min | under 30 s |
+| FinePix XP90 | 84 / 149 | 8.4 ± 11.7 | −61.2 min | ±10 min |
+| GoPro HERO5 | 48 / 114 | 7.5 ± 8.8 | +310.5 min | ±20.5 min |
+
+A third of the Canon's frames sitting within 20 s of somebody else's is not a
+coincidence about coincidences. The peak widths differ by two orders of magnitude
+and **`place.py` must carry them through**: ±20.5 min is ~3 km of track at 5 kn,
+so the GoPro's 114 photographs deserve a visibly wider claim than the Canon's 547.
+
+This also settles the FinePix's rival readings on evidence rather than taste. Both
+give the same 84 coincidences — they are the same photographs shifted by a
+constant — so the discriminators are coverage (0.953 against 0.906) and
+plausibility: as indexed it needs a −61 min clock error, the crew's copy needs
+**+15.2 h**, and no clock is set to that.
 
 ### The refusal rule
 
-**An offset is applied only with ≥5 informative anchors and a residual under
-~150 m, and only when the anchor residuals look like noise rather than a bias.**
-Below that the camera stays uncalibrated and its photographs drop a tier. A
-confident wrong answer is worse than an admitted uncertain one.
+**An offset is applied only when its coincidence count stands clear of the null
+and of the best genuinely different hypothesis.** Below that the camera stays
+uncalibrated and its photographs drop a tier. A confident wrong answer is worse
+than an admitted uncertain one.
 
-The last clause is the one that earns its keep, and the Mavic Mini is why. Its
-fit suggested **+125 min** from three usable points, shoving the Lynyard Cay
-evening shots past the receiver's shutdown. The count test catches that
-particular case, but the count test is not what was actually wrong: a drone
-flies *away* from the boat, so minimising the distance between drone GPS and
-boat track optimises toward a false assumption. A drone with twenty anchors and
-a 120 m residual passes a count-and-magnitude gate and is still wrong. What
-distinguishes it is that its residuals carry a direction — offset from the track
-in a consistent sense — where a genuine clock error leaves residuals scattered.
-Test the shape of the residuals, not just their size.
+Two bars, and two ways of getting them wrong that the tests caught — both fixed
+by changing the rule rather than the threshold:
 
-(In the event the Mavic needs no fit at all: every drone frame carries GPS. The
-rule exists for the cameras with *partial* GPS, where a plausible-looking fit
-gets applied to the rest.)
+**The search is bounded to ±12 h.** The crew's days look alike, so searched
+wider, an offset a whole day out scores nearly as well as the truth. The GoPro's
+best peak across ±26 h was −21.4 h, a lag no clock setting can produce. ±12 h is
+the widest a clock set to *some* real timezone can be.
+
+**Coverage is not a bar for correctness.** It ranks rival offsets, where it breaks
+ties the coincidence count cannot — but photographs taken ashore in the evening
+while the receiver sat on its charger are perfectly real. Hiding the iPhone 15
+Pro's satellite times and refitting recovers +240.03 min, right to two seconds,
+at a coverage of **0.844**. Any floor above that refuses a demonstrably correct
+answer, which is the opposite of this rule's job.
+
+The Mavic still needs no fit — every drone frame carries GPS, so it is skipped
+before the question arises, which is what it was always going to teach. And the
+residual-shape concern it motivated has no purchase here: this method never
+measures distance from the track, so a camera that flies away from the boat
+cannot bias it.
+
+All 810 fitted photographs currently land at `inferred` rather than `calibrated`.
+The Canon misses by a whisker (z = 5.9 against a 6.0 bar) on the strongest
+evidence of the three, which says less about the Canon than about `z` being
+sensitive to a camera's photograph count. Worth revisiting once `place.py` shows
+whether the distinction changes anything a viewer can see; being conservative
+costs nothing until then.
 
 ### Tiers
 
@@ -172,25 +245,24 @@ gets applied to the rest.)
 |---|---|---|
 | `gps` | where the **camera** was | its own EXIF coordinates |
 | `bracket` | where the **camera** almost certainly was | interpolated between two of *that camera's own* GPS photographs |
-| `calibrated` | where the **receiver** was | timestamp + a fitted, validated offset |
-| `inferred` | where the receiver probably was | timestamp + a plausibility-fitted offset |
-| `unplaced` | unknown | no timestamp, or no plausible fit |
+| `calibrated` | where the **receiver** was | UTC known exactly, then the track |
+| `inferred` | where the receiver probably was | UTC from a fitted offset, then the track |
+| `unplaced` | unknown | no UTC, or no track to look it up against |
 
 Positions come from **interpolation between bracketing fixes**, not the nearest
 one. At 5 kn, nearest-fix lookup is needlessly ~10 m out.
 
-**The `bracket` tier is the one worth adding.** A GPS-less photograph sitting 40
+**The `bracket` tier reaches 6 photographs.** A GPS-less photograph sitting 40
 seconds after one of its own camera's GPS photographs and 30 seconds before the
 next, with those two 30 m apart, belongs between them — not on a boat lying 400 m
 offshore. Same camera, same person, same walk through the village. It needs no
 clock fit, because the camera's clock is self-consistent whatever it reads.
 
 Applied when both brackets are from the same camera, ≤2 min away in time and
-≤200 m apart from each other. Its reach is bounded by which cameras have
-*partial* GPS coverage — your iPhone, with 499 of 845, is the clear case; the
-crew's fully-stripped cameras get nothing from it. **How many photographs it
-actually reaches is a build-time measurement, reported by milestone 2.** If the
-answer is a handful, it is still the highest-quality handful on the chart.
+≤200 m apart. Measured, it reaches six photographs, all iPhone 15 Pro — the only
+camera here with genuinely *partial* GPS coverage. That is a handful, as suspected
+when it was written down, and still the best-placed six on the chart. It costs
+about twenty lines and no clock, so it stays.
 
 ### What placement cannot know
 
@@ -342,73 +414,91 @@ poster.py              imports trip
 corroborate.py         imports trip
 map/
   build.py             CLI orchestrator
-  photo_index.py       walk the zips, read EXIF headers
-  clock_fit.py         per-camera offset, tier assignment
+  photo_index.py       walk the zips, read EXIF headers          [done]
+  clock_fit.py         resolve UTC per photograph, per-camera fits [done]
+  tests.py             the build's tests, no pytest              [done]
   place.py             bracket + interpolate positions, apply guards
   derive.py            thumbnails and viewing copies
   export.py            GeoJSON + photos.json
   site/                web app source
 photos/                ARCHIVES — gitignored, read in place
+out/photo_index.json   gitignored: 4 s to rebuild, 512 EXIF coordinates in it
+out/clock_fit.json     gitignored: 0.5 s to rebuild
 site_build/            OUTPUT — gitignored
 ```
 
-**One refactor, and only this one** — but it is slightly larger than an
-extraction. `DAYS`, `load_day()`, `haversine()`, the barrier test and `_shoal()`
-move into `trip.py`, and `read_fixes()` is added underneath `load_day()` as
-described above. `_shoal()` has to come along: it lives in `poster.py` today,
-and the map needs it, and importing `poster` pulls in matplotlib and runs font
-registration — which is the whole reason for the split. It depends on shapely
-only, so it moves cleanly.
+**One refactor, and only this one** — done in milestone 1, and slightly larger
+than an extraction. `DAYS`, `load_day()`, `haversine()`, the barrier test and
+`_shoal()` moved into `trip.py`, with `read_fixes()` added underneath
+`load_day()`. `_shoal()` had to come along: the map needs it, and importing
+`poster` pulls in matplotlib and runs font registration — which is the whole
+reason for the split. It depends on shapely only, so it moved cleanly. The
+poster's PNGs came out byte-identical.
 
 ## Failure modes
 
 | failure | response |
 |---|---|
 | Archive moved | Path is a CLI argument defaulting to `photos/`; missing gives a clear error |
-| HEIC unreadable (95 files) | Needs `pillow-heif`; absent, they are listed as unreadable, not fatal |
-| Filename collision | Size and hash compared before transplanting GPS |
-| No timestamp and no GPS | `unplaced`, still browsable |
+| HEIC unreadable (98 files) | Needs `pillow-heif`; installed, and absent they are listed as unreadable, not fatal |
+| EXIF past the read prefix | 28 files, all 10–12 MB iPhone frames, are only large not broken; the read escalates to the whole member |
+| Filename collision between cameras | Basename plus camera model; a name two cameras share becomes two records |
+| No timestamp and no GPS | `unplaced`, still browsable — 75 of them |
+| No camera to group by | 109 photographs have no make or model; no single offset is fitted to them |
+| Bogus GPS date stamp | One Samsung reports a date 54 years out; anything outside March–April 2024 is discarded, not fitted |
 | Timestamp outside receiver coverage | `unplaced` — no inReach fallback |
 | Interrupted build | Derivatives are idempotent; re-running resumes |
 
 ## Testing
 
+`python -m map.tests` — 41 assertions, no pytest, no new dependency, because
+verification in this repo has always been "run it and compare". The
+archive-backed tests skip with a clear message when `out/photo_index.json` is
+absent.
+
 In order of value:
 
-1. **Synthetic offsets** — inject a known clock error into real photographs and
-   confirm the fitter recovers it. This tests the component most likely to be
-   quietly wrong.
-2. **Anchor starvation** — take a camera with plenty of anchors, hide all but
-   three so it fails the ≥5 gate, and confirm the anchorless plausibility
-   fitter recovers the offset the anchored fit found. This is the only test that
-   exercises the `inferred` path, which is the path shipping positions nobody
-   can check.
-3. **Regression** — the iPhone 15 Pro must keep fitting to ~0 min at ~10 m
-   against `read_fixes()`. Known-good answer, cheap to assert.
-4. **Hold-out** — fit each GPS-bearing camera on part of its photographs,
-   measure error on the rest. Worth having as a sanity check, but note what it
-   does *not* prove: a camera with GPS is tier `gps` and its fit is never used.
-   The cameras that depend on fitting have no ground truth by construction, and
-   no test can supply one. Test 2 is the closest available substitute.
-5. **Invariants** — every photograph appears exactly once across
-   placed/unplaced/travel; every photograph has a tier; every path in
-   `photos.json` resolves to a file that exists.
+1. **Anchor starvation** — hide the iPhone 15 Pro's satellite times *and* its
+   timezone tag, forcing it down the correlation path, and check it recovers what
+   its own satellites already agreed on. It comes back at **+240.03 min against a
+   truth of +239.98** — two seconds — and is the only test that exercises
+   `correlate`, the method shipping positions nobody can otherwise verify. It has
+   already earned its keep twice, catching the ±26 h diurnal alias and the
+   coverage floor that refused this very fit.
+2. **Synthetic offsets** — inject a known clock error into the iPhone 14 Pro's
+   real timestamps and confirm it comes back. Recovered to within 0.3 min at
+   −180, −7, 0, +23.5 and +419 min.
+3. **Refusal** — times scattered through the week belong to no camera and must
+   not produce a confident offset. Refused at z = 2.3. A fitter that never
+   refuses is not a fitter.
+4. **Invariants** — every photograph gets exactly one verdict; no method name
+   outside the known set; a time never appears without the method that found it;
+   every resolved time parses; a camera whose photographs all carry GPS is never
+   fitted.
+5. **Coverage** — spans sorted and disjoint, arrival day broken at its 28-minute
+   hole rather than bridged.
+
+Dropped: the **hold-out** test the design ranked second. It fits a GPS-bearing
+camera on part of its photographs and measures error on the rest — but a camera
+with GPS is tier `gps` and its fit is never used, so it validates the one path
+that needs no validation. Test 1 does the same job on the path that does.
 
 ## Milestones
 
 The build and the site are separable, and the build is where the risk lives.
 
-1. **Shared trip module** — extract `trip.py` including `_shoal()`, add
-   `read_fixes()`, confirm the poster's **PNG** is byte-identical afterwards.
-   Not the PDF: matplotlib stamps a wall-clock `/CreationDate` into it, so the
-   comparison would fail for a reason having nothing to do with the refactor.
-   (Or pin `metadata={'CreationDate': None}` and compare both.) Small, and
-   everything else depends on it.
-2. **Index and calibrate** — `photo_index` + `clock_fit`, with the synthetic
-   offset and anchor-starvation tests. Ends with a report: photographs per tier,
-   offset and residual per camera, and **how many photographs the `bracket`
-   tier reaches**. This is the point at which we learn whether the crew's eleven
-   clocks are tractable, before a single derivative is generated.
+1. **Shared trip module** — ✅ done. `trip.py` extracted including `_shoal()`,
+   `read_fixes()` added. Gated on the poster's **PNG** rather than the PDF, into
+   which matplotlib stamps a wall-clock `/CreationDate`; all three renders came
+   out byte-identical, and `out/compare_offset.png` regenerated to its committed
+   bytes.
+2. **Index and calibrate** — ✅ done. 2,505 photographs indexed in 4.3 s; 2,393
+   have a UTC instant. The question this milestone existed to answer — are the
+   crew's eleven clocks tractable? — is answered yes, but almost none of it by
+   the method the design expected: 490 photographs know their UTC from the
+   satellites, 1,093 from a timezone tag good to a second, and only 810 needed
+   fitting at all. The design's own assumptions about the archives were wrong in
+   three ways, all corrected above. The `bracket` tier reaches 6.
 3. **Place and export** — `place` + `export`, producing the GeoJSON at each zoom
    band and `photos.json` with no media.
 4. **The map, with data but no photographs** — chart, tracks, places, layers, on
@@ -420,12 +510,22 @@ The build and the site are separable, and the build is where the risk lives.
    `python -m http.server` over the same folder behaves identically, which is
    the portability guarantee.
 
-Milestone 2 is the natural stop-and-look point: if a camera's clock cannot be
-calibrated, that is better known before generating its derivatives.
+Milestone 2 was the natural stop-and-look point, and looking was worth it: the
+fitting method the design specified would have been wasted work on 1,583
+photographs that already knew their own time, and undefined on the 810 that
+didn't. Nothing downstream had been built on it yet, which is the whole argument
+for putting the risky half first.
+
+What milestone 3 inherits, and must not lose: **the peak width per camera.** The
+Canon's offset is localised to under 30 s, the GoPro's to ±20.5 min — ~3 km of
+track at 5 kn. A photograph's confidence is its camera's fit width, and the
+viewer should not show those two with the same certainty.
 
 ## Out of scope
 
-- **Videos** — 659 files, several GB even transcoded. Photographs first.
+- **Videos** — 1,249 files across the two archives (659 in the crew's alone, which
+  is where the design's figure came from), and the bulk of the 32 GB. Several GB
+  even transcoded. Photographs first.
 - **Original-resolution downloads** — families will want them for their own
   crew member; 32 GB of originals is a different distribution problem, best
   solved by sending a zip to whoever asks.
