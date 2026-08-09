@@ -32,3 +32,4 @@ site_build/
 # coordinates — the anchorages, and the hotel the crew slept in. Same reason
 # out/IMG_0496.JPG is kept out.
 out/photo_index.json
+out/clock_fit.json
