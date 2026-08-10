@@ -26,10 +26,11 @@ import os
 import xml.etree.ElementTree as ET
 
 from shapely import set_precision
+from shapely.geometry import box as shapely_box
 
-from abaco_geo import land_polygons
-from trip import (AIRPORT, ANCHORAGES, DAYS, EXTENT, HOTEL, LAND_BBOX, MARINA,
-                  PLACES, load_day, shoal, transfer_route)
+from abaco_geo import COASTLINE_MAP, land_polygons
+from trip import (AIRPORT, ANCHORAGES, DAYS, EXTENT, HOTEL, MAP_LAND_BBOX,
+                  MARINA, PLACES, load_day, shoal, transfer_route)
 from map import clock_fit as C
 from map import place as P
 
@@ -40,10 +41,15 @@ NS = "{http://www.topografix.com/GPX/1/1}"
 #   z=10  ~68 m    z=12  ~17 m    z=14  ~4 m
 # One degree of latitude is ~111 km, which turns those into simplify tolerances.
 # The coarse band also drops islets under a pixel: at z=10 that is ~19,000 m2.
+# `near` clips a band to the area anyone will actually zoom into. The coarse band
+# carries the whole region, because zoomed out is exactly when you want Little
+# Abaco and Grand Bahama for context; the finer two would otherwise ship
+# street-level detail for coastlines nobody can reach the far side of, and the
+# fine band alone came to 2 MB of it.
 BANDS = [
-    dict(name="coarse", maxzoom=11, tol=0.00061, min_area_m2=19000.0),
-    dict(name="medium", maxzoom=13, tol=0.00015, min_area_m2=1200.0),
-    dict(name="fine", maxzoom=22, tol=0.00004, min_area_m2=0.0),
+    dict(name="coarse", maxzoom=11, tol=0.00061, min_area_m2=19000.0, near=None),
+    dict(name="medium", maxzoom=13, tol=0.00015, min_area_m2=1200.0, near=0.30),
+    dict(name="fine", maxzoom=22, tol=0.00004, min_area_m2=0.0, near=0.30),
 ]
 SHOALS = [(0.0060, "outer"), (0.0026, "inner")]
 PRECISION = 5
@@ -94,16 +100,29 @@ def _poly(rings, props):
                 geometry=dict(type="MultiPolygon", coordinates=rings))
 
 
+def _near_chart(pad):
+    """The chart extent grown by `pad` degrees — where zooming in is possible."""
+    lon0, lon1, lat0, lat1 = EXTENT
+    return shapely_box(lon0 - pad, lat0 - pad, lon1 + pad, lat1 + pad)
+
+
 def chart_layers(land):
     """coast + shoals, one file per zoom band."""
     files = {}
     for band in BANDS:
-        rings = _rings(land, band["tol"], band["min_area_m2"])
+        subject = land if band["near"] is None else \
+            land.intersection(_near_chart(band["near"]))
+        rings = _rings(subject, band["tol"], band["min_area_m2"])
         files[f"coast.{band['name']}.geojson"] = _fc([
             _poly(rings, dict(kind="land", maxzoom=band["maxzoom"]))])
         feats = []
         for buf, name in SHOALS:
-            sr = _rings(shoal(land, buf), band["tol"], band["min_area_m2"])
+            # Buffer the whole land, then clip: buffering a clipped coastline
+            # would put a shoal halo along the clip line itself.
+            ring_geom = shoal(land, buf)
+            if band["near"] is not None:
+                ring_geom = ring_geom.intersection(_near_chart(band["near"]))
+            sr = _rings(ring_geom, band["tol"], band["min_area_m2"])
             if sr:
                 feats.append(_poly(sr, dict(kind="shoal", ring=name,
                                             maxzoom=band["maxzoom"])))
@@ -242,7 +261,12 @@ def photos_json(placed):
 
 def export(dest, placed):
     os.makedirs(dest, exist_ok=True)
-    land = land_polygons(LAND_BBOX)
+    # The map's own, wider coastline: the chart can be panned and zoomed past the
+    # printed sheet's edge, and the poster's cache ends in a straight line at lon
+    # -77.35 with nothing at all north of 26.83. Verified to classify land
+    # identically inside EXTENT — 0.000 km2 of disagreement — so this is more
+    # coastline, not different coastline.
+    land = land_polygons(MAP_LAND_BBOX, source=COASTLINE_MAP)
     files = chart_layers(land)
     files["tracks.geojson"] = track_layer()
     files["places.geojson"] = places_layer()

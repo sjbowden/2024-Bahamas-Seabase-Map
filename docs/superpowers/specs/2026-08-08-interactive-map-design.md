@@ -466,6 +466,31 @@ GeoJSON as SVG paths, and that many nodes will not pan smoothly on a phone,
 which is the stated target. A GL renderer handles it. No third-party tiles
 either way — the chart is our own GeoJSON.
 
+**The chart needs more coastline than the sheet does.** The poster stops at its
+neatline; a chart you can pan and zoom runs out of data instead. On a 2220 px-wide
+window the *opening* view already spans 0.93° of longitude — because the extent is
+portrait, `fitBounds` fits its height and overshoots its width — so the land ended
+in a straight vertical line at lon −77.35 with empty water beyond, and the cache
+held nothing at all north of 26.83: no Treasure Cay, no Coopers Town, no Little
+Abaco.
+
+That could not be fixed by widening the box, because `land_polygons()` does not
+crop. It polygonises the coastline **together with the bbox frame** and classifies
+each resulting face as land or water by the left-hand rule, so the frame is
+structural — widening the poster's box reclassified faces and moved **17% of its
+pixels**. The bbox is part of the geometry, not a view setting.
+
+So the map gets its own cache and its own box: `geo/coastline_map.json` over
+lon −78.55…−75.55, lat 25.45…27.55, read only by `export.py`. Verified to classify
+land *identically* inside the chart extent — **0.000 km² of disagreement** against
+the poster's — while adding 1,404 km² of real coastline beyond it. The poster's
+PNGs stay byte-identical, which is the whole point of keeping the two apart.
+
+Zooming out is worth allowing now that there is something out there to see: 1.2
+zoom levels rather than the 0.35 that made the chart feel stuck, with the pan
+clamp derived from the widest view the zoom limit permits so the two constraints
+cannot fight — an earlier pair did, and the clamp won, cropping the trek.
+
 **Levels of detail — built, and it works.** `geo/coastline.json` alone is 6.5 MB,
 and the shoals are two buffers over the same geometry. Three bands, simplified to
 about half a pixel at the scale each serves, with sub-pixel islets dropped at the
@@ -478,9 +503,15 @@ coarsest:
 | fine | 22 | 1,371 | 1,162 KB | 277 KB |
 
 Every band keeps the land's area to within 0.1%, so the coarse chart is cheaper
-without being visibly wrong. **First paint is 1,076 KB, or 134 KB gzipped** —
-coarse band, tracks, places and all 2,505 photograph records. The fine band's
-1.5 MB loads only on zoom. Static hosts gzip by default, which is what turns a
+without being visibly wrong. **First paint is 1,324 KB, or 211 KB gzipped** —
+coarse band, tracks, places and all 2,505 photograph records.
+
+Only the coarse band carries the whole region, because zoomed out is exactly when
+the context is wanted. The medium and fine bands are clipped to the chart extent
+plus 0.3°, since zooming in only ever happens where the trek is: unclipped, the
+fine band shipped 2 MB of street-level coastline for islands nobody can reach the
+far side of. The shoals are buffered *before* clipping, or the halo would trace
+the clip line instead of a shore. Static hosts gzip by default, which is what turns a
 757 KB `photos.json` into 46 KB on the wire.
 
 One trap, worth recording because the geometry looked fine either way. Simplifying

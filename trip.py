@@ -69,6 +69,16 @@ DAYS = [
 EXTENT = (-77.185, -76.912, 26.298, 26.712)     # lon0, lon1, lat0, lat1
 LAND_BBOX = (-77.35, 26.15, -76.80, 26.85)      # lon0, lat0, lon1, lat1
 
+# The chart can be panned and zoomed, so it needs coastline well past the sheet's
+# edge — an ultrawide window reaches lon -78.31 before maxBounds stops it, and the
+# poster's cache holds nothing north of 26.83, so Little Abaco, Coopers Town and
+# Treasure Cay were simply absent and the land ended in a straight vertical line.
+# This box reads geo/coastline_map.json. It is emphatically *not* LAND_BBOX:
+# land_polygons() polygonises the coastline together with the bbox frame and
+# classifies the resulting faces, so both are structural, and widening the
+# poster's box moved 17% of its pixels.
+MAP_LAND_BBOX = (-78.55, 25.45, -75.55, 27.55)  # lon0, lat0, lon1, lat1
+
 # Hand-placed chart labels: (lon, lat, text, kind, ha, va). The alignment hints
 # are the poster's, and the map ignores them — but the coordinates and the choice
 # of what is worth naming are shared, so the two artefacts name the same places.
