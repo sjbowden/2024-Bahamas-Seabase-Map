@@ -409,6 +409,7 @@ def test_site_build():
         print("  SKIP  not built (python -m map.build)")
         return
     need = ["index.html", "app.js", "style.css", "robots.txt", "_headers",
+            "data/depth.png",
             "vendor/maplibre-gl.js", "vendor/maplibre-gl.css",
             "data/meta.json", "data/photos.json", "data/tracks.geojson",
             "data/places.geojson"]
