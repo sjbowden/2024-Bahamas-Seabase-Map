@@ -25,17 +25,10 @@ from matplotlib.path import Path
 from matplotlib.patches import PathPatch
 
 from abaco_geo import land_polygons
-from roads import route as road_route
 from trip import (AIRPORT, ANCHORAGES, DAYS, EXTENT, HOTEL, LAND_BBOX,
-                  LAT0, MARINA, NM, PLACES, haversine, load_day, shoal)
+                  LAT0, MARINA, NM, PLACES, haversine, load_day, shoal,
+                  transfer_route)
 
-
-def transfer_route():
-    """Friday's airport→hotel drive, routed over OSM roads. The recorded log
-    for that day is unusable (all dead-reckoning), so this is a reconstruction,
-    and the poster says so."""
-    pts, _ = road_route((AIRPORT[1], AIRPORT[0]), (HOTEL[1], HOTEL[0]))
-    return pts
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ASPECT = 1.0 / math.cos(math.radians(LAT0))   # deg lon -> deg lat scaling

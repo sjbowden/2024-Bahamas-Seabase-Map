@@ -29,7 +29,7 @@ from shapely import set_precision
 
 from abaco_geo import land_polygons
 from trip import (AIRPORT, ANCHORAGES, DAYS, EXTENT, HOTEL, LAND_BBOX, MARINA,
-                  PLACES, load_day, shoal)
+                  PLACES, load_day, shoal, transfer_route)
 from map import clock_fit as C
 from map import place as P
 
@@ -118,8 +118,20 @@ def track_layer():
     for d in DAYS:
         t = load_day(d["file"], walk_split=d.get("walk_split"),
                      road_split=d.get("road_split"))
-        for mode in ("afloat", "walk", "road"):
-            pts = t[mode]
+        segments = dict(t)
+        # The poster draws no recorded track on the arrival day, because that
+        # log is dead-reckoning noise inside an 870 m box, and substitutes the
+        # road route instead. The map has to make the same choice or the two
+        # artefacts disagree about how the crew reached the hotel.
+        if d.get("ashore"):
+            segments["afloat"] = []
+        if d.get("transfer"):
+            # transfer_route() yields (lon, lat) pairs, which is the order the
+            # poster's plotter wants and the reverse of a track fix's.
+            segments["transfer"] = [(None, lat, lon)
+                                    for lon, lat in transfer_route()]
+        for mode in ("afloat", "walk", "road", "transfer"):
+            pts = segments.get(mode) or []
             if len(pts) < 2:
                 continue
             feats.append(dict(
@@ -139,18 +151,24 @@ def places_layer():
     minzoom staggers them: the big water and island legends belong at the scale
     you arrive at, the anchorages and the marina only once you are looking closely.
     """
-    zoom = dict(big=9, water=9, town=10, isle=11)
+    # These are set against the zoom the chart actually *opens* at, which differs
+    # by device: the extent is portrait, so a landscape desktop fits it at about
+    # z10.4 and a phone at about z9.9. Thresholds of 10 left the phone — the
+    # stated primary target — with no names on it at all. Towns and cays now
+    # appear on the first screen everywhere; anchorages still wait until someone
+    # is looking closely at one.
+    zoom = dict(big=8.5, water=8.5, town=9, isle=9.6)
     feats = []
     for lon, lat, text, kind, *_ in PLACES:
         feats.append(dict(type="Feature",
-                          properties=dict(label=text.replace("\n", " "), kind=kind,
+                          properties=dict(label=text, kind=kind,
                                           minzoom=zoom.get(kind, 11)),
                           geometry=dict(type="Point",
                                         coordinates=[round(lon, PRECISION),
                                                      round(lat, PRECISION)])))
     for lon, lat, text, *_ in ANCHORAGES:
         feats.append(dict(type="Feature",
-                          properties=dict(label=text, kind="anchorage", minzoom=12),
+                          properties=dict(label=text, kind="anchorage", minzoom=11.5),
                           geometry=dict(type="Point", coordinates=[round(lon, 5),
                                                                    round(lat, 5)])))
     for lon, lat, label, kind in ((AIRPORT[0], AIRPORT[1], AIRPORT[3], "airport"),
