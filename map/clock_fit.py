@@ -37,17 +37,27 @@ The window is +/-12 h, because the crew's days look alike. Searched wider, an
 offset a whole day out scores nearly as well as the truth, and the GoPro's best
 peak across +/-26 h was -21.4 h — a lag no clock setting can produce.
 
-Coverage is not a test of correctness. It ranks rival offsets, where it breaks
-ties the coincidence count cannot, but photographs taken in the evenings ashore
-while the receiver sat on its charger are real: hiding the iPhone 15 Pro's
-satellite times and refitting recovers +240.03 min, right to two seconds, at a
-coverage of 0.844. A floor above that refuses a demonstrably correct answer.
+The coverage floor is low, because photographs taken in the evenings ashore while
+the receiver sat on its charger are real: hiding the iPhone 15 Pro's satellite
+times and refitting recovers +240.03 min, right to two seconds, at a coverage of
+0.844. A floor above that refuses a demonstrably correct answer. But it is a
+floor and not a tiebreaker — 150 times scattered inside a single day score 30x
+the chance rate with no rival at all, and coverage is the only thing that stops
+them.
 
-The refusal rule stands, restated for this method: an offset is applied only
-when its coincidence count stands clear of that null and of the best genuinely
-different hypothesis. A camera that cannot clear both bars has not been
-calibrated, and its photographs drop a tier rather than being placed confidently
-in the wrong place. `python -m map.tests` is what keeps that claim honest.
+**One bar, not two.** There used to be a `calibrated` and an `inferred` grade
+here, which read as though a well-fitted camera would be published differently
+from a marginal one. It never was: place.py decides the published tier from the
+*method* — satellites and timezone tags are `calibrated`, anything fitted is
+`inferred` — so the grade affected nothing and only invited the reader to think a
+distinction was being drawn. What actually distinguishes a good fit from a poor
+one is `peak_width_s`, which place.py turns into metres per photograph against
+the real track. The Canon's frames are `inferred` and mostly good to 8 m; the
+GoPro's are `inferred` and run to 1.8 km. No grade could say that.
+
+So there is one bar: accepted, or refused with a reason. `python -m map.tests` is
+what keeps that honest, and the fits are sequential — each accepted camera joins
+the reference the next one is measured against, largest and best-evidenced first.
 """
 import argparse
 import collections
@@ -73,20 +83,30 @@ REFINE_S = 1.0
 REFINE_SPAN_S = 120.0
 SHOULDER_S = 1800.0             # within this of the winner is the same peak
 
-# What the fit has to clear. The statistic is how many of this camera's
-# photographs land within WINDOW_S of a photograph whose UTC is already known —
-# measured against the null of that same count across every candidate offset.
-# The Canon reaches 176 of 547 against a null of 27.6 +/- 25.0.
+# What the fit has to clear: one bar, three tests, and not a standard-deviation
+# score among them. Calibrated against the fits that must pass (rate 5.6 to 10.0)
+# and the inputs that must not (1.85).
 #
-# Coverage is deliberately NOT a bar for correctness, only a weak sanity floor.
-# It earns its keep ranking rival offsets, where it breaks ties the coincidence
-# count cannot. But a camera that shot the evenings ashore, after the receiver
-# was on its charger, legitimately has photographs outside every window: hiding
-# the iPhone 15 Pro's satellite times and refitting it recovers +240.03 min —
-# right to two seconds — at a coverage of 0.844. A floor above that would refuse
-# a demonstrably correct answer, which is the opposite of the refusal rule's job.
-CALIBRATED = dict(z=6.0, coverage=0.60, margin=1.5)
-INFERRED = dict(z=4.0, coverage=0.60, margin=1.0)
+#   rate      coincidences over what a random offset in the search finds. "This
+#             offset lines up N times better than chance." Comparable between a
+#             547-photograph camera and a 114-photograph one, which is exactly
+#             what a z-score is not: z divides by the null's spread, the Canon's
+#             spread is inflated to +/-25.0 by its own peak shoulder, and z
+#             therefore ranked the Canon — 176 coincidences against 27.6
+#             expected, peak sharp to under 30 s — *below* two weaker cameras.
+#   coverage  a gate, not a tiebreaker, which took a degenerate input to settle:
+#             150 times scattered inside a single day score rate 30 and an
+#             unbounded margin, sailing through both other tests. Coverage 0.000
+#             is the only thing that refuses them.
+#   margin    the winner against the best genuinely different hypothesis, so a
+#             rival offset that explains the data nearly as well is fatal.
+#
+# The coverage floor stays low on purpose. Photographs taken ashore in the
+# evening, while the receiver sat on its charger, are real: hiding the iPhone 15
+# Pro's satellite times and refitting recovers +240.03 min — right to two
+# seconds — at a coverage of 0.844. A floor above that refuses a demonstrably
+# correct answer, which is the opposite of the refusal rule's job.
+ACCEPT = dict(rate=3.0, coverage=0.60, margin=1.10)
 
 UTC = timezone.utc
 
@@ -195,7 +215,7 @@ def correlate_offset(local_times, reference_utc, spans, search_h=SEARCH_H):
     `offset_s` is what to add to this camera's local timestamps to get UTC.
     """
     if not local_times or len(reference_utc) < 20:
-        return dict(accepted=False, tier=None, reason="not enough to correlate")
+        return dict(accepted=False, reason="not enough to correlate")
     ref = np.array(sorted(t.timestamp() for t in reference_utc))
     cam = np.array([t.timestamp() for t in local_times])
 
@@ -233,7 +253,7 @@ def correlate_offset(local_times, reference_utc, spans, search_h=SEARCH_H):
     near = np.abs(grid - coarse) <= SHOULDER_S
     good = grid[near][counts[near] >= 0.9 * counts[best]]
     width = float(good.max() - good.min()) if good.size else 0.0
-    z = (hits - mu) / sd
+    rate = hits / mu if mu > 0 else float("inf")
     score = hits * coverage_frac
 
     # The best genuinely different hypothesis — not the winner's own shoulder,
@@ -246,23 +266,25 @@ def correlate_offset(local_times, reference_utc, spans, search_h=SEARCH_H):
         break
     margin = score / rival if rival > 0 else float("inf")
 
-    tier, reason = None, None
-    for name, g in (("calibrated", CALIBRATED), ("inferred", INFERRED)):
-        if z >= g["z"] and coverage_frac >= g["coverage"] and margin >= g["margin"]:
-            tier = name
-            break
-    if tier is None:
-        reason = (f"z={z:.1f} coverage={coverage_frac:.2f} margin={margin:.2f} "
-                  f"clears neither bar")
+    failed = []
+    if rate < ACCEPT["rate"]:
+        failed.append(f"rate {rate:.2f} < {ACCEPT['rate']}")
+    if coverage_frac < ACCEPT["coverage"]:
+        failed.append(f"coverage {coverage_frac:.2f} < {ACCEPT['coverage']}")
+    if margin < ACCEPT["margin"]:
+        failed.append(f"margin {margin:.2f} < {ACCEPT['margin']}")
     # No timezone on earth is more than 14 h from UTC, so an offset past that is
     # not a clock setting and will not be applied however well it scores.
     if abs(offset) > 12 * 3600.0:
-        tier, reason = None, (f"offset {offset / 3600.0:+.1f} h is outside any "
-                              f"timezone a clock could have been set to")
-    return dict(accepted=tier is not None, tier=tier, reason=reason,
+        failed.append(f"offset {offset / 3600.0:+.1f} h is outside any timezone a "
+                      f"clock could have been set to")
+    accepted = not failed
+    reason = None if accepted else "; ".join(failed)
+    return dict(accepted=accepted, reason=reason,
                 offset_s=offset, offset_min=round(offset / 60.0, 3),
                 coincidences=hits, n=len(local_times),
-                null_mean=round(mu, 1), null_sd=round(sd, 1), z=round(float(z), 1),
+                null_mean=round(mu, 1), null_sd=round(sd, 1),
+                rate=(round(float(rate), 2) if rate != float("inf") else None),
                 coverage=round(coverage_frac, 3), peak_width_s=round(width, 1),
                 margin=(round(margin, 2) if margin != float("inf") else None),
                 rival_min=(round(rival_off / 60.0, 2) if rival_off is not None else None))
@@ -363,15 +385,15 @@ def fit(photos):
             rec["fit"]["variant"] = best
             if len(fits) > 1:
                 rec["fit_variants"] = {
-                    k: dict(z=v.get("z"), offset_min=v.get("offset_min"),
+                    k: dict(rate=v.get("rate"), offset_min=v.get("offset_min"),
                             coincidences=v.get("coincidences"),
-                            coverage=v.get("coverage"), tier=v.get("tier"),
-                            reason=v.get("reason"))
+                            coverage=v.get("coverage"),
+                            accepted=v.get("accepted"), reason=v.get("reason"))
                     for k, v in fits.items()}
             if fits[best].get("accepted"):
                 rec["method"] = rec.get("method") or "correlate"
                 off = timedelta(seconds=fits[best]["offset_s"])
-                method = f"correlate/{fits[best]['tier']}"
+                method = "correlate"
                 for p in need:
                     direct[p["id"]] = (_local(p["time_local"]) + off, method)
         cameras[cam] = rec
@@ -398,25 +420,25 @@ def report(photos, per_photo, cameras, spans):
         print(f"  {str(k or 'unresolved'):22} {n:5}")
     print(f"  {'':22} {sum(m.values()):5}  total")
 
-    print(f"\n{'camera':34} {'imgs':>5} {'direct':>6} {'fit':>5} {'method':>18} "
-          f"{'offset':>11} {'coinc':>11} {'z':>5} {'cov':>6} {'margin':>7}")
+    print(f"\n{'camera':34} {'imgs':>5} {'direct':>6} {'fit':>5} {'method':>10} "
+          f"{'offset':>11} {'coinc':>11} {'rate':>6} {'cov':>6} {'margin':>7}")
     for cam, r in sorted(cameras.items(), key=lambda kv: -kv[1]["photographs"]):
         f = r.get("fit") or {}
         off = f"{f['offset_min']:+.2f}m" if f.get("offset_min") is not None else "-"
         coinc = f"{f['coincidences']}/{f['n']}" if f.get("coincidences") is not None else "-"
         print(f"  {cam[:32]:32} {r['photographs']:5} {r['resolved_directly']:6} "
-              f"{r['needing_fit']:5} {str(r.get('method') or '-'):>18} {off:>11} "
-              f"{coinc:>11} {str(f.get('z') or '-'):>5} "
+              f"{r['needing_fit']:5} {str(r.get('method') or '-'):>10} {off:>11} "
+              f"{coinc:>11} {str(f.get('rate') or '-'):>6} "
               f"{str(f.get('coverage') or '-'):>6} {str(f.get('margin') or '-'):>7}")
         if r.get("skipped_fit"):
             print(f"  {'':32} no fit attempted: {r['skipped_fit']}")
         if f and not f.get("accepted"):
             print(f"  {'':32} REFUSED: {f.get('reason')}")
-        elif f.get("tier"):
-            print(f"  {'':32} accepted as {f['tier']}: {f['coincidences']} of {f['n']} "
-                  f"within {WINDOW_S:.0f}s of another camera's shot, against a null "
-                  f"of {f['null_mean']}+/-{f['null_sd']}; best rival "
-                  f"{f.get('rival_min')}m; peak localised to "
+        elif f.get("accepted"):
+            print(f"  {'':32} accepted: {f['coincidences']} of {f['n']} within "
+                  f"{WINDOW_S:.0f}s of another camera's shot — {f['rate']}x what a "
+                  f"random offset finds; best rival {f.get('rival_min')}m; peak "
+                  f"localised to "
                   + (f"under {COARSE_S:.0f}s" if not f.get("peak_width_s")
                      else f"{f['peak_width_s'] / 60:.1f} min"))
         if r.get("fit_variants"):

@@ -120,7 +120,7 @@ def test_synthetic(photos, spans):
         near(f"recovers {shift_min:+.1f} min", fit["offset_s"] / 60.0, -shift_min,
              0.5, "m")
         check(f"  and accepts it ({shift_min:+.1f})", fit["accepted"],
-              f"tier={fit['tier']} z={fit['z']} cov={fit['coverage']}")
+              f"rate={fit['rate']}x cov={fit['coverage']}")
 
 
 def test_anchor_starvation(photos, spans):
@@ -151,7 +151,8 @@ def test_anchor_starvation(photos, spans):
     fit = C.correlate_offset(local, ref, spans)
     near("correlation recovers the same offset", fit["offset_s"] / 60.0, -med, 1.0, "m")
     check("and it clears the bar", fit["accepted"],
-          f"tier={fit['tier']} z={fit['z']} coincidences={fit['coincidences']}/{fit['n']}")
+          f"rate={fit['rate']}x margin={fit['margin']} "
+          f"coincidences={fit['coincidences']}/{fit['n']}")
     check("peak is tightly localised", fit["peak_width_s"] <= 300,
           f"{fit['peak_width_s']}s")
 
@@ -166,8 +167,18 @@ def test_refusal(photos, spans):
     scattered = [base + timedelta(seconds=(i * 7919) % (7 * 86400))
                  for i in range(200)]
     fit = C.correlate_offset(scattered, ref, spans)
-    check("scattered times are refused", not fit["accepted"],
-          f"tier={fit['tier']}, {fit.get('reason')}")
+    check("scattered times are refused", not fit["accepted"], fit.get("reason"))
+
+    # This one is why coverage is a gate and not a tiebreaker: pseudo-random times
+    # packed into a single day score 30x the chance rate with no rival offset at
+    # all, so rate and margin both wave it through. Only coverage stops it.
+    packed = [base + timedelta(seconds=(i * 104729) % 86400) for i in range(150)]
+    dud = C.correlate_offset(packed, ref, spans)
+    check("times packed into one day are refused", not dud["accepted"],
+          dud.get("reason"))
+    check("  and only coverage catches them",
+          dud["rate"] is None or dud["rate"] >= C.ACCEPT["rate"],
+          f"rate {dud['rate']}x, margin {dud['margin']}, coverage {dud['coverage']}")
     thin = C.correlate_offset([base], ref[:5], spans)
     check("too little to correlate is refused", not thin["accepted"], thin.get("reason"))
 
@@ -178,7 +189,7 @@ def test_invariants(photos, spans):
     check("every photograph has exactly one verdict", len(per_photo) == len(photos),
           f"{len(per_photo)} verdicts for {len(photos)} photographs")
     methods = {v["method"] for v in per_photo.values()}
-    allowed = {None, "gps_utc", "tz_tag", "correlate/calibrated", "correlate/inferred"}
+    allowed = {None, "gps_utc", "tz_tag", "correlate"}
     check("no unexpected method names", methods <= allowed, str(methods - allowed))
     bad = [k for k, v in per_photo.items() if v["utc"] and not v["method"]]
     check("a time always comes with the method that found it", not bad, str(bad[:3]))
