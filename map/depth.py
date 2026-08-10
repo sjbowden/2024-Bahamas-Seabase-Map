@@ -288,10 +288,6 @@ FLATS_LAND_FRACTION = 0.25
 # of smoothing the flats instead of leaving them a mosaic, because each pass
 # averages the neighbours it grew from.
 FRINGE_PASSES = 24
-# How far the water colour is carried under the coastline, to keep the resampler
-# from interpolating alpha at the shore. Only needs to cover a source pixel or two.
-COAST_BLEED = 10
-
 # A depth is rejected as implausible when it is more than this many times the mean
 # of its wider neighbourhood, and over 6 m. GMRT has no soundings inside Great
 # Abaco's tidal marsh and its interpolation there invents water 26 m deep, which is
@@ -321,16 +317,22 @@ SUSPECT_WINDOW = 25
 # moved the problem: an artefact held at 19.5 m lands in the *lightest* drawn
 # band, so the marsh went from invisibly pale to visibly pale. Refilling gives it
 # whatever its surroundings have, which is what the eye expects of a flat.
-# Sub-samples per cell, per axis, when deciding a pixel's colour. 3 means each
-# pixel is the average of 9 band lookups taken through the bilinearly interpolated
-# seabed, which antialiases every band edge to about a third of a cell.
+# Cells per side to coarsen the grid by before drawing the bands, and how far to
+# round their corners afterwards. 4 cells is about 244 m, and 240 m of rounding is
+# roughly one coarse cell — together, about the generalisation the poster's drawn
+# shoal halos had.
 #
-# Averaging the *depths* over a neighbourhood first was tried instead and was
-# clearly worse: it pulled wide areas of the bank onto the 4 m boundary, where the
-# least variation flips a cell, and the chart dithered into a mosaic. Bilinear
-# interpolation cannot do that — it reproduces each cell centre exactly and moves
-# monotonically between them.
-SUBSAMPLES = 3
+# Averaging the depths over a neighbourhood *before* banding was tried instead,
+# while this was still a raster, and was clearly worse: it pulled wide areas of the
+# bank onto the 4 m boundary, where the least variation flips a cell, and the chart
+# dithered into a mosaic. Coarsening by whole cells and rounding the outline cannot
+# do that.
+COARSEN = 4
+ROUND_M = 240.0
+# How much of the rounded outline to keep. Simplifying at a third of a coarse cell
+# (81 m) undid the rounding and left the bands visibly faceted, which is the one
+# thing the poster's halos never were.
+SIMPLIFY_M = 25.0
 
 # No shore shelves from nothing to twenty metres inside one 61 m cell. Water is
 # therefore not allowed to be deeper than this many metres per cell of distance
@@ -492,55 +494,6 @@ def _cells_from(mask, reach):
     return dist
 
 
-def _between(a, sy, sx):
-    """`a` resampled a fraction of a cell away, bilinearly, edges held.
-
-    Rolling a padded copy wraps the outer ring around, which is why the ring is
-    padded on and then cropped off again: the wrap only ever lands in the part
-    thrown away.
-    """
-    p = np.pad(a, 1, mode="edge")
-    for s, axis in ((sy, 0), (sx, 1)):
-        if s:
-            f = abs(s)
-            p = (1.0 - f) * p + f * np.roll(p, -1 if s > 0 else 1, axis=axis)
-    return p[1:-1, 1:-1]
-
-
-def _banded(depth):
-    """Band colours per pixel, antialiased; and where there is water at all.
-
-    Each pixel is the mean of SUBSAMPLES² band lookups taken between the cell
-    centres, so a band edge crossing a cell shows as a blend rather than as a step.
-    Without this the bands drew as rectilinear staircases at 61 m, which is the
-    scale of the survey and not of anything on the seabed. MapLibre's own resampling
-    cannot fix that: given a hard edge on a coarse lattice it can only give back a
-    staircase or a blur, and it was asked for both in turn.
-
-    The deepest band is painted here rather than left transparent for the page
-    background to show through, so that the 20 m edge antialiases like the others.
-    Its colour is the background's, so nothing looks different where it is flat.
-    """
-    palette = np.array([[int(c[i:i + 2], 16) for i in (1, 3, 5)]
-                        for _, _, c, _ in BANDS], dtype=np.uint8)
-    edges = np.array([hi for _, hi, _, _ in BANDS[:-1]], dtype=np.float32)
-    off = [(k + 0.5) / SUBSAMPLES - 0.5 for k in range(SUBSAMPLES)]
-
-    acc = np.zeros(depth.shape + (3,), dtype=np.uint16)
-    hits = np.zeros(depth.shape, dtype=np.uint8)
-    for sy in off:
-        for sx in off:
-            v = _between(depth, sy, sx)
-            wet = v > 0
-            idx = np.digitize(v, edges).astype(np.uint8)
-            for ch in range(3):
-                acc[:, :, ch] += np.where(wet, palette[:, ch][idx], 0)
-            hits += wet
-    safe = np.maximum(hits, 1).astype(np.uint16)
-    rgb = (acc // safe[:, :, None]).astype(np.uint8)
-    return rgb, hits > 0
-
-
 def cleaned(depth, dry):
     """Depths with the untrustworthy ones replaced; land and dry cells set to -1.
 
@@ -597,64 +550,67 @@ def cleaned(depth, dry):
     return np.where(sea, out, -1.0), sea
 
 
-def render_png(grid, path, max_px=5200, land=None):
-    """Paint the depth bands into a paletted PNG, reprojected to web mercator.
+def band_polygons(grid, land):
+    """The depth bands as polygons: (hi, colour, label, geometry), deepest first.
 
-    A raster, not vector bands. Bathymetry is a continuous field, and the first
-    attempt here — contour it, polygonise the lines with the frame, classify each
-    face by sampling — put only 6.7% of the wet area into a band and mis-assigned
-    some of what it did catch, because contour lines that run off the grid edge do
-    not close into faces. A picture of a grid is what a grid is.
+    Built from the cells rather than by contouring them. Contouring was tried three
+    times and lost 40-60% of the two shallow bands' area every time, differently
+    each time — those bands are ribbons hugging the coast, which is where every
+    assumption about ring winding and nesting broke. Here each run of band cells in
+    a row becomes a rectangle and GEOS unions them, so holes and nesting are
+    computed rather than inferred, and the area is exact at the coarsened cell size
+    before rounding. Measured after rounding it comes to 1.01-1.07x the grid's own
+    figure, always over rather than under, which is the safe direction for a chart
+    about shoals.
 
-    Reprojected on the way out because MapLibre maps an image's four corners onto
-    a mercator quad: handing it rows that are linear in latitude would stretch
-    them non-linearly and misregister the depths against the coastline by a few
-    hundred metres in the middle of the image.
+    Polygons rather than a raster because a raster of a coarse grid can only be a
+    staircase or a blur, and both were tried and both looked it. These are also
+    smaller: 367 KB against 692 KB for the PNG they replace.
     """
-    from PIL import Image
+    from shapely import unary_union
+    from shapely.geometry import box
 
     x0, y0, x1, y1 = grid.bounds
+    dry = _land_mask(land, grid.ncols, grid.nrows, x0, y0, x1, y1, lambda lat: lat)
+    depth, sea = cleaned(grid.depth, dry)
+    wet = sea & (depth > 0)
 
-    def merc_y(lat):
-        return math.log(math.tan(math.pi / 4 + math.radians(lat) / 2))
+    # Coarsen to about 244 m, which is the generalisation the poster's drawn shoal
+    # halos had and roughly what a 61 m satellite-derived grid can honestly claim.
+    k = COARSEN
+    nr, nc = (grid.nrows // k) * k, (grid.ncols // k) * k
+    dsum = np.where(wet, depth, 0.0)[:nr, :nc].reshape(nr // k, k, nc // k, k)
+    wsum = wet[:nr, :nc].reshape(nr // k, k, nc // k, k)
+    n = wsum.sum((1, 3))
+    coarse = np.where(n > 0, dsum.sum((1, 3)) / np.maximum(n, 1), -1.0)
+    cwet = n > (k * k) // 2
 
-    my0, my1 = merc_y(y0), merc_y(y1)
-    h = min(max_px, grid.nrows)
-    w = min(max_px, grid.ncols)
-    # Output row -> mercator y -> latitude -> source row.
-    out_lat = np.array([
-        math.degrees(2 * math.atan(math.exp(my1 - (my1 - my0) * (r + 0.5) / h)) - math.pi / 2)
-        for r in range(h)])
-    src_row = np.clip(((y0 + grid.nrows * grid.cell - out_lat) / grid.cell).astype(int),
-                      0, grid.nrows - 1)
-    src_col = np.clip((np.linspace(0, grid.ncols - 1, w)).astype(int), 0, grid.ncols - 1)
-    sampled = grid.depth[np.ix_(src_row, src_col)]
-
-    rgba = np.zeros((h, w, 4), dtype=np.uint8)
-    dry = (_land_mask(land, w, h, x0, y0, x1, y1, merc_y)
-           if land is not None else np.zeros((h, w), dtype=bool))
-    sampled, sea = cleaned(sampled, dry)
-
-    # Carry the water colour a little way *into* the land, which is not about
-    # depth at all. The
-    # image is magnified by ten or more when zoomed in, and MapLibre's linear
-    # resampling interpolates the alpha channel as well as the colour — so a hard
-    # water-to-transparent edge at the coast became a semi-transparent band a
-    # source pixel wide, through which the pale background showed as a light halo
-    # along every shore. Carrying the water colour a few pixels under the land
-    # means the interpolation blends water into water; the coastline layer is drawn
-    # on top, so nobody sees where it stops.
-    sampled = _grow_into(sampled, np.ones_like(sea), passes=COAST_BLEED,
-                         trusted=sampled > 0)
-    rgba[:, :, :3], hit = _banded(sampled)
-    rgba[:, :, 3] = np.where(hit, 255, 0)
-    img = Image.fromarray(rgba, "RGBA")
-    # Quantising to the handful of colours actually used makes the file a fraction
-    # of the size; RGBA is kept for the transparent land and deep water.
-    img.save(path, "PNG", optimize=True)
-    return dict(path=path, width=w, height=h,
-                coordinates=[[x0, y1], [x1, y1], [x1, y0], [x0, y0]],
-                covered=float((rgba[:, :, 3] > 0).mean()))
+    cell = grid.cell * k
+    top = y0 + grid.nrows * grid.cell
+    out = []
+    for lo, hi, colour, label in BANDS:
+        if hi > 1e8:
+            continue                  # the water background paints the deepest
+        mask = cwet & (coarse > 0) & (coarse < hi)
+        pad = np.zeros((mask.shape[0], mask.shape[1] + 2), bool)
+        pad[:, 1:-1] = mask
+        boxes = []
+        for r in range(mask.shape[0]):
+            row = pad[r]
+            edges = np.flatnonzero(row[1:] != row[:-1])
+            hi_lat, lo_lat = top - r * cell, top - (r + 1) * cell
+            boxes += [box(x0 + a * cell, lo_lat, x0 + b * cell, hi_lat)
+                      for a, b in zip(edges[0::2], edges[1::2])]
+        g = unary_union(boxes)
+        # Round the staircase off the way the poster's halos were drawn — buffer
+        # out, back past, and out again. Closing then opening keeps the shape and
+        # loses the corners; it also cuts the file by two thirds.
+        r = ROUND_M / 111320.0
+        g = g.buffer(r, join_style=1).buffer(-2 * r, join_style=1)
+        g = g.buffer(r, join_style=1).simplify(SIMPLIFY_M / 111320.0,
+                                               preserve_topology=True)
+        out.append((hi, colour, label, g))
+    return out
 
 
 def main():
