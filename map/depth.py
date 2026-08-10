@@ -9,7 +9,7 @@ buffers around the land, coloured to *suggest* shallows. This is the real thing,
 from GMRT (the Global Multi-Resolution Topography synthesis), which serves a grid
 subset over one HTTP request with no key and no account.
 
-At 122 m cells over the whole chart region it resolves the Sea of Abaco's banks
+At 61 m cells over the whole chart region it resolves the Sea of Abaco's banks
 plainly, and the answer it gives matches the crew's memory of scraping across:
 Sunday and Tuesday both touch 1.0 m, and Wednesday spent 4,681 fixes in under
 three metres of water.
@@ -26,7 +26,7 @@ water level under the boat on the day, so they are not what the depth sounder
 would have read.
 
 **Blind to anything narrower than a cell.** A harbour entrance, a dredged
-channel, a marina berth — all finer than 122 m, so the grid calls them land. The
+channel, a marina berth — all finer than 61 m, so the grid calls them land. The
 day-by-day figures below therefore ignore fixes the grid thinks are ashore, which
 is why Friday's airport drive and Thursday's mooring hop contribute nothing.
 """
@@ -42,7 +42,8 @@ import numpy as np
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 GRIDSERVER = "https://www.gmrt.org/services/GridServer"
 
-# Two grids, for the same reason the coastline has three zoom bands.
+# Two grids are fetched and then merged into one by merged(); see there for why
+# drawing them as two separate rasters could not be made to work.
 #
 # `wide` covers everywhere the chart can be looked at, because a depth layer
 # stopping short of the view would put back the straight edge the coastline fetch
@@ -50,13 +51,13 @@ GRIDSERVER = "https://www.gmrt.org/services/GridServer"
 # is 5008x3368 cells and 134 MB of ASCII.
 #
 # `fine` covers where the boat actually went, at 61 m — twice the detail, over the
-# only area anyone zooms in far enough to see it. Beyond its edge the wide grid
-# keeps drawing, so there is no hole, only a change of detail.
+# only area anyone zooms in far enough to see it. Its cell size sets the lattice
+# the merged grid uses everywhere.
 GRIDS = {
     "wide": dict(bbox=(25.70, -78.30, 27.55, -75.55), resolution="high",
                  cache="depth_gmrt.npz", minzoom=None),
     "fine": dict(bbox=(26.15, -77.35, 26.85, -76.80), resolution="max",
-                 cache="depth_gmrt_fine.npz", minzoom=11.5),
+                 cache="depth_gmrt_fine.npz", minzoom=None),
 }
 
 
@@ -331,9 +332,29 @@ SUSPECT_WINDOW = 25
 # monotonically between them.
 SUBSAMPLES = 3
 
+# No shore shelves from nothing to twenty metres inside one 61 m cell. Water is
+# therefore not allowed to be deeper than this many metres per cell of distance
+# from the drawn land — about a 1:20 slope, which is generous for sand (real
+# beaches run 1:30 and flatter) and so only ever makes the chart shallower than
+# GMRT claims, never deeper.
+#
+# This is the one rule here that constrains the *ocean* side too. Everything else
+# exempts it, deliberately, so that the Atlantic drop-off along the cays stays
+# deep — but that exemption also let the water read as near-white hard against the
+# beach on Tilloo and Elbow, which is where this came from. It stops binding
+# beyond about 7 cells, so the drop-off itself is untouched.
+SHORE_SLOPE_M_PER_CELL = 3.0
+SHORE_REACH_CELLS = 8
+
 BANK_PLAUSIBLE_M = 12.0
 OCEAN_CONTEXT_M = 40.0
 OCEAN_WINDOW = 51
+
+# How much shallower than its own surroundings a cell in open ocean may claim
+# before it is treated as interpolation rather than seabed. A fifth catches the
+# confetti and leaves the shelf break alone, where a genuinely shallower cell and
+# the ocean around it both paint the deepest band anyway.
+OCEAN_SPIKE_FRACTION = 0.2
 
 
 def _box_mean(a, k):
@@ -451,6 +472,26 @@ def _sea_only(water):
     return sea
 
 
+def _cells_from(mask, reach):
+    """How many cells each cell is from `mask`, out to `reach`; inf past that.
+
+    Grown a ring at a time rather than by a proper distance transform: there is no
+    scipy here, and the answer is only used out to eight cells.
+    """
+    dist = np.full(mask.shape, np.inf, dtype=np.float32)
+    dist[mask] = 0.0
+    cur = mask.copy()
+    for k in range(1, reach + 1):
+        g = cur.copy()
+        g[1:] |= cur[:-1]
+        g[:-1] |= cur[1:]
+        g[:, 1:] |= cur[:, :-1]
+        g[:, :-1] |= cur[:, 1:]
+        dist[g & ~cur] = k
+        cur = g
+    return dist
+
+
 def _between(a, sy, sx):
     """`a` resampled a fraction of a cell away, bilinearly, edges held.
 
@@ -535,6 +576,24 @@ def cleaned(depth, dry):
                | _implausible(depth, sea)
                | (~ocean & (depth > BANK_PLAUSIBLE_M)))
     out = _grow_into(depth, sea, trusted=sea & ~doubted & (depth > 0))
+
+    # The mirror of _implausible, and it needs the opposite repair. A lone cell of
+    # eight metres three kilometres out in water averaging two hundred is not a
+    # pinnacle, it is the interpolation showing, and it drew as dark confetti
+    # scattered across the open Atlantic. Refilling from the nearest trusted
+    # neighbour is no use here — that takes the *shallowest* one, which is the wrong
+    # direction — so these take the depth of the ocean around them instead.
+    #
+    # Restricted to water whose 3 km surroundings are plainly ocean, because on the
+    # banks an isolated shallow patch is a coral head or a sand bore, and those are
+    # the whole point of the layer.
+    ctx = _box_mean_valid(out, sea & (out > 0), OCEAN_WINDOW)
+    spike = sea & (ctx > OCEAN_CONTEXT_M) & (out < OCEAN_SPIKE_FRACTION * ctx)
+    out = np.where(spike, ctx, out)
+
+    # And nowhere close to shore may claim more depth than a beach could reach.
+    reach = _cells_from(dry, SHORE_REACH_CELLS)
+    out = np.minimum(out, SHORE_SLOPE_M_PER_CELL * reach)
     return np.where(sea, out, -1.0), sea
 
 
