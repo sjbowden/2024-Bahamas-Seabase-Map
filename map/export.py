@@ -247,8 +247,11 @@ def export(dest, placed):
     # coastline, not different coastline.
     land = land_polygons(MAP_LAND_BBOX, source=COASTLINE_MAP)
     files = chart_layers(land)
-    grid, fine = DEPTH.Grid("wide"), DEPTH.Grid("fine")
-    depth_days = DEPTH.day_summary(grid, fine)
+    # One depth grid, at the fine cell size over the whole region: two rasters
+    # could not be made to agree at band boundaries and the colours jumped when
+    # the map switched between them.
+    grid = DEPTH.merged()
+    depth_days = DEPTH.day_summary(grid)
     files["tracks.geojson"] = track_layer(depth_days)
     files["places.geojson"] = places_layer()
     files["photos.json"] = photos_json(placed)
@@ -273,15 +276,7 @@ def export(dest, placed):
     files["meta.json"]["depth_image"] = dict(
         url="data/depth.png", coordinates=depth_img["coordinates"],
         width=depth_img["width"], height=depth_img["height"])
-    # And the 61 m grid over the trip area, drawn on top from the zoom where the
-    # extra detail can actually be seen. Beyond its edge the wide grid keeps
-    # drawing, so this refines rather than replaces.
-    fine_img = DEPTH.render_png(fine, os.path.join(dest, "depth.fine.png"),
-                                land=mask_land)
-    files["meta.json"]["depth_image_fine"] = dict(
-        url="data/depth.fine.png", coordinates=fine_img["coordinates"],
-        width=fine_img["width"], height=fine_img["height"],
-        minzoom=fine.minzoom)
+
 
     written = {}
     for name, payload in files.items():
@@ -289,8 +284,7 @@ def export(dest, placed):
         with open(path, "w") as fh:
             json.dump(payload, fh, separators=(",", ":"))
         written[name] = os.path.getsize(path)
-    for name in ("depth.png", "depth.fine.png"):
-        written[name] = os.path.getsize(os.path.join(dest, name))
+    written["depth.png"] = os.path.getsize(os.path.join(dest, "depth.png"))
     return written
 
 

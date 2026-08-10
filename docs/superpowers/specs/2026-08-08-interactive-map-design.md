@@ -571,12 +571,24 @@ validate, and a test asserts it.
   under 2 m and Wednesday 2,378 under 3 m. Each day's popup now says its
   shallowest, straight off the track.
 
-  **Two grids**, for the same reason the coastline has three zoom bands: 122 m over
-  everywhere the chart reaches, and 61 m over the trip area drawn on top from z11.5,
-  where the extra detail begins to show. Beyond the fine grid's edge the wide one
-  keeps drawing, so it refines rather than replaces and there is no seam. The fine
-  raster is 65 KB. The per-day figures come from it, since the whole track is inside
-  it and 61 m resolves a shoal a 122 m cell averages away.
+  **One grid, at 61 m, over the whole region.** It began as two, for the same reason
+  the coastline has three zoom bands: 122 m everywhere the chart reaches and 61 m
+  over the trip area, drawn on top from z11.5. That could not be made to work. Each
+  raster ran its own land mask, its own neighbourhood context and its own
+  plausibility tests at its own resolution, so cells near a band boundary landed on
+  opposite sides of it and **the colours visibly jumped when the map swapped rasters
+  partway through a zoom**. The wide grid is now resampled onto the fine lattice and
+  the fine grid pasted over where it reaches, and everything downstream runs once on
+  the result: 5008×3366, 692 KB, against 183 KB for the two it replaced. Measured
+  afterwards, on the pixels that are open water at two zooms at the same ground
+  footprint, band assignment agrees **100%** — and z12 against z13 is pixel-identical.
+
+  Getting that measurement right took three tries, each wrong in a way that hid the
+  answer. Comparing the same screen centre at different zooms compares different
+  ground footprints. Holding the footprint fixed still fails if the mask is taken
+  per-image, because a dropped cay is water in one and land in the other. And a mask
+  taken from one zoom and applied to the others leaks land-coloured pixels in, which
+  is what made z11 look 18 luminance points lighter than it was.
 
   **The ramp is spaced by luminance, and this mattered more than any of the masks.**
   The first palette ran from #8BBBD8 down to a background of #EDF4F8, and its middle
@@ -590,12 +602,36 @@ validate, and a test asserts it.
   into a drawn band — and each moved well under 1% of anything. The problem was
   never the depths.
 
-  Drawn as a raster, not vector bands. Bathymetry is a continuous field, and
-  contouring it into polygons put only **6.7% of the wet area into a band** because
-  contour lines that run off the grid edge never close into faces. A 2504×1683
-  paletted PNG is 124 KB, exact, and reprojected to web mercator on the way out —
-  handing MapLibre rows linear in latitude would stretch them onto its mercator
-  quad and misregister the depths against the coastline by a few hundred metres.
+  **Drawn as a raster with antialiased band edges, not as vector polygons.** Each
+  pixel is the mean of 3×3 band lookups taken through the bilinearly interpolated
+  seabed, so an edge crossing a cell is a blend rather than a step. Before this the
+  bands drew as rectilinear staircases at 61 m — the survey's scale, not the
+  seabed's — and MapLibre's own resampling cannot help, because given a hard edge on
+  a coarse lattice it can only return a staircase or a blur, and it was asked for
+  both in turn. This costs 265 KB → 692 KB and no GPU memory, since the raster
+  stays the size it was. The deepest band is painted rather than left transparent
+  for the page background to show through, so its edge antialiases like the others;
+  its colour is `--water`, so flat areas look unchanged.
+
+  Averaging the *depths* over a neighbourhood was tried first and was worse, which
+  is why the interpolation is bilinear: box-averaging pulled wide areas of the bank
+  onto the 4 m boundary, where the least variation flips a cell, and the chart
+  dithered into a mosaic. Bilinear interpolation reproduces each cell centre exactly
+  and moves monotonically between them, so it cannot do that.
+
+  Vector bands were then measured properly rather than left at the earlier claim,
+  and rejected on cost: **5.4 MB** against 265 KB, for 5 m edges drawn from 61 m
+  data. The first attempt at them had reported 6.7% of the wet area in a band, and
+  that number was wrong — contour rings pinch against themselves where a shallow
+  region narrows, shapely calls the result invalid, and discarding them threw away
+  the largest shallow areas. Matplotlib's rings sum to 1633 km² against the grid's
+  1644, so the contouring had been right all along; padding the field so every
+  contour closes inside it disposes of the "lines that run off the edge" problem.
+  Kept here because the reasoning, not just the verdict, was faulty.
+
+  Reprojected to web mercator on the way out — handing MapLibre rows linear in
+  latitude would stretch them onto its mercator quad and misregister the depths
+  against the coastline by a few hundred metres.
 
   Three things it is not, kept in the code and here rather than printed on the
   chart: not soundings (GMRT in shallow banks is largely satellite-derived, good to
