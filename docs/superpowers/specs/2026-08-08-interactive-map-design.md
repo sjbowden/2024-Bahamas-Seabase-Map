@@ -244,7 +244,6 @@ costs nothing until then.
 | tier | meaning | source |
 |---|---|---|
 | `gps` | where the **camera** was | its own EXIF coordinates |
-| `bracket` | where the **camera** almost certainly was | interpolated between two of *that camera's own* GPS photographs |
 | `calibrated` | where the **receiver** was | UTC known exactly, then the track |
 | `inferred` | where the receiver probably was | UTC from a fitted offset, then the track |
 | `unplaced` | unknown | no UTC, or no track to look it up against |
@@ -252,7 +251,7 @@ costs nothing until then.
 Positions come from **interpolation between bracketing fixes**, not the nearest
 one. At 5 kn, nearest-fix lookup is needlessly ~10 m out.
 
-**The `bracket` tier reaches nothing on this chart.** The idea was sound: a
+**The `bracket` tier is gone, and this is why.** The idea was sound: a
 GPS-less photograph sitting 40 seconds after one of its own camera's GPS
 photographs and 30 seconds before the next, with those two 30 m apart, belongs
 between them — not on a boat lying 400 m offshore. Same camera, same person, same
@@ -269,11 +268,18 @@ from a bug worth recording: the bracket branch did not apply the region guard th
 the Abaco chart at **latitude 45**. The guard is now shared by both branches, and
 a test asserts that nothing plotted falls outside the chart.
 
-The tier stays — thirty correct, tested lines, and it is the right answer whenever
-a camera has genuinely partial GPS coverage. But it earns nothing here, and it
-should not appear in the viewer's legend until it does. The honest summary is that
-the only camera in this set with partial coverage happened to spend its GPS-less
-frames at home.
+The reason it earns nothing is structural rather than bad luck: the tier needs a
+camera with *partial* GPS coverage, and this set is almost all-or-nothing. The
+drone tagged every frame; the Canon, the FinePix, the GoPro and every other phone
+tagged none. Only one iPhone is mixed, at 480 of 511, and its untagged frames are
+the ones in Portland.
+
+So the placement branch is **removed** — a tier that names nothing has no business
+in the exported data or the viewer's legend, and unused code is where the missing
+region guard came from in the first place. What stays is
+`clock_fit.bracket_reach()`, which measures it every build and prints the number.
+If photographs ever arrive from a crew member whose phone tagged intermittently,
+that number moves off zero and this is twenty lines to put back.
 
 ### What placement cannot know
 
