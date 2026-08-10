@@ -421,9 +421,11 @@ def test_site_build():
     for band in meta["bands"]:
         check(f"app.js knows the {band['name']} band",
               f"'{band['name']}'" in app or f'"{band["name"]}"' in app)
-        for kind in ("coast", "shoals"):
-            f = os.path.join(out, "data", f"{kind}.{band['name']}.geojson")
-            check(f"{kind}.{band['name']}.geojson exists", os.path.exists(f))
+        f = os.path.join(out, "data", f"coast.{band['name']}.geojson")
+        check(f"coast.{band['name']}.geojson exists", os.path.exists(f))
+        gone = os.path.join(out, "data", f"shoals.{band['name']}.geojson")
+        check(f"the drawn shoal halo is gone ({band['name']})",
+              not os.path.exists(gone), "depth.png says it from measurement now")
     html = open(os.path.join(out, "index.html")).read()
     check("the page tells robots to stay away", "noindex" in html)
     check("and so does the header file",

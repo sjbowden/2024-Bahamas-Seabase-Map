@@ -7,7 +7,7 @@
 'use strict';
 
 const PALETTE = {
-  water: '#E7F1F5', shoal1: '#CDE3EE', shoal2: '#B2D3E6',
+  water: '#E7F1F5',
   land: '#F0E2C2', landEdge: '#8A7F6A', ink: '#2E3A42', inkSoft: '#5C6B75',
   // The deepest depth band, painted by the background rather than shipped as
   // 53,543 km2 of polygon.
@@ -106,7 +106,6 @@ async function start() {
   await addTracks(meta);
   await addPhotos();
   await addPlaces();
-  addInreach();
   buildPanel(meta);
   wirePanel();
   scaleBar();
@@ -146,22 +145,6 @@ function addDepth(meta) {
 
 function addChart(meta) {
   addDepth(meta);
-  // Shoals under the land, so the halo reads as shallows running up to a beach.
-  for (const b of BANDS) {
-    map.addSource(`shoals-${b.name}`, { type: 'geojson', data: `data/shoals.${b.name}.geojson` });
-    map.addLayer({
-      id: `shoals-outer-${b.name}`, type: 'fill', source: `shoals-${b.name}`,
-      filter: ['==', ['get', 'ring'], 'outer'],
-      layout: { visibility: 'none' },
-      ...zoomRange(b), paint: { 'fill-color': PALETTE.shoal1 },
-    });
-    map.addLayer({
-      id: `shoals-inner-${b.name}`, type: 'fill', source: `shoals-${b.name}`,
-      filter: ['==', ['get', 'ring'], 'inner'],
-      layout: { visibility: 'none' },
-      ...zoomRange(b), paint: { 'fill-color': PALETTE.shoal2 },
-    });
-  }
   for (const b of BANDS) {
     map.addSource(`coast-${b.name}`, { type: 'geojson', data: `data/coast.${b.name}.geojson` });
     map.addLayer({
@@ -178,6 +161,7 @@ function addChart(meta) {
     });
   }
 }
+
 
 function zoomRange(b) {
   const o = {};
@@ -287,22 +271,6 @@ async function addPlaces() {
   tick();
 }
 
-function addInreach() {
-  fetch('data/inreach.geojson').then((r) => (r.ok ? r.json() : null)).then((fc) => {
-    if (!fc) return;
-    map.addSource('inreach', { type: 'geojson', data: fc });
-    map.addLayer({
-      id: 'inreach', type: 'line', source: 'inreach',
-      layout: { visibility: 'none', 'line-join': 'round' },
-      paint: {
-        'line-color': PALETTE.inkSoft,
-        'line-dasharray': [2, 2],
-        'line-width': ['interpolate', ['linear'], ['zoom'], 8, 1.0, 17, 2.0],
-      },
-    });
-  });
-}
-
 /* ------------------------------------------------------------------ panel --- */
 function buildPanel(meta) {
   const ul = $('#days');
@@ -327,8 +295,7 @@ function buildPanel(meta) {
 }
 
 function wirePanel() {
-  state.layers = { photos: true, depth: true, shoals: false, places: true,
-                   inreach: false };
+  state.layers = { photos: true, depth: true, places: true };
   const panel = $('#panel'), toggle = $('#panel-toggle');
   const setOpen = (open) => {
     panel.hidden = !open;
@@ -341,25 +308,10 @@ function wirePanel() {
     cb.addEventListener('change', () => {
       const key = cb.dataset.layer;
       state.layers[key] = cb.checked;
-      if (key === 'shoals' || key === 'depth') {
-        // Two answers to one question — measured depth, or the poster's drawn
-        // shoal halo — so turning either on turns the other off. Keeping both
-        // would stack a made-up shallows band over a real one.
-        if (cb.checked) {
-          const other = key === 'depth' ? 'shoals' : 'depth';
-          const box = document.querySelector(`#chart-layers input[data-layer="${other}"]`);
-          if (box && box.checked) { box.checked = false; state.layers[other] = false; }
-        }
-        setVisible('depth', !!state.layers.depth);
-        for (const b of BANDS) {
-          for (const r of ['outer', 'inner']) {
-            setVisible(`shoals-${r}-${b.name}`, !!state.layers.shoals);
-          }
-        }
+      if (key === 'depth') {
+        setVisible('depth', cb.checked);
       } else if (key === 'places') {
         state.refreshPlaces && state.refreshPlaces();
-      } else if (key === 'inreach') {
-        setVisible('inreach', cb.checked);
       } else if (key === 'photos') {
         for (const id of ['clusters', 'photo-points', 'uncertainty',
                           'uncertainty-edge', 'selected']) {
