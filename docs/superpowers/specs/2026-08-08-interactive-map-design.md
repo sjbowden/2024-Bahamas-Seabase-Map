@@ -486,10 +486,23 @@ land *identically* inside the chart extent — **0.000 km² of disagreement** ag
 the poster's — while adding 1,404 km² of real coastline beyond it. The poster's
 PNGs stay byte-identical, which is the whole point of keeping the two apart.
 
-Zooming out is worth allowing now that there is something out there to see: 1.2
-zoom levels rather than the 0.35 that made the chart feel stuck, with the pan
-clamp derived from the widest view the zoom limit permits so the two constraints
-cannot fight — an earlier pair did, and the clamp won, cropping the trek.
+**But fetching cannot win this race.** A window can always be made wider than any
+amount of coastline, and a wide enough one at full zoom-out found the edge again.
+So the view is bounded by the data instead of the data being chased outward:
+`VIEW_BOUNDS` names the region that is safe to look at — the fetched box held
+inside its west and south frames, which measurement shows are the only two where
+land is actually cut — and `app.js` derives *both* the minimum zoom and the pan
+clamp from that box and the container size, recomputing on resize.
+
+The consequence is the right one: a wider window buys a wider view rather than a
+glimpse past the edge of the world. Zoom-out room therefore varies by window —
+2.1 levels on a 2220 px display, 1.2 on a laptop — and the clipped frame is
+unreachable at every shape tested, from 390×844 to 5120×1440 and a deliberately
+absurd 3840×720. The chart still opens framed on the trek in every one of them.
+
+Order matters here, and got this wrong once: the clamp must be set *before*
+`fitBounds`, or MapLibre resolves the conflict by zooming in and cropping the
+trek.
 
 **Levels of detail — built, and it works.** `geo/coastline.json` alone is 6.5 MB,
 and the shoals are two buffers over the same geometry. Three bands, simplified to
