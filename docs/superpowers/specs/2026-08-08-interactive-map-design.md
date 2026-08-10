@@ -603,6 +603,19 @@ validate, and a test asserts it.
   blind to anything narrower than a cell, which is why a harbour entrance or a
   dredged berth reads as land.
 
+  **The bank is never drawn as ocean.** GMRT has no soundings inside Great Abaco's
+  tidal marsh, and its interpolation there invents water 26 m deep — measured, the
+  median of the deep cells in the marsh. That is not a hole in a mangrove flat, and
+  because the deepest band is the water background with nothing painted for it, it
+  rendered the same colour as the open Atlantic a few hundred metres from a beach.
+  Rejecting the artefacts individually (deeper than twice the local mean, and over
+  6 m) got about half. The rule that finished it says the thing that is actually
+  true: the Sea of Abaco is not twenty metres deep anywhere, so on the banks depth
+  is held inside the deepest band that gets drawn. Ocean is told apart by its own
+  surroundings over about six kilometres — that classes 0% of the marsh and the
+  Marsh Harbour approaches as ocean, and 85% of the water off Elbow Cay's Atlantic
+  shore, which keeps its real depths. "Over 20 m" is now 0% of the painted raster.
+
   Three masks earn their place, and the last two only after earlier attempts
   failed. Land is rasterised from the coastline, because GMRT is a *bathymetry*
   synthesis whose land elevations sit near zero — testing `depth > 0` painted the

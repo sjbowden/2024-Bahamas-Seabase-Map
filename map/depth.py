@@ -256,6 +256,34 @@ FRINGE_PASSES = 24
 # from interpolating alpha at the shore. Only needs to cover a source pixel or two.
 COAST_BLEED = 10
 
+# A depth is rejected as implausible when it is more than this many times the mean
+# of its wider neighbourhood, and over 6 m. GMRT has no soundings inside Great
+# Abaco's tidal marsh and its interpolation there invents water 26 m deep, which is
+# not a hole in a mangrove flat — it is an artefact, and it rendered as the undrawn
+# deepest band, so it read as open ocean a few hundred metres from a beach.
+#
+# The test has to be local, because "deep" alone is not wrong: measured, this flags
+# 5.8% of the marsh's water and 0.0% of both the open Sea of Abaco and the Atlantic
+# off Elbow Cay, which keeps its real 30 m. Flagged cells are refilled from their
+# neighbours like any other untrusted water.
+SUSPECT_FACTOR = 2.0
+SUSPECT_FLOOR_M = 6.0
+SUSPECT_WINDOW = 25
+
+# On the banks, depth is held inside the deepest band that gets drawn. The deepest
+# band is the water background — nothing is painted for it — so a 25 m artefact a
+# few hundred metres off a beach came out the same colour as the open Atlantic and
+# read as ocean. Rejecting the artefacts one at a time only got half of them; this
+# says the thing that is actually true, which is that the Sea of Abaco is not
+# twenty metres deep anywhere, so anything claiming to be is not being believed.
+#
+# Ocean is told apart by its own surroundings over about six kilometres. Measured,
+# that classes 0% of the marsh and the Marsh Harbour approaches as ocean and 85% of
+# the water off Elbow Cay's Atlantic shore, which keeps its real depths.
+BANK_CAP_M = 19.5
+OCEAN_CONTEXT_M = 40.0
+OCEAN_WINDOW = 51
+
 
 def _box_mean(a, k):
     """Mean over a k x k window, via a summed-area table."""
@@ -304,6 +332,25 @@ def _grow_into(values, region, trusted, passes=FRINGE_PASSES):
         known |= fill
     out[np.isnan(out)] = -1.0
     return out
+
+
+def _box_mean_valid(values, valid, k):
+    """Box mean over the valid cells only."""
+    num = _box_mean(np.where(valid, values, 0.0).astype(np.float32), k)
+    den = _box_mean(valid.astype(np.float32), k)
+    return num / np.maximum(den, 1e-6)
+
+
+def _implausible(depth, sea):
+    """Cells far deeper than their surroundings — interpolation, not bathymetry."""
+    ctx = _box_mean_valid(depth, sea & (depth > 0), SUSPECT_WINDOW)
+    return sea & (depth > np.maximum(SUSPECT_FLOOR_M, SUSPECT_FACTOR * ctx))
+
+
+def _cap_banks(depth, sea):
+    """Hold bank water inside a band that is drawn; leave the ocean alone."""
+    ocean = _box_mean_valid(depth, sea & (depth > 0), OCEAN_WINDOW) > OCEAN_CONTEXT_M
+    return np.where(sea & ~ocean, np.minimum(depth, BANK_CAP_M), depth)
 
 
 def _sea_only(water):
@@ -410,8 +457,10 @@ def render_png(grid, path, max_px=2600, land=None):
     # most. Instead the fringe is filled from the nearest water the grid *is*
     # trusted on, which gets both sides right: shallow on the bank, and still deep
     # along the Atlantic shore of the cays where the bottom drops away fast.
-    sampled = _grow_into(sampled, sea, trusted=sea & ~crowded & (sampled > 0))
+    trusted = sea & ~crowded & (sampled > 0) & ~_implausible(sampled, sea)
+    sampled = _grow_into(sampled, sea, trusted=trusted)
     sampled = np.where(sea, sampled, -1.0)
+    sampled = _cap_banks(sampled, sea)
 
     # And then a little way *into* the land, which is not about depth at all. The
     # image is magnified by ten or more when zoomed in, and MapLibre's linear
