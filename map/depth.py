@@ -344,6 +344,18 @@ COARSEN = 4
 # flats inside Great Abaco are the case that matters, and 1.0 m is the median of
 # GMRT's own readings where it does report them there.
 FLAT_DEPTH_M = 1.0
+# Coarse cells per side to average the depths over before banding them, and the
+# smallest piece of a band worth drawing. 5 cells is about 1.2 km; one coarse cell
+# is 60,000 m2.
+#
+# 1.2 km was chosen by looking at the Atlantic shore of Elbow Cay, where the bottom
+# shelves steadily and the bands should read as roughly parallel to the beach. At
+# 730 m they were still visibly lumpy; at 1.7 km they are smoother still but the
+# bank west of the cays flattens into one tone and real structure goes with it. The
+# per-day figures are unaffected either way — those come from the 61 m grid, not
+# from this.
+COARSE_SMOOTH = 5
+MIN_PART_M2 = 60000.0
 CHAIKIN_PASSES = 3
 GRIP_M = 60.0
 # How much of the smoothed outline to keep. This is what governs how smooth the
@@ -591,11 +603,31 @@ def _chaikin(pts, passes):
     return np.vstack([p, p[:1]])
 
 
+def _despeckle(geom, min_deg2):
+    """Drop parts and holes below one coarse cell, so smoothing cannot fray.
+
+    Smoothing the depths puts a wide area of the bank close to a band edge, and
+    without this the edge frays into specks there instead of running as a line —
+    which is how averaging depths failed the first time it was tried.
+    """
+    from shapely.geometry import Polygon
+    from shapely import unary_union
+
+    keep = []
+    for g in (list(geom.geoms) if hasattr(geom, "geoms") else [geom]):
+        if g.is_empty or not hasattr(g, "exterior") or g.area < min_deg2:
+            continue
+        holes = [h for h in g.interiors if Polygon(h).area >= min_deg2]
+        keep.append(Polygon(g.exterior.coords, [h.coords for h in holes]))
+    return unary_union(keep) if keep else geom
+
+
 def _rounded(geom):
     """The staircase of coarse cells, smoothed, and never pulled off the shore."""
     from shapely.geometry import Polygon
     from shapely import make_valid, unary_union
 
+    geom = _despeckle(geom, MIN_PART_M2 / (111320.0 * 99500.0))
     parts = []
     for g in (list(geom.geoms) if hasattr(geom, "geoms") else [geom]):
         if g.is_empty or not hasattr(g, "exterior"):
@@ -660,6 +692,21 @@ def band_polygons(grid, land):
     # shore now reach a little way over it, which nobody sees: the land is drawn on
     # top, and erring that way is what keeps the bands against the beach.
     cwet = n > 0
+    # Average the coarse depths a little before sorting them into bands. Where the
+    # bottom shelves steadily — the Atlantic side of the cays — the contours really
+    # are close to parallel with the shore, and without this each band's edge
+    # wobbled by a cell or so on its own, so corner cutting rounded the wobble off
+    # rather than removing it and the bands came out lumpy instead of running
+    # together.
+    #
+    # This is the operation that failed at 61 m per-pixel, where it dithered the
+    # bank into a mosaic. It is safe here because it runs on 244 m blocks and
+    # _despeckle drops anything smaller than one of them, so a fraying edge cannot
+    # survive as confetti.
+    if COARSE_SMOOTH > 1:
+        num = _box_mean(np.where(cwet, coarse, 0.0).astype(np.float32), COARSE_SMOOTH)
+        den = _box_mean(cwet.astype(np.float32), COARSE_SMOOTH)
+        coarse = np.where(cwet, num / np.maximum(den, 1e-6), coarse)
 
     cell = grid.cell * k
     top = y0 + grid.nrows * grid.cell
