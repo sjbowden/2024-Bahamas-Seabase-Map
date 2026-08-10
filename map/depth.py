@@ -40,24 +40,48 @@ import warnings
 import numpy as np
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-CACHE = os.path.join(HERE, "geo", "depth_gmrt.npz")
-
-# The region the chart can be looked at, which is what the shading has to cover:
-# a depth layer stopping short of the view would put back the straight edge the
-# coastline fetch was meant to remove. (S, W, N, E) to match fetch_coastline.
-BBOX = (25.70, -78.30, 27.55, -75.55)
-RESOLUTION = "high"          # 122 m cells here; "max" is 134 MB of ASCII
 GRIDSERVER = "https://www.gmrt.org/services/GridServer"
+
+# Two grids, for the same reason the coastline has three zoom bands.
+#
+# `wide` covers everywhere the chart can be looked at, because a depth layer
+# stopping short of the view would put back the straight edge the coastline fetch
+# was meant to remove. It has to be "high" rather than "max": the same box at max
+# is 5008x3368 cells and 134 MB of ASCII.
+#
+# `fine` covers where the boat actually went, at 61 m — twice the detail, over the
+# only area anyone zooms in far enough to see it. Beyond its edge the wide grid
+# keeps drawing, so there is no hole, only a change of detail.
+GRIDS = {
+    "wide": dict(bbox=(25.70, -78.30, 27.55, -75.55), resolution="high",
+                 cache="depth_gmrt.npz", minzoom=None),
+    "fine": dict(bbox=(26.15, -77.35, 26.85, -76.80), resolution="max",
+                 cache="depth_gmrt_fine.npz", minzoom=11.5),
+}
+
+
+def cache_path(which="wide"):
+    return os.path.join(HERE, "geo", GRIDS[which]["cache"])
+
+
+CACHE = cache_path("wide")
 
 # Depth bands, in metres. The chart convention the poster already follows is that
 # deep water reads almost white and it gets bluer inshore, so this is that ramp
 # continued rather than a new colour idea.
+# Spaced by how light they look. The first ramp's middle steps were nearly
+# invisible: 4–10 m sat 25 luminance points from the "deep" background and 10–20 m
+# only 11, so water of five to fifteen metres beside a beach read as open ocean —
+# and the Bight of Old Robinson, 46% of which is those two bands, looked like empty
+# water rather than the shallows it is. The top three steps are now the poster's
+# own water colours with two darker ones added below, which keeps the chart on the
+# sheet's palette while separating the bands by about 20 points each.
 BANDS = [
-    (0.0, 2.0, "#8BBBD8", "under 2 m"),
-    (2.0, 4.0, "#A9CFE4", "2–4 m"),
-    (4.0, 10.0, "#C6DEEC", "4–10 m"),
-    (10.0, 20.0, "#DCEAF2", "10–20 m"),
-    (20.0, 1e9, "#EDF4F8", "over 20 m"),
+    (0.0, 2.0, "#6FA6C9", "under 2 m"),
+    (2.0, 4.0, "#8FBDD9", "2–4 m"),
+    (4.0, 10.0, "#B2D3E6", "4–10 m"),
+    (10.0, 20.0, "#CDE3EE", "10–20 m"),
+    (20.0, 1e9, "#E7F1F5", "over 20 m"),
 ]
 
 # Anything deeper than this is one band, so there is no reason to carry the
@@ -67,15 +91,17 @@ CLIP_DEEP_M = 400.0
 CLIP_HIGH_M = -60.0          # land above this is just "land"
 
 
-def fetch(force=False):
-    """Download the grid and cache it compactly. Returns the cache path."""
-    if os.path.exists(CACHE) and not force:
-        return CACHE
-    s, w, n, e = BBOX
+def fetch(which="wide", force=False):
+    """Download one grid and cache it compactly. Returns the cache path."""
+    spec = GRIDS[which]
+    dest = cache_path(which)
+    if os.path.exists(dest) and not force:
+        return dest
+    s, w, n, e = spec["bbox"]
     url = GRIDSERVER + "?" + urllib.parse.urlencode(dict(
         minlongitude=w, maxlongitude=e, minlatitude=s, maxlatitude=n,
-        format="esriascii", resolution=RESOLUTION, layer="topo"))
-    print(f"fetching GMRT {BBOX} at {RESOLUTION}...")
+        format="esriascii", resolution=spec["resolution"], layer="topo"))
+    print(f"fetching GMRT {which} {spec['bbox']} at {spec['resolution']}...")
     with urllib.request.urlopen(url, timeout=300) as r:
         text = r.read().decode()
     hdr, rows = {}, []
@@ -93,22 +119,24 @@ def fetch(force=False):
     # GMRT topo is elevation: negative is water. Store positive metres of water,
     # negative for land, clipped at both ends.
     depth = np.clip(-grid, CLIP_HIGH_M, CLIP_DEEP_M)
-    os.makedirs(os.path.dirname(CACHE), exist_ok=True)
+    os.makedirs(os.path.dirname(dest), exist_ok=True)
     np.savez_compressed(
-        CACHE, depth_dm=np.rint(depth * 10).astype(np.int16),
+        dest, depth_dm=np.rint(depth * 10).astype(np.int16),
         x0=hdr["xllcorner"], y0=hdr["yllcorner"], cell=hdr["cellsize"],
         nrows=int(hdr["nrows"]), ncols=int(hdr["ncols"]))
-    print(f"cached {CACHE} — {grid.shape[1]}x{grid.shape[0]} cells, "
+    print(f"cached {dest} — {grid.shape[1]}x{grid.shape[0]} cells, "
           f"{hdr['cellsize'] * 111320:.0f} m, "
-          f"{os.path.getsize(CACHE) / 2**20:.1f} MB")
-    return CACHE
+          f"{os.path.getsize(dest) / 2**20:.1f} MB")
+    return dest
 
 
 class Grid:
     """The cached depth grid, with a lookup by position."""
 
-    def __init__(self, path=None):
-        z = np.load(path or CACHE)
+    def __init__(self, which="wide", path=None):
+        z = np.load(path or cache_path(which))
+        self.which = which
+        self.minzoom = GRIDS[which]["minzoom"] if which in GRIDS else None
         self.depth = z["depth_dm"].astype(np.float32) / 10.0
         self.x0, self.y0 = float(z["x0"]), float(z["y0"])
         self.cell = float(z["cell"])
@@ -163,13 +191,17 @@ def along_track(grid, fixes):
     return out
 
 
-def day_summary(grid):
-    """Per-day depth, for the chart's day popups. Shallowest first."""
+def day_summary(grid, finer=None):
+    """Per-day depth, for the chart's day popups.
+
+    Prefers the finer grid where it reaches, since the whole track is inside it and
+    61 m resolves a shoal a 122 m cell averages away.
+    """
     from trip import DAYS, read_fixes
     rows = {}
     for d in DAYS:
         fixes, _ = read_fixes(d["file"])
-        ds = along_track(grid, fixes)
+        ds = along_track(finer or grid, fixes) or along_track(grid, fixes)
         if not ds:
             continue
         depths = sorted(x for _, x in ds)
@@ -408,20 +440,22 @@ def render_png(grid, path, max_px=2600, land=None):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--fetch", action="store_true", help="download the grid")
-    ap.add_argument("--force", action="store_true", help="re-download it")
+    ap.add_argument("--fetch", action="store_true", help="download the grids")
+    ap.add_argument("--force", action="store_true", help="re-download them")
     ap.add_argument("--report", action="store_true")
     a = ap.parse_args()
 
-    if a.fetch or a.force or not os.path.exists(CACHE):
-        fetch(force=a.force)
-    grid = Grid()
-    print(f"grid {grid.ncols}x{grid.nrows}, {grid.cell * 111320:.0f} m cells, "
-          f"bounds {tuple(round(v, 2) for v in grid.bounds)}")
+    for which in GRIDS:
+        if a.fetch or a.force or not os.path.exists(cache_path(which)):
+            fetch(which, force=a.force)
+    grid, fine = Grid("wide"), Grid("fine")
+    for g in (grid, fine):
+        print(f"{g.which:5} {g.ncols}x{g.nrows}, {g.cell * 111320:.0f} m cells, "
+              f"bounds {tuple(round(v, 2) for v in g.bounds)}")
     if a.report:
         print(f"\n{'day':12} {'fixes':>6} {'shallowest':>11} {'median':>7} "
               f"{'<2 m':>6} {'<3 m':>6}")
-        for label, r in day_summary(grid).items():
+        for label, r in day_summary(grid, fine).items():
             print(f"{label:12} {r['fixes']:6} {r['shallowest_m']:10.1f} m "
                   f"{r['median_m']:6.1f} m {r['under_2m']:6} {r['under_3m']:6}")
 
