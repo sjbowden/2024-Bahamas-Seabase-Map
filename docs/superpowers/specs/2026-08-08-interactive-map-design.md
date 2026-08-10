@@ -555,6 +555,25 @@ validate, and a test asserts it.
   under 2 m and Wednesday 2,378 under 3 m. Each day's popup now says its
   shallowest, straight off the track.
 
+  **Two grids**, for the same reason the coastline has three zoom bands: 122 m over
+  everywhere the chart reaches, and 61 m over the trip area drawn on top from z11.5,
+  where the extra detail begins to show. Beyond the fine grid's edge the wide one
+  keeps drawing, so it refines rather than replaces and there is no seam. The fine
+  raster is 65 KB. The per-day figures come from it, since the whole track is inside
+  it and 61 m resolves a shoal a 122 m cell averages away.
+
+  **The ramp is spaced by luminance, and this mattered more than any of the masks.**
+  The first palette ran from #8BBBD8 down to a background of #EDF4F8, and its middle
+  steps were nearly invisible — 4–10 m sat 25 luminance points from "deep" and
+  10–20 m only 11. So water of five to fifteen metres beside a beach read as open
+  ocean, and the Bight of Old Robinson, 46% of which is those two bands, looked like
+  empty water rather than the shallows it is. The top three steps are now the
+  poster's own water colours with two darker ones added below, separating the bands
+  by about 20 points each. Two data-side theories were tried and measured first —
+  taking the shallowest neighbour instead of the mean, and capping near-shore depth
+  into a drawn band — and each moved well under 1% of anything. The problem was
+  never the depths.
+
   Drawn as a raster, not vector bands. Bathymetry is a continuous field, and
   contouring it into polygons put only **6.7% of the wet area into a band** because
   contour lines that run off the grid edge never close into faces. A 2504×1683

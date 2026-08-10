@@ -10,8 +10,9 @@ const PALETTE = {
   water: '#E7F1F5',
   land: '#F0E2C2', landEdge: '#8A7F6A', ink: '#2E3A42', inkSoft: '#5C6B75',
   // The deepest depth band, painted by the background rather than shipped as
-  // 53,543 km2 of polygon.
-  deepWater: '#EDF4F8',
+  // 53,543 km2 of polygon. It is the poster's own water colour, and the depth ramp
+  // steps down from it.
+  deepWater: '#E7F1F5',
 };
 
 // Which band serves which zooms. The coarse band is 138 KB and the fine one
@@ -133,14 +134,20 @@ function applyViewLimits(meta) {
 // The deepest band is not in the data at all — it is the water background, which
 // paints "everywhere else" for nothing.
 function addDepth(meta) {
-  const d = meta.depth_image;
-  if (!d) return;
-  map.addSource('depth', { type: 'image', url: d.url, coordinates: d.coordinates });
-  map.addLayer({
-    id: 'depth', type: 'raster', source: 'depth',
-    paint: { 'raster-opacity': 1, 'raster-fade-duration': 0,
-             'raster-resampling': 'linear' },
-  });
+  // Two grids: 122 m everywhere the chart reaches, and 61 m over the trip area
+  // drawn on top from the zoom where the difference shows. The wide one keeps
+  // drawing beyond the fine one's edge, so this refines rather than replaces.
+  for (const [id, d] of [['depth', meta.depth_image],
+                         ['depth-fine', meta.depth_image_fine]]) {
+    if (!d) continue;
+    map.addSource(id, { type: 'image', url: d.url, coordinates: d.coordinates });
+    map.addLayer({
+      id, type: 'raster', source: id,
+      ...(d.minzoom !== undefined && d.minzoom !== null ? { minzoom: d.minzoom } : {}),
+      paint: { 'raster-opacity': 1, 'raster-fade-duration': 0,
+               'raster-resampling': 'linear' },
+    });
+  }
 }
 
 function addChart(meta) {
@@ -310,6 +317,7 @@ function wirePanel() {
       state.layers[key] = cb.checked;
       if (key === 'depth') {
         setVisible('depth', cb.checked);
+        setVisible('depth-fine', cb.checked);
       } else if (key === 'places') {
         state.refreshPlaces && state.refreshPlaces();
       } else if (key === 'photos') {
