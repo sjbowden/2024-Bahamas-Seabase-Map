@@ -91,8 +91,17 @@ async function start() {
   // the box was tight in longitude and generous in latitude, so the chart panned
   // 21 km north but only 4 km east before sticking. Inflating the visible bounds
   // gives the same slack in every direction whatever shape the window is.
-  map.setMinZoom(Math.max(7, map.getZoom() - 0.35));
-  map.setMaxBounds(inflate(map.getBounds(), 0.45));
+  // Real coastline now extends well past the sheet's edge, so zooming out to see
+  // Abaco in context is worth allowing: 0.35 of a zoom level was no room at all.
+  const fitted = map.getZoom();
+  map.setMinZoom(Math.max(7, fitted - 1.2));
+  // Derive the pan clamp from the widest view the zoom limit permits, so the two
+  // constraints cannot fight each other — the previous pair did, and the clamp
+  // won, cropping the trek.
+  map.jumpTo({ zoom: map.getMinZoom() });
+  const widest = map.getBounds();
+  map.jumpTo({ zoom: fitted });
+  map.setMaxBounds(inflate(widest, 0.2));
 
   addChart();
   await addTracks(meta);

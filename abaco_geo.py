@@ -17,6 +17,15 @@ from shapely.ops import polygonize, unary_union
 HERE = os.path.dirname(os.path.abspath(__file__))
 
 
+# The poster's coastline cache, and the wider one the interactive chart needs.
+# Kept apart deliberately: land_polygons() polygonises the coastline *together
+# with the bbox frame* and then classifies each face as land or water, so both
+# the frame and the set of ways are structural. Feeding the poster a wider cache
+# reclassified faces and moved 17% of its pixels.
+COASTLINE = os.path.join(HERE, "geo", "coastline.json")
+COASTLINE_MAP = os.path.join(HERE, "geo", "coastline_map.json")
+
+
 def _load_ways(path):
     js = json.load(open(path))
     ways = []
@@ -28,16 +37,22 @@ def _load_ways(path):
     return ways
 
 
-def land_polygons(bbox, cache=True):
-    """bbox = (west, south, east, north) in degrees -> unioned land geometry."""
-    key = os.path.join(HERE, "geo", "land_%.4f_%.4f_%.4f_%.4f.pkl" % bbox)
+def land_polygons(bbox, cache=True, source=None):
+    """bbox = (west, south, east, north) in degrees -> unioned land geometry.
+
+    `source` selects the coastline cache; the pickle is keyed on both, so the
+    poster's land and the map's wider land never collide in the cache.
+    """
+    source = source or COASTLINE
+    tag = "" if source == COASTLINE else "_" + os.path.basename(source).split(".")[0]
+    key = os.path.join(HERE, "geo", "land%s_%.4f_%.4f_%.4f_%.4f.pkl" % ((tag,) + bbox))
     if cache and os.path.exists(key):
         with open(key, "rb") as fh:
             return pickle.load(fh)
 
     w, s, e, n = bbox
     frame = box(w, s, e, n)
-    ways = _load_ways(os.path.join(HERE, "geo", "coastline.json"))
+    ways = _load_ways(source)
 
     # clip to frame, keeping direction
     segs = []

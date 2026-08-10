@@ -25,7 +25,7 @@ from datetime import datetime, timedelta
 from shapely.validation import explain_validity
 
 from abaco_geo import land_polygons
-from trip import LAND_BBOX, haversine, in_chart
+from trip import MAP_LAND_BBOX, haversine, in_chart
 from map import clock_fit as C
 from map import export as E
 from map import place as P
@@ -319,7 +319,8 @@ def test_placement(photos, spans):
 def test_export(placed):
     section("export")
     from shapely.geometry import shape
-    land = land_polygons(LAND_BBOX)
+    from abaco_geo import COASTLINE_MAP
+    land = land_polygons(MAP_LAND_BBOX, source=COASTLINE_MAP)
     for band in E.BANDS:
         rings = E._rings(land, band["tol"], band["min_area_m2"])
         geom = shape(dict(type="MultiPolygon", coordinates=rings))
