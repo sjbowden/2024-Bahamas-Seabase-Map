@@ -220,6 +220,9 @@ FLATS_LAND_FRACTION = 0.25
 # of smoothing the flats instead of leaving them a mosaic, because each pass
 # averages the neighbours it grew from.
 FRINGE_PASSES = 24
+# How far the water colour is carried under the coastline, to keep the resampler
+# from interpolating alpha at the shore. Only needs to cover a source pixel or two.
+COAST_BLEED = 10
 
 
 def _box_mean(a, k):
@@ -236,9 +239,18 @@ def _box_mean(a, k):
 def _grow_into(values, region, trusted, passes=FRINGE_PASSES):
     """Spread depths from trusted water into the untrusted fringe beside it.
 
-    Nearest-neighbour fill, done as a few dilations because the fringe is only as
-    wide as the window that created it. Averaging the known neighbours rather than
-    assuming a value is what keeps the Atlantic side deep.
+    The *shallowest* known neighbour rather than the average, because water shoals
+    toward a shore: a third of the water cells touching the coastline have no depth
+    in GMRT at all — it calls them land — so the fringe is invented, and where it
+    *is* measured the distribution one cell offshore has a median of 2.0 m against
+    a mean of 6.0 m, skewed by a scatter of deep cells. It stays honest on the
+    Atlantic side, where the shallowest nearby value is itself part of a bottom
+    dropping away.
+
+    Worth recording that this was not what caused the light halo along the shore,
+    though it looked like an obvious culprit: measured, it moved the shoreline ring
+    from 82.1% to 83.4% in the two shallowest bands. The halo was the resampler
+    interpolating alpha, and the fix for it is the bleed under the coastline below.
     """
     out = values.astype(np.float32).copy()
     known = trusted.copy()
@@ -254,9 +266,9 @@ def _grow_into(values, region, trusted, passes=FRINGE_PASSES):
         with warnings.catch_warnings():
             # A pixel with no known neighbour yet is expected, not exceptional.
             warnings.simplefilter("ignore", RuntimeWarning)
-            mean = np.nanmean(nb, axis=0)
-        fill = todo & ~np.isnan(mean)
-        out[fill] = mean[fill]
+            near = np.nanmin(nb, axis=0)
+        fill = todo & ~np.isnan(near)
+        out[fill] = near[fill]
         known |= fill
     out[np.isnan(out)] = -1.0
     return out
@@ -368,6 +380,17 @@ def render_png(grid, path, max_px=2600, land=None):
     # along the Atlantic shore of the cays where the bottom drops away fast.
     sampled = _grow_into(sampled, sea, trusted=sea & ~crowded & (sampled > 0))
     sampled = np.where(sea, sampled, -1.0)
+
+    # And then a little way *into* the land, which is not about depth at all. The
+    # image is magnified by ten or more when zoomed in, and MapLibre's linear
+    # resampling interpolates the alpha channel as well as the colour — so a hard
+    # water-to-transparent edge at the coast became a semi-transparent band a
+    # source pixel wide, through which the pale background showed as a light halo
+    # along every shore. Carrying the water colour a few pixels under the land
+    # means the interpolation blends water into water; the coastline layer is drawn
+    # on top, so nobody sees where it stops.
+    sampled = _grow_into(sampled, np.ones_like(sea), passes=COAST_BLEED,
+                         trusted=sampled > 0)
     for lo, hi, colour, _ in BANDS:
         if hi > 1e8:
             continue                    # the water background paints the deepest

@@ -587,7 +587,21 @@ validate, and a test asserts it.
   sides right: shallow against the bank, and still deep along the Atlantic shore of
   the cays where the bottom drops away. Twenty-four dilations take the bare
   shoreline from 5.8% of its pixels to 0.4%, and smooth the flats into a wash on the
-  way, because each pass averages what it grew from.
+  way. The fill takes the shallowest known neighbour rather than the mean, because
+  water shoals toward a shore and a third of the cells touching the coastline have
+  no GMRT depth at all.
+
+  A light halo still ran along every beach after all that, and the cause was not in
+  the data — chasing it there was a wrong turn worth recording, since taking the
+  minimum instead of the mean moved the shoreline ring only from 82.1% to 83.4% in
+  the two shallowest bands. **MapLibre's linear resampling interpolates the alpha
+  channel**, and the image is magnified tenfold or more when zoomed in, so a hard
+  water-to-transparent edge at the coast became a semi-transparent band a source
+  pixel wide with the pale background showing through it. Nearest-neighbour
+  resampling removes the halo and returns the 122 m cells as visible blocks;
+  carrying the water colour ten pixels *under* the coastline removes it while
+  keeping the smoothing, because then the resampler blends water into water and the
+  coastline layer covers where it stops.
 - **Tracks** — seven days in poster colours, each independently toggleable, all
   drawn **true**. The lateral offset was a compromise for one fixed print scale;
   zoom solves the crowding properly. Drawn from the thinned `load_day()` output,
