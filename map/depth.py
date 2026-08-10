@@ -327,7 +327,7 @@ SUSPECT_WINDOW = 25
 # bank onto the 4 m boundary, where the least variation flips a cell, and the chart
 # dithered into a mosaic. Coarsening by whole cells and rounding the outline cannot
 # do that.
-COARSEN = 4
+COARSEN = 2
 # Corner-cutting passes over each ring, and a small outward nudge afterwards.
 #
 # The corners were rounded by morphology first — dilate, erode twice, dilate — and
@@ -345,8 +345,8 @@ COARSEN = 4
 # GMRT's own readings where it does report them there.
 FLAT_DEPTH_M = 1.0
 # Coarse cells per side to average the depths over before banding them, and the
-# smallest piece of a band worth drawing. 5 cells is about 1.2 km; one coarse cell
-# is 60,000 m2.
+# smallest piece of a band worth drawing. 10 cells is about 1.2 km, and 60,000 m2
+# is four coarse cells.
 #
 # 1.2 km was chosen by looking at the Atlantic shore of Elbow Cay, where the bottom
 # shelves steadily and the bands should read as roughly parallel to the beach. At
@@ -354,7 +354,7 @@ FLAT_DEPTH_M = 1.0
 # bank west of the cays flattens into one tone and real structure goes with it. The
 # per-day figures are unaffected either way — those come from the 61 m grid, not
 # from this.
-COARSE_SMOOTH = 5
+COARSE_SMOOTH = 10
 MIN_PART_M2 = 60000.0
 CHAIKIN_PASSES = 3
 GRIP_M = 60.0
@@ -678,8 +678,13 @@ def band_polygons(grid, land):
     depth = np.where(flats, FLAT_DEPTH_M, depth)
     wet = ~dry & (depth > 0)
 
-    # Coarsen to about 244 m, which is the generalisation the poster's drawn shoal
-    # halos had and roughly what a 61 m satellite-derived grid can honestly claim.
+    # Coarsen to about 122 m. It was 244 m — closer to the generalisation the
+    # poster's drawn halos had — but on the Atlantic wall off Elbow Cay the bands
+    # crowd into a couple of hundred metres, so at 244 m each was narrower than a
+    # cell and drew as a staircase rather than as a ribbon. Corner cutting cannot
+    # help there: there is nothing to cut a corner off. What makes this affordable is
+    # that the depths are averaged below, which suppresses the isolated specks that
+    # finer cells used to bring back.
     k = COARSEN
     nr, nc = (grid.nrows // k) * k, (grid.ncols // k) * k
     dsum = np.where(wet, depth, 0.0)[:nr, :nc].reshape(nr // k, k, nc // k, k)
