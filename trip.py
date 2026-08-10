@@ -105,6 +105,20 @@ def in_chart(lat, lon):
     return lon0 <= lon <= lon1 and lat0 <= lat <= lat1
 
 
+def transfer_route():
+    """Friday's airport→hotel drive, routed over OSM roads.
+
+    The recorded log for that day is unusable — the whole thing is dead-reckoning
+    noise inside an 870 m box — so this is a reconstruction, and both the poster
+    and the map say so by drawing it dotted. It lives here rather than in
+    poster.py because a day drawn one way on paper and another way on the chart
+    is exactly the drift this module exists to prevent.
+    """
+    from roads import route as road_route
+    pts, _ = road_route((AIRPORT[1], AIRPORT[0]), (HOTEL[1], HOTEL[0]))
+    return pts
+
+
 # ------------------------------------------------------------------ tracks ---
 def haversine(a_lat, a_lon, b_lat, b_lon):
     R = 6371000.0

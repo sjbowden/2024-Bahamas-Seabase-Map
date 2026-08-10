@@ -34,3 +34,8 @@ site_build/
 out/photo_index.json
 out/clock_fit.json
 out/placed.json
+
+# vendored MapLibre is committed (BSD-3, 1 MB, keeps the build offline and the
+# site free of any CDN); node_modules is only ever a screenshot harness
+node_modules/
+package-lock.json
