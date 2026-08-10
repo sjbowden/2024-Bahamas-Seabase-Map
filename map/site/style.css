@@ -24,6 +24,15 @@ html, body {
   color: var(--ink);
   font-family: var(--sans);
   -webkit-text-size-adjust: 100%;
+  /* This is a full-screen chart and must never scroll. It did: a transformed
+     element contributes its visual box to the document's scrollable overflow, so
+     a single cluster count projected just past the bottom edge pushed
+     scrollHeight to 927 against a client height of 900. A scrollbar then
+     appeared, which narrowed the viewport, which resized the canvas, which
+     reprojected the labels, which removed the overflow, which removed the
+     scrollbar — every frame of a drag. That thrash was the jerky panning. */
+  overflow: hidden;
+  overscroll-behavior: none;
 }
 
 #map { position: absolute; inset: 0; }
@@ -226,7 +235,12 @@ html, body {
 /* Cluster counts are DOM because there is no glyph server; they are positioned
    from the map on every frame, so they must be cheap to move and never intercept
    a click meant for the circle underneath. */
-#clusters { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
+/* fixed and clipped, so a label positioned past the edge can never extend the
+   document again even if the guard in drawClusterCounts() is ever loosened */
+#clusters {
+  position: fixed; inset: 0; z-index: 1;
+  pointer-events: none; overflow: hidden;
+}
 .cluster-count {
   position: absolute; top: 0; left: 0;
   font-family: var(--sans);

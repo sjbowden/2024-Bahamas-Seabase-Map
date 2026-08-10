@@ -43,6 +43,11 @@ const map = new maplibregl.Map({
     layers: [{ id: 'water', type: 'background', paint: { 'background-color': PALETTE.water } }],
   },
   attributionControl: false,
+  // This chart is one 27 x 46 km box and maxBounds forbids panning off it, so
+  // the copies of the world either side are scenery nobody can reach. Kept
+  // because it is the correct setting, not because it measured faster — on a
+  // software renderer the frame times were too noisy to show either way.
+  renderWorldCopies: false,
   maxZoom: 18,
   minZoom: 8,
   dragRotate: false,
@@ -61,6 +66,8 @@ window.chart = map;
 // viewer can be exercised without synthesising mouse events over a WebGL canvas.
 window.__state = state;
 window.__open = (id) => openViewer(id);
+window.__drawCounts = () => drawClusterCounts();
+window.__scaleBar = () => scaleBar();
 
 map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-right');
 map.addControl(new maplibregl.AttributionControl({
@@ -78,15 +85,14 @@ async function start() {
   map.fitBounds(bounds(meta.extent), { padding: 18, animate: false });
 
   // Don't let the chart be zoomed out past the whole trek, and don't let it be
-  // panned into empty ocean — but note the order and the generosity, both of
-  // which were wrong first time round. The extent is portrait (27 km by 46 km)
-  // and screens are landscape, so fitting its height needs *more* width than the
-  // extent has; a bounds box padded only by a fraction of each axis was
-  // therefore tighter than the fit, and MapLibre resolved the conflict by
-  // zooming in and cropping the trek at both ends. Padding by a share of the
-  // larger span keeps the clamp clear of any sane viewport.
+  // panned into empty ocean. The clamp is built from what is actually *visible*
+  // at the opening zoom rather than from the extent, because the extent is
+  // portrait (27 km by 46 km) and screens are landscape: derived from the extent,
+  // the box was tight in longitude and generous in latitude, so the chart panned
+  // 21 km north but only 4 km east before sticking. Inflating the visible bounds
+  // gives the same slack in every direction whatever shape the window is.
   map.setMinZoom(Math.max(7, map.getZoom() - 0.35));
-  map.setMaxBounds(roomy(meta.extent, 0.6));
+  map.setMaxBounds(inflate(map.getBounds(), 0.45));
 
   addChart();
   await addTracks(meta);
@@ -100,11 +106,11 @@ async function start() {
   map.on('zoom', scaleBar);
 }
 
-// Pad both axes by a share of the *larger* span, so the box is never tighter
-// than a full-extent fit on a landscape screen.
-function roomy(e, f) {
-  const pad = Math.max(e[1] - e[0], e[3] - e[2]) * f;
-  return [[e[0] - pad, e[2] - pad], [e[1] + pad, e[3] + pad]];
+// Grow a LngLatBounds by a share of its own span on each axis.
+function inflate(b, f) {
+  const dx = (b.getEast() - b.getWest()) * f;
+  const dy = (b.getNorth() - b.getSouth()) * f;
+  return [[b.getWest() - dx, b.getSouth() - dy], [b.getEast() + dx, b.getNorth() + dy]];
 }
 
 /* ------------------------------------------------------------------ chart --- */
@@ -471,7 +477,12 @@ async function addPhotos() {
   // Cluster counts are HTML, because a symbol layer would need a glyph server
   // and this site has no font stack to host. There are rarely more than forty
   // on screen, and queryRenderedFeatures only returns what is in the viewport.
-  const redraw = () => drawClusterCounts();
+  // One redraw per animation frame however many events arrive.
+  let pending = 0;
+  const redraw = () => {
+    if (pending) return;
+    pending = requestAnimationFrame(() => { pending = 0; drawClusterCounts(); });
+  };
   map.on('move', redraw);
   map.on('moveend', redraw);
   map.on('sourcedata', (e) => { if (e.sourceId === 'photos') redraw(); });
@@ -496,14 +507,19 @@ function drawClusterCounts() {
     host.appendChild(el);
     countEls.push(el);
   }
-  feats.forEach((f, i) => {
-    const el = countEls[i];
+  const w = map.getCanvas().clientWidth, h = map.getCanvas().clientHeight;
+  let used = 0;
+  for (const f of feats) {
     const pt = map.project(f.geometry.coordinates);
+    // A cluster whose circle overlaps the edge is rendered even though its centre
+    // is outside, and positioning a label out there is what grew the document.
+    if (pt.x < 0 || pt.y < 0 || pt.x > w || pt.y > h) continue;
+    const el = countEls[used++];
     el.textContent = f.properties.point_count_abbreviated;
-    el.style.transform = `translate(-50%, -50%) translate(${pt.x}px, ${pt.y}px)`;
+    el.style.transform = `translate(-50%, -50%) translate3d(${pt.x}px, ${pt.y}px, 0)`;
     el.style.display = '';
-  });
-  for (let i = feats.length; i < countEls.length; i++) countEls[i].style.display = 'none';
+  }
+  for (let i = used; i < countEls.length; i++) countEls[i].style.display = 'none';
 }
 
 /* ---------------------------------------------------------------- viewer --- */
