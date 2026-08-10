@@ -25,7 +25,7 @@ import json
 import os
 
 from shapely import set_precision
-from shapely.geometry import box as shapely_box
+from shapely.geometry import shape
 
 from abaco_geo import COASTLINE_MAP, land_polygons
 from trip import (AIRPORT, ANCHORAGES, DAYS, EXTENT, HOTEL, MAP_LAND_BBOX,
@@ -40,15 +40,17 @@ HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 #   z=10  ~68 m    z=12  ~17 m    z=14  ~4 m
 # One degree of latitude is ~111 km, which turns those into simplify tolerances.
 # The coarse band also drops islets under a pixel: at z=10 that is ~19,000 m2.
-# `near` clips a band to the area anyone will actually zoom into. The coarse band
-# carries the whole region, because zoomed out is exactly when you want Little
-# Abaco and Grand Bahama for context; the finer two would otherwise ship
-# street-level detail for coastlines nobody can reach the far side of, and the
-# fine band alone came to 2 MB of it.
+# Every band covers the whole region. The finer two were once clipped to the trip
+# area to save 1.4 MB, which was a false economy: only one band draws at any zoom,
+# so past z11 the land outside the clip simply vanished — and the depth raster,
+# whose land mask was built from the unclipped coastline, then showed its pale
+# background through every islet the drawn band had dropped. 40% of the mask's land
+# pixels had no land over them at the medium band, which is what turned the marsh
+# inside Great Abaco into a near-white mosaic.
 BANDS = [
-    dict(name="coarse", maxzoom=11, tol=0.00061, min_area_m2=19000.0, near=None),
-    dict(name="medium", maxzoom=13, tol=0.00015, min_area_m2=1200.0, near=0.30),
-    dict(name="fine", maxzoom=22, tol=0.00004, min_area_m2=0.0, near=0.30),
+    dict(name="coarse", maxzoom=11, tol=0.00061, min_area_m2=19000.0),
+    dict(name="medium", maxzoom=13, tol=0.00015, min_area_m2=1200.0),
+    dict(name="fine", maxzoom=22, tol=0.00004, min_area_m2=0.0),
 ]
 PRECISION = 5
 
@@ -98,10 +100,17 @@ def _poly(rings, props):
                 geometry=dict(type="MultiPolygon", coordinates=rings))
 
 
-def _near_chart(pad):
-    """The chart extent grown by `pad` degrees — where zooming in is possible."""
-    lon0, lon1, lat0, lat1 = EXTENT
-    return shapely_box(lon0 - pad, lat0 - pad, lon1 + pad, lat1 + pad)
+def coarse_land(land):
+    """The land as the *coarsest* band draws it.
+
+    The depth raster masks itself with this rather than with the full coastline, so
+    that the mask can never claim land where no land is painted: every finer band
+    is a superset of it, and a transparent hole with nothing over it shows the pale
+    background and reads as deep water.
+    """
+    band = BANDS[0]
+    return shape(dict(type="MultiPolygon",
+                      coordinates=_rings(land, band["tol"], band["min_area_m2"])))
 
 
 def chart_layers(land):
@@ -114,9 +123,7 @@ def chart_layers(land):
     """
     files = {}
     for band in BANDS:
-        subject = land if band["near"] is None else \
-            land.intersection(_near_chart(band["near"]))
-        rings = _rings(subject, band["tol"], band["min_area_m2"])
+        rings = _rings(land, band["tol"], band["min_area_m2"])
         files[f"coast.{band['name']}.geojson"] = _fc([
             _poly(rings, dict(kind="land", maxzoom=band["maxzoom"]))])
     return files
@@ -260,8 +267,9 @@ def export(dest, placed):
     # The depth layer is a picture of a grid rather than vector bands: bathymetry
     # is a continuous field, and contouring it into polygons put only 6.7% of the
     # wet area into a band. Written before meta.json so its geometry can go in.
+    mask_land = coarse_land(land)
     depth_img = DEPTH.render_png(grid, os.path.join(dest, "depth.png"),
-                                land=land)
+                                land=mask_land)
     files["meta.json"]["depth_image"] = dict(
         url="data/depth.png", coordinates=depth_img["coordinates"],
         width=depth_img["width"], height=depth_img["height"])
@@ -269,7 +277,7 @@ def export(dest, placed):
     # extra detail can actually be seen. Beyond its edge the wide grid keeps
     # drawing, so this refines rather than replaces.
     fine_img = DEPTH.render_png(fine, os.path.join(dest, "depth.fine.png"),
-                                land=land)
+                                land=mask_land)
     files["meta.json"]["depth_image_fine"] = dict(
         url="data/depth.fine.png", coordinates=fine_img["coordinates"],
         width=fine_img["width"], height=fine_img["height"],
