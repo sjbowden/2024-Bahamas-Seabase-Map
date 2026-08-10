@@ -7,12 +7,20 @@ Four ways a photograph gets a position, and every one of them is recorded on the
 photograph so the viewer can make a different claim for each:
 
   gps        the camera wrote its own coordinates. Believe them over the track.
-  bracket    no coordinates, but two of *this camera's* located photographs sit
-             within two minutes either side and 200 m apart. Interpolate those.
   track      interpolate the boat's own fixes at the photograph's UTC. Tier
              `calibrated` when the UTC came from satellites or a timezone tag,
              `inferred` when it came from a fitted offset.
   unplaced   no UTC, or a UTC in a hole where the receiver was not recording.
+
+There was a fourth, `bracket`: a photograph with no coordinates but with two of
+its *own camera's* located photographs within two minutes either side and 200 m
+apart could be interpolated between them, rather than falling back to a boat
+lying offshore. It was the right idea and it placed nothing. The tier needs a
+camera with partial GPS coverage, and this set is almost all-or-nothing — the
+drone tagged every frame, the Canon, the FinePix, the GoPro and the other phones
+tagged none. Only one iPhone is mixed, and its untagged frames turned out to be
+in Portland. clock_fit.bracket_reach() still measures it every build, so a number
+moving off zero would say the situation had changed; nothing places from it.
 
 Uncertainty is measured, not assumed. A photograph's timing is uncertain by its
 camera's fit width — under 30 s for the Canon, +/-20.5 min for the GoPro — and
@@ -39,10 +47,6 @@ UTC = timezone.utc
 # Bracketing fixes further apart than this are not a track, they are two facts
 # with a hole between them. Matches the gap that breaks a coverage span.
 MAX_GAP_S = 120.0
-
-# The `bracket` tier's reach.
-BRACKET_GAP_S = 120.0
-BRACKET_SPAN_M = 200.0
 
 # Sailing days. A photograph resolved to a UTC outside every receiver window is
 # `unplaced` if it falls in this range — the receiver was merely off — and
@@ -159,13 +163,6 @@ def place(photos, per_photo, cameras, fixes=None):
         half[cam] = (f.get("peak_width_s", 0.0) or C.COARSE_S) / 2.0 \
             if f.get("accepted") else 2.0
 
-    by_cam_anchors = collections.defaultdict(list)
-    for p in photos:
-        if p.get("gps") and p.get("time_local"):
-            by_cam_anchors[p["camera"]].append(p)
-    for v in by_cam_anchors.values():
-        v.sort(key=lambda p: p["time_local"])
-
     out = []
     for p in photos:
         v = per_photo[p["id"]]
@@ -184,25 +181,7 @@ def place(photos, per_photo, cameras, fixes=None):
             out.append(_finish(rec, p))
             continue
 
-        # 2. between two of its own camera's located photographs
-        b = _bracket(p, by_cam_anchors.get(p["camera"], []))
-        if b:
-            (lat, lon), gap_s, span_m = b
-            # The same region guard the `gps` branch applies, and it matters:
-            # every photograph this tier reaches in this dataset turns out to be
-            # in Portland. Without the check they would plot on the Sea of Abaco
-            # at latitude 45.
-            rec.update(lat=lat, lon=lon,
-                       tier="bracket" if in_chart(lat, lon) else "travel",
-                       uncertainty_m=round(span_m / 2.0),
-                       note=(f"between two of this camera's own located "
-                             f"photographs, {gap_s:.0f} s apart"
-                             if in_chart(lat, lon)
-                             else "taken away from Abaco — not on this chart"))
-            out.append(_finish(rec, p))
-            continue
-
-        # 3. the boat's track at this photograph's UTC
+        # 2. the boat's track at this photograph's UTC
         if not v["utc"]:
             rec.update(tier="unplaced", note="no timestamp this build could trust")
             out.append(rec)
@@ -225,29 +204,6 @@ def place(photos, per_photo, cameras, fixes=None):
         rec["note"] = _track_note(t, sog, lat, lon, u)
         out.append(rec)
     return out
-
-
-def _bracket(p, anchors):
-    """(position, gap_s, span_m) if this photograph sits between two anchors."""
-    if not p.get("time_local") or len(anchors) < 2:
-        return None
-    t = C._local(p["time_local"])
-    ts = [C._local(a["time_local"]) for a in anchors]
-    i = bisect.bisect_left(ts, t)
-    if i == 0 or i >= len(ts):
-        return None
-    a, b = anchors[i - 1], anchors[i]
-    ta, tb = ts[i - 1], ts[i]
-    if (t - ta).total_seconds() > BRACKET_GAP_S or (tb - t).total_seconds() > BRACKET_GAP_S:
-        return None
-    span = haversine(a["gps"][0], a["gps"][1], b["gps"][0], b["gps"][1])
-    if span > BRACKET_SPAN_M:
-        return None
-    total = (tb - ta).total_seconds()
-    f = 0.0 if total == 0 else (t - ta).total_seconds() / total
-    return ((a["gps"][0] + (b["gps"][0] - a["gps"][0]) * f,
-             a["gps"][1] + (b["gps"][1] - a["gps"][1]) * f),
-            (tb - ta).total_seconds(), span)
 
 
 def _track_note(t, sog, lat, lon, u):

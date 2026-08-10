@@ -264,13 +264,16 @@ def test_placement(photos, spans):
     placed = P.place(photos, per_photo, cameras)
     check("one record per photograph", len(placed) == len(photos))
     tiers = collections.Counter(r["tier"] for r in placed)
-    known = {"gps", "bracket", "calibrated", "inferred", "travel", "unplaced"}
+    known = {"gps", "calibrated", "inferred", "travel", "unplaced"}
     check("no tier outside the design's ladder", set(tiers) <= known,
           str(set(tiers) - known))
     check("the tiers partition the set", sum(tiers.values()) == len(placed))
+    check("nothing is placed from the bracket tier any more",
+          "bracket" not in tiers,
+          "it reached six photographs, all in Portland; clock_fit still measures it")
 
     plotted = [r for r in placed
-               if r["tier"] in ("gps", "bracket", "calibrated", "inferred")]
+               if r["tier"] in ("gps", "calibrated", "inferred")]
     off = [r for r in plotted if r["lat"] is None or not in_chart(r["lat"], r["lon"])]
     check("everything plotted is on the Abaco chart", not off,
           f"{len(off)} off it, e.g. {off[0]['name'] if off else '-'} "

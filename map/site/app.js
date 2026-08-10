@@ -367,11 +367,10 @@ map.on('error', (e) => {
 // chart says so quietly rather than pretending they are the same thing.
 const TIER = {
   gps: '#0B6E4F',
-  bracket: '#0B6E4F',
   calibrated: '#1D4E89',
   inferred: '#8A7F6A',
 };
-const ON_CHART = ['gps', 'bracket', 'calibrated', 'inferred'];
+const ON_CHART = ['gps', 'calibrated', 'inferred'];
 
 async function addPhotos() {
   const all = await json('data/photos.json');
@@ -434,7 +433,7 @@ async function addPhotos() {
     filter: ['!', ['has', 'point_count']],
     paint: {
       'circle-color': ['match', ['get', 'tier'],
-                       'gps', TIER.gps, 'bracket', TIER.bracket,
+                       'gps', TIER.gps,
                        'calibrated', TIER.calibrated, TIER.inferred],
       'circle-radius': ['interpolate', ['linear'], ['zoom'], 10, 3.4, 14, 5, 18, 8],
       'circle-stroke-color': '#FBF6EA',
