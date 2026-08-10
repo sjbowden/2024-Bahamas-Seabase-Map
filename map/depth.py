@@ -344,12 +344,20 @@ COARSEN = 4
 # flats inside Great Abaco are the case that matters, and 1.0 m is the median of
 # GMRT's own readings where it does report them there.
 FLAT_DEPTH_M = 1.0
-CHAIKIN_PASSES = 2
+CHAIKIN_PASSES = 3
 GRIP_M = 60.0
-# How much of the smoothed outline to keep. Simplifying at a third of a coarse cell
-# (81 m) undid the smoothing and left the bands visibly faceted, which is the one
-# thing the poster's halos never were.
-SIMPLIFY_M = 45.0
+# How much of the smoothed outline to keep. This is what governs how smooth the
+# bands actually look, more than the number of corner-cutting passes: at 45 m the
+# 244 m staircase was still plainly a staircase, because simplifying threw away the
+# curve that had just been cut into it. At 20 m the steps read as gentle scallops.
+#
+# Measured against the alternatives rather than guessed. A fourth cutting pass at
+# 12 m (2.1 MB) is hard to tell from this (1.5 MB), and the residual waviness is
+# not corner sharpness at all — it is the amplitude of the 244 m step itself, which
+# corner cutting cannot remove. Coarsening less to shrink that step was the other
+# way and is worse: 183 m cells cost 2.0 MB and bring back the isolated specks that
+# coarsening exists to merge.
+SIMPLIFY_M = 20.0
 
 # No shore shelves from nothing to twenty metres inside one 61 m cell. Water is
 # therefore not allowed to be deeper than this many metres per cell of distance
