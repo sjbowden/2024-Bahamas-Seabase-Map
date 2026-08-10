@@ -637,8 +637,28 @@ validate, and a test asserts it.
   the shore — cutting a corner pulls it in slightly, the land is drawn on top, so
   erring outward costs nothing and erring inward shows as a pale gap.
 
-  How smooth it looks turns out to be governed by the *simplify* tolerance rather
-  than the number of cutting passes: at 45 m the 244 m staircase still read plainly
+  **The depths are averaged over about 1.2 km before they are banded, and that is
+  what makes the bands run parallel.** Where the bottom shelves steadily — the
+  Atlantic side of the cays — the contours really are close to parallel with the
+  beach, but each band's edge was wobbling by a cell or so on its own, so corner
+  cutting rounded the wobble off instead of removing it and the bands came out
+  lumpy. Averaging first removes the wobble itself.
+
+  This is the operation that failed when it was tried on the 61 m raster, where it
+  dithered the bank into a mosaic, and the difference is that it now runs on 244 m
+  blocks and anything smaller than one block is dropped, so a fraying edge cannot
+  survive as confetti. It also *shrinks* the file, to 956 KB, because there are far
+  fewer parts. 1.2 km was chosen by looking: at 730 m the bands were still visibly
+  lumpy, and at 1.7 km the bank west of the cays flattens into one tone and real
+  structure goes with it.
+
+  The cost is in the areas, which now come to 1.03–1.12× the grid's own figures
+  rather than 1.01–1.07×. Most of that is the shore overrun, which is hidden under
+  the land, and all of it errs generous rather than optimistic. The per-day figures
+  are untouched — those are read off the 61 m grid, not off this.
+
+  How smooth it looks is also governed by the *simplify* tolerance rather than the
+  number of cutting passes: at 45 m the 244 m staircase still read plainly
   as a staircase, because simplifying discarded the curve that had just been cut
   into it. Three passes kept at 20 m read as gentle scallops, for 1.5 MB. The two
   alternatives were built and compared rather than reasoned about — a fourth pass at
