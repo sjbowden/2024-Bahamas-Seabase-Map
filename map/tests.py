@@ -347,6 +347,77 @@ def test_export(placed):
           f"{len(places['features'])} places")
 
 
+def test_nothing_published_carries_metadata(placed):
+    section("what reaches the public folder")
+    pj = E.photos_json(placed)
+    leaks = [r for r in pj if "#" in (r.get("camera") or "")]
+    check("no camera serial reaches photos.json", not leaks,
+          f"{len(leaks)} records, e.g. {leaks[0]['camera'] if leaks else '-'}")
+    check("serials do survive internally, for grouping",
+          any("#" in (r["camera"] or "") for r in placed),
+          "clock_fit still tells the Canon from a phone")
+    fields = set().union(*(set(r) for r in pj))
+    allowed = {"id", "tier", "camera", "utc", "day", "note", "thumb", "view",
+               "lat", "lon", "uncertainty_m", "day_provisional"}
+    check("photos.json carries no unexpected field", fields <= allowed,
+          str(fields - allowed))
+
+    # Derivatives, if they have been generated: EXIF must be gone and rotation
+    # must have been baked in before it went.
+    media = os.path.join(C.HERE, "site_build", "media")
+    thumbs = os.path.join(media, "thumb")
+    if not os.path.isdir(thumbs):
+        print("  SKIP  derivatives not generated (python -m map.derive)")
+        return
+    from PIL import Image
+    names = sorted(n for n in os.listdir(thumbs) if n.endswith(".jpg"))[:60]
+    with_exif = []
+    for n in names:
+        im = Image.open(os.path.join(thumbs, n))
+        if im.getexif() or im.info.get("icc_profile"):
+            with_exif.append(n)
+    check("no derivative carries EXIF or an ICC profile", not with_exif,
+          f"checked {len(names)}, {len(with_exif)} carried metadata")
+    portraits = 0
+    for n in names:
+        w, h = Image.open(os.path.join(thumbs, n)).size
+        portraits += h > w
+    check("portrait frames stayed portrait", portraits > 0,
+          f"{portraits} of {len(names)} are taller than wide, so rotation was "
+          f"baked in before the tags went")
+
+
+def test_site_build():
+    section("the built folder")
+    out = os.path.join(C.HERE, "site_build")
+    if not os.path.isdir(out):
+        print("  SKIP  not built (python -m map.build)")
+        return
+    need = ["index.html", "app.js", "style.css", "robots.txt", "_headers",
+            "vendor/maplibre-gl.js", "vendor/maplibre-gl.css",
+            "data/meta.json", "data/photos.json", "data/tracks.geojson",
+            "data/places.geojson"]
+    missing = [n for n in need if not os.path.exists(os.path.join(out, n))]
+    check("every file the page asks for is present", not missing, str(missing))
+
+    app = open(os.path.join(out, "app.js")).read()
+    meta = json.load(open(os.path.join(out, "data", "meta.json")))
+    for band in meta["bands"]:
+        check(f"app.js knows the {band['name']} band",
+              f"'{band['name']}'" in app or f'"{band["name"]}"' in app)
+        for kind in ("coast", "shoals"):
+            f = os.path.join(out, "data", f"{kind}.{band['name']}.geojson")
+            check(f"{kind}.{band['name']}.geojson exists", os.path.exists(f))
+    html = open(os.path.join(out, "index.html")).read()
+    check("the page tells robots to stay away", "noindex" in html)
+    check("and so does the header file",
+          "noindex" in open(os.path.join(out, "_headers")).read())
+    check("nothing points at a CDN",
+          "http://" not in app and "https://" not in app.replace(
+              "https://github.com", "").replace("http://www.topografix.com", ""),
+          "app.js must fetch only from this folder")
+
+
 def main():
     test_units()
     spans = test_coverage()
@@ -363,6 +434,8 @@ def main():
         test_uncertainty()
         placed = test_placement(photos, spans)
         test_export(placed)
+        test_nothing_published_carries_metadata(placed)
+    test_site_build()
 
     print(f"\n{_pass} passed, {len(_fail)} failed")
     if _fail:

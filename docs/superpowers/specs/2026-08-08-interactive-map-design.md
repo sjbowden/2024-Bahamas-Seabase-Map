@@ -380,17 +380,42 @@ Sea of Abaco chart is nonsense), browsable in the tray.
 
 Streamed from the zips, never unpacked:
 
-| | size | total |
-|---|---|---|
-| thumbnail | 256 px, q72 | ~38 MB |
-| view | 1600 px, q82 | ~880 MB |
+| | size | estimated | actual |
+|---|---|---|---|
+| thumbnail | 256 px, q72 | ~38 MB | 25 MB |
+| view | 1600 px, q82 | ~880 MB | 595 MB |
 
-EXIF is **stripped from both** — no GPS, no serial numbers on anything
-published. Generation is idempotent, so an interrupted build resumes.
+2,505 of each, in 206 s across seven workers, no errors. 623 MB and 5,029 files
+in total — a third under the estimate, because the archives are stored
+uncompressed on the Linux filesystem and JPEG at q82 is kinder than assumed.
+
+EXIF is **stripped from both** — no GPS, no serial numbers on anything published.
+Generation is idempotent, so an interrupted build resumes. Three things this stage
+has to get right that are not obvious:
+
+**Orientation before stripping.** A phone records a portrait photograph as
+landscape pixels plus an orientation flag. Strip the tags first and every portrait
+frame is on its side, permanently, in a 600 MB artefact. The rotation is baked
+into the pixels and *then* the tags go.
+
+**Colour before stripping.** Recent iPhones write Display P3 pixels with an ICC
+profile saying so. Drop the profile and a browser reads those numbers as sRGB,
+pushing every saturated colour — the water, most of this trip — harder than it
+was. P3 is converted properly first.
+
+**"No serial numbers published" is about the artefact, not the EXIF.** Stripping
+tags out of 2,505 files and then printing `GoPro HERO5 Session #C3211354671075`
+under every one of them in the viewer would have honoured the letter of the rule
+and missed its point. `export.public_camera()` drops the serial; the build keeps
+it internally, because it is what tells one camera from another. A test asserts
+both halves.
 
 ## The map
 
-**Renderer — MapLibre GL, not Leaflet.** This is forced by the geometry, not
+Milestone 4 built this and milestone 5 put the photographs on it. What follows is
+what the chart actually does, with the corrections the screenshots forced.
+
+**Renderer — MapLibre GL 5.24.0, vendored, not Leaflet.** This is forced by the geometry, not
 taste. The land is 1,370 polygons and 117,850 exterior vertices; Leaflet draws
 GeoJSON as SVG paths, and that many nodes will not pan smoothly on a phone,
 which is the stated target. A GL renderer handles it. No third-party tiles
@@ -444,12 +469,38 @@ shows image, time, day, camera and placement note, with previous/next moving in
 **time order**, so paging follows the day as it happened rather than wandering
 by proximity.
 
+The split has to happen where somebody is still exploring. Clustering applies per
+integer tile zoom, so a `clusterMaxZoom` of 15 meant nothing became an individual
+pin until z16 — and against a max zoom of 17 that left one level in which to look
+at a photograph. At 13, pins appear from z14 and there are four.
+
+**Uncertainty is drawn, not described.** Opening a photograph shades a ring of its
+own `uncertainty_m` around it, in metres, so it grows correctly as you zoom. A
+camera's own fix is a 15 m dot nobody notices; the GoPro frame from the passage to
+Guana is an honest 1.9 km disc. Nothing else in the interface would have made that
+difference feel real.
+
+**Two typographic constraints, one cause.** There is no glyph server, because
+hosting a font stack for a static folder is a dependency this site does not need.
+So place names and cluster counts are HTML markers rather than symbol layers —
+sixteen labels and rarely more than forty counts, positioned from the map each
+frame. It also means the poster's own typography carries over directly, which a
+symbol layer could not have done.
+
 **Tray** — what is not pinned: unplaced and travel photographs, grouped by day
 and camera.
 
 **Phones first.** The crew will open this from a text message. Layer controls
-collapse to a sheet, the viewer goes full-screen, thumbnails load only for what
-is on screen.
+collapse to a sheet, the viewer goes full-screen, and the tray's 422 thumbnails
+load 80 — only what is on screen, via `loading="lazy"`.
+
+Screenshotting at 390×844 rather than trusting the media queries caught three
+things a desktop never shows. The phone fits the chart at **z9.83** where a
+desktop fits it at z10.36, and every label threshold was set at 10 — so the
+stated primary target was the one device that opened with nothing named. The wide
+spaced legends are anchored to points that fall off a narrow screen, so they
+appeared as fragments: "AT ABACO". And the attribution wrapped to two lines,
+taking a tenth of the chart to say something nobody opened this to read.
 
 **Scale bar, no compass rose.** The rose is a signature of the printed sheet,
 but on a north-up zoomable map it is decoration needing redrawing at every
@@ -587,14 +638,21 @@ The build and the site are separable, and the build is where the risk lives.
    rather than assumed from a speed, which is what lets one GoPro photograph be
    trusted to 8 m and another from the same camera be honest about 1.8 km. The
    nine data files total 3.2 MB, 675 KB gzipped, with first paint at 134 KB.
-4. **The map, with data but no photographs** — chart, tracks, places, layers, on
-   MapLibre. Verifiable on its own, and the point at which the level-of-detail
-   budget gets checked on an actual phone rather than a desktop browser.
-5. **Derivatives and photographs on the map** — `derive`, then pins, clusters,
-   viewer and tray. The 900 MB step comes last, once placement is trusted.
-6. **Deploy** — unlisted with `noindex`, then confirm a plain
-   `python -m http.server` over the same folder behaves identically, which is
-   the portability guarantee.
+4. **The map, with data but no photographs** — ✅ done. Chart, tracks, places and
+   layer controls on MapLibre, assembled by `map/build.py` in 17 s. Verified by
+   screenshot at 1280×900 and 390×844, which is the only reason the cropped
+   initial view, the collapsed legend spacing and the label-free phone were found.
+5. **Derivatives and photographs on the map** — ✅ done. 2,505 thumbnails and
+   2,505 viewing copies in 206 s, 623 MB total; then clusters, pins coloured by
+   tier, the viewer with its uncertainty ring, and the tray of 422 photographs
+   that are not on the chart.
+6. **Deploy** — not done, and deliberately not attempted unattended: publishing
+   2,505 photographs of a youth crew is not something to infer permission for.
+   When it happens: unlisted with `noindex` (the build already writes `_headers`
+   and `robots.txt`), then confirm a plain `python -m http.server` over the same
+   folder behaves identically, which is the portability guarantee. The local
+   preview already runs that way — `python -m map.build --serve` — so the
+   guarantee is half-tested already.
 
 Milestone 2 was the natural stop-and-look point, and looking was worth it: the
 fitting method the design specified would have been wasted work on 1,583
@@ -609,9 +667,23 @@ per part but not per collection. Both were caught by asking the output a questio
 it had not been asked before, which is the argument for the invariant tests over
 the eyeball.
 
-What milestone 4 inherits: the data files are written and validated, but nothing
-has drawn them yet. The level-of-detail budget above is arithmetic until it is
-checked on an actual phone.
+Milestones 4 and 5 did draw them, and the level-of-detail budget survived: 134 KB
+gzipped to first paint, with the fine band arriving only on zoom.
+
+The pattern across all five milestones is worth naming, because it held every
+time: **the bugs were never in the arithmetic, they were in a guard that existed
+in one branch and not its neighbour.** The bracket tier skipped the region check
+the `gps` branch made. `preserve_topology` held per part and not per collection.
+`clusterMaxZoom` counts integer tile zooms and not the zoom you are at. Label
+thresholds were set against the zoom a desktop opens at and not a phone. Each was
+found by asking the output a question it had not been asked before — never by
+reading the code again.
+
+One thing the chart now shows that no amount of prose in this document managed to:
+zoom into Hope Town and the green pins, where cameras recorded their own position,
+are scattered through the village among the houses, while the blue ones, placed
+from the boat's track, sit in a tidy line out in the channel. That is the ashore
+limitation, drawn.
 
 ## Out of scope
 

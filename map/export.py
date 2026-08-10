@@ -202,6 +202,18 @@ def inreach_layer(path=None):
                       coordinates=_round([(lo, la) for _, la, lo in pts])))])
 
 
+def public_camera(cam):
+    """The camera as the site is allowed to name it.
+
+    Serial numbers group a camera during the build, and only the Canon, the two
+    GoPros and the drone have one — but "no serial numbers on anything published"
+    is a rule about the whole artefact, not only about EXIF. Stripping the tags
+    out of 2,505 JPEGs and then printing the serial under every one of them in
+    the viewer would have honoured the letter of it and missed the point.
+    """
+    return cam.split("#")[0].strip() if cam else cam
+
+
 def photos_json(placed):
     """Every photograph, with what is known about it and how well.
 
@@ -211,7 +223,7 @@ def photos_json(placed):
     """
     out = []
     for r in placed:
-        rec = dict(id=r["id"], tier=r["tier"], camera=r["camera"],
+        rec = dict(id=r["id"], tier=r["tier"], camera=public_camera(r["camera"]),
                    utc=r["utc"], day=r["day"], note=r["note"],
                    thumb=f"media/thumb/{r['id']}.jpg",
                    view=f"media/view/{r['id']}.jpg")
