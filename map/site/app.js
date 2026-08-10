@@ -134,20 +134,19 @@ function applyViewLimits(meta) {
 // The deepest band is not in the data at all — it is the water background, which
 // paints "everywhere else" for nothing.
 function addDepth(meta) {
-  // Two grids: 122 m everywhere the chart reaches, and 61 m over the trip area
-  // drawn on top from the zoom where the difference shows. The wide one keeps
-  // drawing beyond the fine one's edge, so this refines rather than replaces.
-  for (const [id, d] of [['depth', meta.depth_image],
-                         ['depth-fine', meta.depth_image_fine]]) {
-    if (!d) continue;
-    map.addSource(id, { type: 'image', url: d.url, coordinates: d.coordinates });
-    map.addLayer({
-      id, type: 'raster', source: id,
-      ...(d.minzoom !== undefined && d.minzoom !== null ? { minzoom: d.minzoom } : {}),
-      paint: { 'raster-opacity': 1, 'raster-fade-duration': 0,
-               'raster-resampling': 'linear' },
-    });
-  }
+  // One raster, 61 m everywhere. There were two — 122 m over the region and 61 m
+  // over the trip area — and they could not be made to agree: each ran its own
+  // land mask, neighbourhood context and plausibility tests at its own resolution,
+  // so cells near a band boundary fell on opposite sides of it and the colours
+  // jumped when the map swapped rasters partway through a zoom.
+  const d = meta.depth_image;
+  if (!d) return;
+  map.addSource('depth', { type: 'image', url: d.url, coordinates: d.coordinates });
+  map.addLayer({
+    id: 'depth', type: 'raster', source: 'depth',
+    paint: { 'raster-opacity': 1, 'raster-fade-duration': 0,
+             'raster-resampling': 'linear' },
+  });
 }
 
 function addChart(meta) {
@@ -317,7 +316,6 @@ function wirePanel() {
       state.layers[key] = cb.checked;
       if (key === 'depth') {
         setVisible('depth', cb.checked);
-        setVisible('depth-fine', cb.checked);
       } else if (key === 'places') {
         state.refreshPlaces && state.refreshPlaces();
       } else if (key === 'photos') {

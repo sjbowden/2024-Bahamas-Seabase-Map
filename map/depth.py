@@ -176,6 +176,41 @@ class Grid:
         return d
 
 
+def merged():
+    """One grid, at the fine cell size, covering everything the wide one does.
+
+    Two rasters cannot be made to agree. Each ran its own land mask, its own
+    neighbourhood context and its own plausibility tests at its own resolution, so
+    cells near a band boundary landed on opposite sides of it — and swapping
+    rasters at z11.5 made the colours jump. The fix is to stop having two: the wide
+    grid is resampled onto the fine lattice and the fine grid pasted over where it
+    reaches, then everything downstream runs once on the result.
+    """
+    wide, fine = Grid("wide"), Grid("fine")
+    cell = fine.cell
+    ncols = int(round(wide.ncols * wide.cell / cell))
+    nrows = int(round(wide.nrows * wide.cell / cell))
+    lon = wide.x0 + (np.arange(ncols) + 0.5) * cell
+    lat = (wide.y0 + nrows * cell) - (np.arange(nrows) + 0.5) * cell
+
+    wc = np.clip(((lon - wide.x0) / wide.cell).astype(int), 0, wide.ncols - 1)
+    wr = np.clip(((wide.y0 + wide.nrows * wide.cell - lat) / wide.cell).astype(int),
+                 0, wide.nrows - 1)
+    depth = wide.depth[np.ix_(wr, wc)].copy()
+
+    fc = ((lon - fine.x0) / fine.cell).astype(int)
+    fr = ((fine.y0 + fine.nrows * fine.cell - lat) / fine.cell).astype(int)
+    okc, okr = (fc >= 0) & (fc < fine.ncols), (fr >= 0) & (fr < fine.nrows)
+    if okc.any() and okr.any():
+        depth[np.ix_(okr, okc)] = fine.depth[np.ix_(fr[okr], fc[okc])]
+
+    out = Grid("wide")
+    out.depth, out.cell = depth, cell
+    out.nrows, out.ncols = nrows, ncols
+    out.which, out.minzoom = "merged", None
+    return out
+
+
 def along_track(grid, fixes):
     """Depths under a day's fixes, ignoring any the grid calls land.
 
@@ -280,7 +315,23 @@ SUSPECT_WINDOW = 25
 # Ocean is told apart by its own surroundings over about six kilometres. Measured,
 # that classes 0% of the marsh and the Marsh Harbour approaches as ocean and 85% of
 # the water off Elbow Cay's Atlantic shore, which keeps its real depths.
-BANK_CAP_M = 19.5
+# Bank water deeper than this is not believed, and is refilled from its
+# neighbours rather than clamped. Clamping was the previous answer and it only
+# moved the problem: an artefact held at 19.5 m lands in the *lightest* drawn
+# band, so the marsh went from invisibly pale to visibly pale. Refilling gives it
+# whatever its surroundings have, which is what the eye expects of a flat.
+# Sub-samples per cell, per axis, when deciding a pixel's colour. 3 means each
+# pixel is the average of 9 band lookups taken through the bilinearly interpolated
+# seabed, which antialiases every band edge to about a third of a cell.
+#
+# Averaging the *depths* over a neighbourhood first was tried instead and was
+# clearly worse: it pulled wide areas of the bank onto the 4 m boundary, where the
+# least variation flips a cell, and the chart dithered into a mosaic. Bilinear
+# interpolation cannot do that — it reproduces each cell centre exactly and moves
+# monotonically between them.
+SUBSAMPLES = 3
+
+BANK_PLAUSIBLE_M = 12.0
 OCEAN_CONTEXT_M = 40.0
 OCEAN_WINDOW = 51
 
@@ -347,10 +398,9 @@ def _implausible(depth, sea):
     return sea & (depth > np.maximum(SUSPECT_FLOOR_M, SUSPECT_FACTOR * ctx))
 
 
-def _cap_banks(depth, sea):
-    """Hold bank water inside a band that is drawn; leave the ocean alone."""
-    ocean = _box_mean_valid(depth, sea & (depth > 0), OCEAN_WINDOW) > OCEAN_CONTEXT_M
-    return np.where(sea & ~ocean, np.minimum(depth, BANK_CAP_M), depth)
+def _is_ocean(depth, sea):
+    """Open ocean, told apart by its surroundings over about six kilometres."""
+    return _box_mean_valid(depth, sea & (depth > 0), OCEAN_WINDOW) > OCEAN_CONTEXT_M
 
 
 def _sea_only(water):
@@ -401,7 +451,94 @@ def _sea_only(water):
     return sea
 
 
-def render_png(grid, path, max_px=2600, land=None):
+def _between(a, sy, sx):
+    """`a` resampled a fraction of a cell away, bilinearly, edges held.
+
+    Rolling a padded copy wraps the outer ring around, which is why the ring is
+    padded on and then cropped off again: the wrap only ever lands in the part
+    thrown away.
+    """
+    p = np.pad(a, 1, mode="edge")
+    for s, axis in ((sy, 0), (sx, 1)):
+        if s:
+            f = abs(s)
+            p = (1.0 - f) * p + f * np.roll(p, -1 if s > 0 else 1, axis=axis)
+    return p[1:-1, 1:-1]
+
+
+def _banded(depth):
+    """Band colours per pixel, antialiased; and where there is water at all.
+
+    Each pixel is the mean of SUBSAMPLES² band lookups taken between the cell
+    centres, so a band edge crossing a cell shows as a blend rather than as a step.
+    Without this the bands drew as rectilinear staircases at 61 m, which is the
+    scale of the survey and not of anything on the seabed. MapLibre's own resampling
+    cannot fix that: given a hard edge on a coarse lattice it can only give back a
+    staircase or a blur, and it was asked for both in turn.
+
+    The deepest band is painted here rather than left transparent for the page
+    background to show through, so that the 20 m edge antialiases like the others.
+    Its colour is the background's, so nothing looks different where it is flat.
+    """
+    palette = np.array([[int(c[i:i + 2], 16) for i in (1, 3, 5)]
+                        for _, _, c, _ in BANDS], dtype=np.uint8)
+    edges = np.array([hi for _, hi, _, _ in BANDS[:-1]], dtype=np.float32)
+    off = [(k + 0.5) / SUBSAMPLES - 0.5 for k in range(SUBSAMPLES)]
+
+    acc = np.zeros(depth.shape + (3,), dtype=np.uint16)
+    hits = np.zeros(depth.shape, dtype=np.uint8)
+    for sy in off:
+        for sx in off:
+            v = _between(depth, sy, sx)
+            wet = v > 0
+            idx = np.digitize(v, edges).astype(np.uint8)
+            for ch in range(3):
+                acc[:, :, ch] += np.where(wet, palette[:, ch][idx], 0)
+            hits += wet
+    safe = np.maximum(hits, 1).astype(np.uint16)
+    rgb = (acc // safe[:, :, None]).astype(np.uint8)
+    return rgb, hits > 0
+
+
+def cleaned(depth, dry):
+    """Depths with the untrustworthy ones replaced; land and dry cells set to -1.
+
+    Kept apart from the drawing so the raster and the vector bands cannot disagree
+    about what the seabed is. They differed before, when each computed this for
+    itself at its own resolution, and cells near a band boundary fell on opposite
+    sides of it.
+
+    Shade open water only. Where the coastline is finer than the grid — the marsh
+    maze inside Great Abaco is thousands of islets tens of metres across — a 61 m
+    cell means nothing, and rasterising those islets into it produced a blue mosaic
+    that swamped the island. Connectivity does not separate them (the flats are
+    open to the sea) and neither does hole-filling (they are separate islets, not
+    holes), so the test is local: if a neighbourhood is more than a quarter land,
+    the grid is out of its depth and says nothing.
+
+    Suppressing that water outright left every shoreline with an unshaded band
+    about 600 m wide, so the chart read as deep water right up to the beach — the
+    opposite of the truth, and in the one place the shallows matter most. Instead
+    the fringe is filled from the nearest water the grid *is* trusted on, which
+    gets both sides right: shallow on the bank, and still deep along the Atlantic
+    shore of the cays where the bottom drops away fast.
+
+    Three ways a depth loses the benefit of the doubt, all refilled the same way:
+    the coastline is finer than the grid there, the value is far deeper than its
+    neighbourhood, or it claims more than twelve metres somewhere that is plainly
+    a bank rather than ocean.
+    """
+    crowded = _box_mean(dry.astype(np.float32), FLATS_WINDOW) > FLATS_LAND_FRACTION
+    sea = _sea_only(~dry)
+    ocean = _is_ocean(depth, sea)
+    doubted = (crowded
+               | _implausible(depth, sea)
+               | (~ocean & (depth > BANK_PLAUSIBLE_M)))
+    out = _grow_into(depth, sea, trusted=sea & ~doubted & (depth > 0))
+    return np.where(sea, out, -1.0), sea
+
+
+def render_png(grid, path, max_px=5200, land=None):
     """Paint the depth bands into a paletted PNG, reprojected to web mercator.
 
     A raster, not vector bands. Bathymetry is a continuous field, and the first
@@ -437,32 +574,10 @@ def render_png(grid, path, max_px=2600, land=None):
     rgba = np.zeros((h, w, 4), dtype=np.uint8)
     dry = (_land_mask(land, w, h, x0, y0, x1, y1, merc_y)
            if land is not None else np.zeros((h, w), dtype=bool))
-    # Only water that reaches the open sea gets shaded. The interior of Great
-    # Abaco is a lace of marsh and tidal flat that the coastline correctly calls
-    # water, and GMRT gives it a metre or so — but shading it turned the island
-    # into a blue mosaic that swamped the chart. A flood fill from the edge of the
-    # image keeps the sea and leaves the inland flats alone.
-    # Shade open water only. Where the coastline is finer than the grid — the
-    # marsh maze inside Great Abaco is thousands of islets tens of metres across —
-    # a 122 m cell means nothing, and rasterising those islets into it produced a
-    # blue mosaic that swamped the island. Connectivity does not separate them
-    # (the flats are open to the sea) and neither does hole-filling (they are
-    # separate islets, not holes), so the test is local: if a neighbourhood is
-    # more than a quarter land, the grid is out of its depth and says nothing.
-    crowded = _box_mean(dry.astype(np.float32), FLATS_WINDOW) > FLATS_LAND_FRACTION
-    sea = _sea_only(~dry)
-    # Suppressing crowded water outright left every shoreline with an unshaded
-    # band about 600 m wide, so the chart read as deep water right up to the
-    # beach — the opposite of the truth, and in the one place the shallows matter
-    # most. Instead the fringe is filled from the nearest water the grid *is*
-    # trusted on, which gets both sides right: shallow on the bank, and still deep
-    # along the Atlantic shore of the cays where the bottom drops away fast.
-    trusted = sea & ~crowded & (sampled > 0) & ~_implausible(sampled, sea)
-    sampled = _grow_into(sampled, sea, trusted=trusted)
-    sampled = np.where(sea, sampled, -1.0)
-    sampled = _cap_banks(sampled, sea)
+    sampled, sea = cleaned(sampled, dry)
 
-    # And then a little way *into* the land, which is not about depth at all. The
+    # Carry the water colour a little way *into* the land, which is not about
+    # depth at all. The
     # image is magnified by ten or more when zoomed in, and MapLibre's linear
     # resampling interpolates the alpha channel as well as the colour — so a hard
     # water-to-transparent edge at the coast became a semi-transparent band a
@@ -472,12 +587,8 @@ def render_png(grid, path, max_px=2600, land=None):
     # on top, so nobody sees where it stops.
     sampled = _grow_into(sampled, np.ones_like(sea), passes=COAST_BLEED,
                          trusted=sampled > 0)
-    for lo, hi, colour, _ in BANDS:
-        if hi > 1e8:
-            continue                    # the water background paints the deepest
-        m = (sampled > 0) & (sampled >= lo) & (sampled < hi)
-        r, g, b = (int(colour[i:i + 2], 16) for i in (1, 3, 5))
-        rgba[m] = (r, g, b, 255)
+    rgba[:, :, :3], hit = _banded(sampled)
+    rgba[:, :, 3] = np.where(hit, 255, 0)
     img = Image.fromarray(rgba, "RGBA")
     # Quantising to the handful of colours actually used makes the file a fraction
     # of the size; RGBA is kept for the transparent land and deep water.
