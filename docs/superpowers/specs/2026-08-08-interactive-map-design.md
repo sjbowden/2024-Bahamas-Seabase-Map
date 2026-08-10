@@ -568,7 +568,7 @@ validate, and a test asserts it.
   blind to anything narrower than a cell, which is why a harbour entrance or a
   dredged berth reads as land.
 
-  Two masks earn their place, and the second only after the first two attempts
+  Three masks earn their place, and the last two only after earlier attempts
   failed. Land is rasterised from the coastline, because GMRT is a *bathymetry*
   synthesis whose land elevations sit near zero — testing `depth > 0` painted the
   pine forest in the middle of Great Abaco as shallow water. Then the interior
@@ -576,8 +576,18 @@ validate, and a test asserts it.
   holes changed nothing) and they *are* connected to the sea (a flood fill reached
   them), so neither topology test excludes them. They are thousands of islets tens
   of metres across, finer than a 122 m cell, where the grid has nothing to say — so
-  the test is local density: a neighbourhood more than a quarter land goes
-  unshaded.
+  the test is local density: a neighbourhood more than a quarter land is not
+  trusted.
+
+  Not trusted is not the same as not drawn, and conflating the two was the next
+  mistake: suppressing those pixels outright left every shoreline with an unshaded
+  band about 600 m wide, so the chart read as deep water right up to the beach — the
+  opposite of the truth, in the one place the shallows matter most. The fringe is
+  instead filled from the nearest water the grid *is* trusted on, which gets both
+  sides right: shallow against the bank, and still deep along the Atlantic shore of
+  the cays where the bottom drops away. Twenty-four dilations take the bare
+  shoreline from 5.8% of its pixels to 0.4%, and smooth the flats into a wash on the
+  way, because each pass averages what it grew from.
 - **Tracks** — seven days in poster colours, each independently toggleable, all
   drawn **true**. The lateral offset was a compromise for one fixed print scale;
   zoom solves the crowding properly. Drawn from the thinned `load_day()` output,
