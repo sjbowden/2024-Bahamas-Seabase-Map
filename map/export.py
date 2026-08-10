@@ -23,20 +23,18 @@ import argparse
 import collections
 import json
 import os
-import xml.etree.ElementTree as ET
 
 from shapely import set_precision
 from shapely.geometry import box as shapely_box
 
 from abaco_geo import COASTLINE_MAP, land_polygons
 from trip import (AIRPORT, ANCHORAGES, DAYS, EXTENT, HOTEL, MAP_LAND_BBOX,
-                  MARINA, PLACES, VIEW_BOUNDS, load_day, shoal, transfer_route)
+                  MARINA, PLACES, VIEW_BOUNDS, load_day, transfer_route)
 from map import clock_fit as C
 from map import depth as DEPTH
 from map import place as P
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-NS = "{http://www.topografix.com/GPX/1/1}"
 
 # Web-mercator resolution at 26.5 N is 139,950 / 2^z m/px, so half a pixel is:
 #   z=10  ~68 m    z=12  ~17 m    z=14  ~4 m
@@ -52,7 +50,6 @@ BANDS = [
     dict(name="medium", maxzoom=13, tol=0.00015, min_area_m2=1200.0, near=0.30),
     dict(name="fine", maxzoom=22, tol=0.00004, min_area_m2=0.0, near=0.30),
 ]
-SHOALS = [(0.0060, "outer"), (0.0026, "inner")]
 PRECISION = 5
 
 # 1 deg^2 at 26.5 N, for the islet-area test without reprojecting anything.
@@ -108,7 +105,13 @@ def _near_chart(pad):
 
 
 def chart_layers(land):
-    """coast + shoals, one file per zoom band."""
+    """The coastline, one file per zoom band.
+
+    The shoal halo that used to accompany it is gone: it was two buffers around
+    the land, coloured to suggest shallows and knowing nothing about the seabed,
+    and depth.png now says the same thing from measurement. Keeping a drawn
+    shallows band beside a measured one was only ever a way to compare them.
+    """
     files = {}
     for band in BANDS:
         subject = land if band["near"] is None else \
@@ -116,18 +119,6 @@ def chart_layers(land):
         rings = _rings(subject, band["tol"], band["min_area_m2"])
         files[f"coast.{band['name']}.geojson"] = _fc([
             _poly(rings, dict(kind="land", maxzoom=band["maxzoom"]))])
-        feats = []
-        for buf, name in SHOALS:
-            # Buffer the whole land, then clip: buffering a clipped coastline
-            # would put a shoal halo along the clip line itself.
-            ring_geom = shoal(land, buf)
-            if band["near"] is not None:
-                ring_geom = ring_geom.intersection(_near_chart(band["near"]))
-            sr = _rings(ring_geom, band["tol"], band["min_area_m2"])
-            if sr:
-                feats.append(_poly(sr, dict(kind="shoal", ring=name,
-                                            maxzoom=band["maxzoom"])))
-        files[f"shoals.{band['name']}.geojson"] = _fc(feats)
     return files
 
 
@@ -202,27 +193,6 @@ def places_layer():
     return _fc(feats)
 
 
-def inreach_layer(path=None):
-    """The tracker's positions — off by default, and the only evidence of where
-    the boat sat overnight. Display only: nothing is placed from it, because
-    measured, its usable brackets buy ten minutes the handheld does not already
-    cover."""
-    path = path or os.path.join(HERE, "geo", "inreach.gpx")
-    if not os.path.exists(path):
-        return None
-    pts = []
-    for tp in ET.parse(path).getroot().iter(NS + "trkpt"):
-        t = tp.find(NS + "time")
-        if t is None:
-            continue
-        pts.append((t.text, float(tp.get("lat")), float(tp.get("lon"))))
-    pts.sort()
-    return _fc([dict(
-        type="Feature", properties=dict(kind="inreach", points=len(pts)),
-        geometry=dict(type="LineString",
-                      coordinates=_round([(lo, la) for _, la, lo in pts])))])
-
-
 def public_camera(cam):
     """The camera as the site is allowed to name it.
 
@@ -274,9 +244,6 @@ def export(dest, placed):
     depth_days = DEPTH.day_summary(grid)
     files["tracks.geojson"] = track_layer(depth_days)
     files["places.geojson"] = places_layer()
-    inr = inreach_layer()
-    if inr:
-        files["inreach.geojson"] = inr
     files["photos.json"] = photos_json(placed)
     files["meta.json"] = dict(
         extent=list(EXTENT), view_bounds=list(VIEW_BOUNDS),

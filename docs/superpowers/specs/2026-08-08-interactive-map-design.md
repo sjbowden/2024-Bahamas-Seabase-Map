@@ -544,9 +544,11 @@ validate, and a test asserts it.
   shoal halos were cartography: two buffers around the land, coloured to suggest
   shallows and knowing nothing about the seabed. GMRT — the Global Multi-Resolution
   Topography synthesis — serves a grid subset over one HTTP request with no key,
-  and at 122 m cells it resolves the Sea of Abaco's banks plainly. The drawn halo
-  survives as an alternative toggle, since the two are answers to the same question
-  and stacking a made-up shallows band over a real one would only confuse.
+  and at 122 m cells it resolves the Sea of Abaco's banks plainly. 
+  The drawn halo is **gone**, not kept as an alternative. It existed to be
+  compared against the measurement, the comparison was made, and a made-up
+  shallows band has nothing to say once a real one is there. Dropping it took
+  886 KB of GeoJSON with it.
 
   It also settles a question the poster could not: **how little water the crew had
   under them.** Sunday and Tuesday both touch 1.0 m; Tuesday spent 1,352 fixes
@@ -583,8 +585,12 @@ validate, and a test asserts it.
 - **Places** — towns, cays, anchorages, airport, marina, hotel, revealed
   progressively with zoom so the chart never crowds.
 - **Photographs** — clustered points that split as you zoom.
-- **Overnight track** — inReach positions, off by default. The only evidence of
-  where the boat sat overnight. Display only; nothing is placed from it.
+- ~~**Overnight track**~~ — dropped. It had already lost its job as a placement
+  source, where measurement showed its usable brackets bought 0.17 h the handheld
+  did not already cover, and as a layer it showed a dotted line between positions
+  ten minutes to four hours apart that told you nothing you could not see from
+  where the day's track ended. `geo/inreach.gpx` stays for `corroborate.py`, which
+  is where the cross-check belongs.
 
 **Interaction** — cluster → zoom splits it → pin opens the viewer. The viewer
 shows image, time, day, camera and placement note, with previous/next moving in
