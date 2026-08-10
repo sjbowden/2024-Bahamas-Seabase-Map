@@ -652,10 +652,27 @@ validate, and a test asserts it.
   lumpy, and at 1.7 km the bank west of the cays flattens into one tone and real
   structure goes with it.
 
-  The cost is in the areas, which now come to 1.03–1.12× the grid's own figures
-  rather than 1.01–1.07×. Most of that is the shore overrun, which is hidden under
-  the land, and all of it errs generous rather than optimistic. The per-day figures
-  are untouched — those are read off the 61 m grid, not off this.
+  **Two shores, two different answers about whether contours should be parallel.**
+  This came up as a direct question — shouldn't the bands off Elbow Cay be parallel
+  lines rather than blobs? — and the grid says it depends which part of that shore.
+
+  South and east of the cay the bottom falls off a wall: the grid goes from about
+  12 m to its 400 m clip within 200 m of the beach. A metre of survey error moves a
+  contour a few metres there, so those bands are well determined and genuinely are
+  parallel. But on the shelf *northeast* of the cay the median depth is 12.7 m and
+  the bottom falls only **2.5 m per kilometre**, with 8% of cells within ±1.5 m of
+  the 10 m band edge. GMRT is good to about a metre there, so one metre of error
+  moves the 10 m contour **408 m sideways**. The blob scale is the survey's
+  precision. Drawing a clean line parallel to the shore across that shelf would
+  state something the data cannot support, so it stays as it is.
+
+  The wall is also why the cells are 122 m rather than 244 m. Where the bands crowd
+  into a couple of hundred metres each one is narrower than a 244 m cell, so it drew
+  as a staircase rather than a ribbon, and corner cutting cannot help — there is no
+  corner to cut. 1.8 MB, and the areas come out *closer* at the finer size,
+  1.02–1.09× the grid rather than 1.03–1.12×, because there is less shore overrun.
+  The per-day figures are untouched either way — those are read off the 61 m grid,
+  not off this.
 
   How smooth it looks is also governed by the *simplify* tolerance rather than the
   number of cutting passes: at 45 m the 244 m staircase still read plainly
