@@ -252,17 +252,28 @@ costs nothing until then.
 Positions come from **interpolation between bracketing fixes**, not the nearest
 one. At 5 kn, nearest-fix lookup is needlessly ~10 m out.
 
-**The `bracket` tier reaches 6 photographs.** A GPS-less photograph sitting 40
-seconds after one of its own camera's GPS photographs and 30 seconds before the
-next, with those two 30 m apart, belongs between them — not on a boat lying 400 m
-offshore. Same camera, same person, same walk through the village. It needs no
-clock fit, because the camera's clock is self-consistent whatever it reads.
+**The `bracket` tier reaches nothing on this chart.** The idea was sound: a
+GPS-less photograph sitting 40 seconds after one of its own camera's GPS
+photographs and 30 seconds before the next, with those two 30 m apart, belongs
+between them — not on a boat lying 400 m offshore. Same camera, same person, same
+walk through the village, and no clock fit needed because a camera's own
+timestamps are self-consistent whatever they read.
 
-Applied when both brackets are from the same camera, ≤2 min away in time and
-≤200 m apart. Measured, it reaches six photographs, all iPhone 15 Pro — the only
-camera here with genuinely *partial* GPS coverage. That is a handful, as suspected
-when it was written down, and still the best-placed six on the chart. It costs
-about twenty lines and no clock, so it stays.
+Measured, it reaches six photographs, and **all six are in Portland** — bracketed
+between two of the iPhone 15 Pro's Oregon photographs on 21 March. They are
+`travel`. On the Sea of Abaco its reach is zero.
+
+Which is a correction to the count reported when this tier was added, and it came
+from a bug worth recording: the bracket branch did not apply the region guard the
+`gps` branch does, so those six were counted as placed and would have plotted on
+the Abaco chart at **latitude 45**. The guard is now shared by both branches, and
+a test asserts that nothing plotted falls outside the chart.
+
+The tier stays — thirty correct, tested lines, and it is the right answer whenever
+a camera has genuinely partial GPS coverage. But it earns nothing here, and it
+should not appear in the viewer's legend until it does. The honest summary is that
+the only camera in this set with partial coverage happened to spend its GPS-less
+frames at home.
 
 ### What placement cannot know
 
@@ -283,6 +294,48 @@ interface makes the difference legible.
 Where the boat was demonstrably stationary through the surrounding window, the
 note names the anchorage — *"at anchor off Hope Town"* — rather than implying a
 metre-level position the method cannot support.
+
+### Where they all landed
+
+Milestone 3 resolved every photograph:
+
+| tier | count | |
+|---|---|---|
+| `calibrated` | 826 | UTC known exactly, position from the track |
+| `inferred` | 786 | UTC from a fitted offset, position from the track |
+| `gps` | 471 | the camera's own coordinates, on the chart |
+| `unplaced` | 312 | has a UTC, but in a hole where the receiver was not recording |
+| `travel` | 110 | away from Abaco — 41 by their own GPS, 69 by their UTC |
+| `bracket` | 0 | reaches six photographs, all of them in Portland |
+
+**2,083 photographs plot on the Abaco chart**, every one of them inside its
+bounds and carrying a sailing day.
+
+The 312 `unplaced` are not a failure of the fit — they have good timestamps, and
+they are the evenings ashore after the receiver went on its charger. That is the
+irreducible limit named above, arriving as a number.
+
+### Uncertainty is the boat's behaviour, not the clock's
+
+A photograph's timing is uncertain by its camera's fit width, and the tempting way
+to turn that into metres is to multiply by an assumed speed. The honest way is to
+ask where the boat *actually was* across that window — sample the track at both
+ends of it and measure. Which produces a result the assumed-speed version cannot:
+
+| camera | fit width | median | 90th | worst |
+|---|---|---|---|---|
+| iPhone 14 Pro | ±2 s | 0 m | 6 m | 7 m |
+| Canon EOS REBEL T3i | under 30 s | 8 m | 38 m | 53 m |
+| FinePix XP90 | ±10 min | 4 m | 776 m | 924 m |
+| GoPro HERO5 | ±20.5 min | 8 m | 1,714 m | 1,868 m |
+
+The FinePix and the GoPro have small medians and enormous tails, because **half
+their frames were taken at anchor**, where a twenty-minute timing error costs a
+few metres, and the rest were taken under sail, where it costs kilometres. Same
+camera, same fit, different answers, and the difference is real: a ten-minute
+window measures 5 m at anchor and 1,822 m under way. The viewer can therefore be
+confident about a GoPro photograph from Tilloo Pond and honest about one from the
+passage to Guana, which a single per-camera number could never do.
 
 ### Guards
 
@@ -343,12 +396,33 @@ GeoJSON as SVG paths, and that many nodes will not pan smoothly on a phone,
 which is the stated target. A GL renderer handles it. No third-party tiles
 either way — the chart is our own GeoJSON.
 
-**Levels of detail.** `geo/coastline.json` alone is 6.5 MB, and the shoals are
-two buffer operations on the same geometry. Shipped raw, the chart layer is the
-better part of 10 MB that a phone must fetch and parse before drawing anything.
-So the build emits 2–3 zoom bands per layer, simplified with shapely
-`.simplify()` at roughly half a pixel for the band's scale, dropping polygons
-below a pixel of area at the coarsest. Cheap in Python, done once.
+**Levels of detail — built, and it works.** `geo/coastline.json` alone is 6.5 MB,
+and the shoals are two buffers over the same geometry. Three bands, simplified to
+about half a pixel at the scale each serves, with sub-pixel islets dropped at the
+coarsest:
+
+| band | max zoom | land parts | size | gzipped |
+|---|---|---|---|---|
+| coarse | 11 | 298 of 1,370 | 138 KB | 38 KB |
+| medium | 13 | 792 | 469 KB | 120 KB |
+| fine | 22 | 1,371 | 1,162 KB | 277 KB |
+
+Every band keeps the land's area to within 0.1%, so the coarse chart is cheaper
+without being visibly wrong. **First paint is 1,076 KB, or 134 KB gzipped** —
+coarse band, tracks, places and all 2,505 photograph records. The fine band's
+1.5 MB loads only on zoom. Static hosts gzip by default, which is what turns a
+757 KB `photos.json` into 46 KB on the wire.
+
+One trap, worth recording because the geometry looked fine either way. Simplifying
+1,370 islands *individually* produced a MultiPolygon whose every part was valid
+and whose whole was not: `preserve_topology` only promises a part will not
+self-intersect, so neighbours drifted into each other. Simplifying the collection
+as one geometry fixed the coarse band and not the finer two — because rounding
+coordinates to five decimals on the way out snapped near-coincident vertices
+together, at a 1 m grid against the fine band's 4 m tolerance. The operation
+actually wanted is `shapely.set_precision(..., mode="valid_output")`, which snaps
+to the output grid and keeps the result valid. All nine exported layers now
+validate, and a test asserts it.
 
 **Layers, all toggleable**
 
@@ -417,9 +491,9 @@ map/
   photo_index.py       walk the zips, read EXIF headers          [done]
   clock_fit.py         resolve UTC per photograph, per-camera fits [done]
   tests.py             the build's tests, no pytest              [done]
-  place.py             bracket + interpolate positions, apply guards
+  place.py             bracket + interpolate positions, apply guards [done]
+  export.py            GeoJSON at three zoom bands + photos.json [done]
   derive.py            thumbnails and viewing copies
-  export.py            GeoJSON + photos.json
   site/                web app source
 photos/                ARCHIVES — gitignored, read in place
 out/photo_index.json   gitignored: 4 s to rebuild, 512 EXIF coordinates in it
@@ -427,8 +501,16 @@ out/clock_fit.json     gitignored: 0.5 s to rebuild
 site_build/            OUTPUT — gitignored
 ```
 
-**One refactor, and only this one** — done in milestone 1, and slightly larger
-than an extraction. `DAYS`, `load_day()`, `haversine()`, the barrier test and
+**Two refactors, both small.** Milestone 3 needed a second: `PLACES`,
+`ANCHORAGES`, `AIRPORT`, `HOTEL` and `MARINA` moved from `poster.py` into
+`trip.py` alongside `DAYS`, together with the chart `EXTENT` and `LAND_BBOX`.
+`export.py` has to write a places layer and `place.py` has to name the anchorage a
+photograph sits off, and the alternative was a second copy of every coordinate.
+The poster's PNGs came out byte-identical again afterwards, which is the test that
+makes this kind of move cheap.
+
+**The first refactor** — done in milestone 1, and slightly larger than an
+extraction. `DAYS`, `load_day()`, `haversine()`, the barrier test and
 `_shoal()` moved into `trip.py`, with `read_fixes()` added underneath
 `load_day()`. `_shoal()` had to come along: the map needs it, and importing
 `poster` pulls in matplotlib and runs font registration — which is the whole
@@ -499,8 +581,12 @@ The build and the site are separable, and the build is where the risk lives.
    satellites, 1,093 from a timezone tag good to a second, and only 810 needed
    fitting at all. The design's own assumptions about the archives were wrong in
    three ways, all corrected above. The `bracket` tier reaches 6.
-3. **Place and export** — `place` + `export`, producing the GeoJSON at each zoom
-   band and `photos.json` with no media.
+3. **Place and export** — ✅ done. 2,083 photographs plot on the chart, every one
+   inside its bounds and carrying a sailing day; 312 are `unplaced` because the
+   receiver was off, 110 are `travel`. Uncertainty is measured along the track
+   rather than assumed from a speed, which is what lets one GoPro photograph be
+   trusted to 8 m and another from the same camera be honest about 1.8 km. The
+   nine data files total 3.2 MB, 675 KB gzipped, with first paint at 134 KB.
 4. **The map, with data but no photographs** — chart, tracks, places, layers, on
    MapLibre. Verifiable on its own, and the point at which the level-of-detail
    budget gets checked on an actual phone rather than a desktop browser.
@@ -516,10 +602,16 @@ photographs that already knew their own time, and undefined on the 810 that
 didn't. Nothing downstream had been built on it yet, which is the whole argument
 for putting the risky half first.
 
-What milestone 3 inherits, and must not lose: **the peak width per camera.** The
-Canon's offset is localised to under 30 s, the GoPro's to ±20.5 min — ~3 km of
-track at 5 kn. A photograph's confidence is its camera's fit width, and the
-viewer should not show those two with the same certainty.
+Milestone 3 did inherit the peak widths and turned them into metres per
+photograph. Two bugs it found are recorded above, both of the same shape — a guard
+that existed in one branch and not its neighbour, and a topology promise that held
+per part but not per collection. Both were caught by asking the output a question
+it had not been asked before, which is the argument for the invariant tests over
+the eyeball.
+
+What milestone 4 inherits: the data files are written and validated, but nothing
+has drawn them yet. The level-of-detail budget above is arithmetic until it is
+checked on an actual phone.
 
 ## Out of scope
 

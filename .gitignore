@@ -33,3 +33,4 @@ site_build/
 # out/IMG_0496.JPG is kept out.
 out/photo_index.json
 out/clock_fit.json
+out/placed.json
