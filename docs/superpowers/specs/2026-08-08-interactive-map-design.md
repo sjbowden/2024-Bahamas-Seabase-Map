@@ -635,7 +635,18 @@ validate, and a test asserts it.
   cutting move vertices rather than adding and removing area, so a one-cell ribbon
   survives, and a 60 m nudge outward afterwards guarantees the bands still *touch*
   the shore — cutting a corner pulls it in slightly, the land is drawn on top, so
-  erring outward costs nothing and erring inward shows as a pale gap. 1.2 MB.
+  erring outward costs nothing and erring inward shows as a pale gap.
+
+  How smooth it looks turns out to be governed by the *simplify* tolerance rather
+  than the number of cutting passes: at 45 m the 244 m staircase still read plainly
+  as a staircase, because simplifying discarded the curve that had just been cut
+  into it. Three passes kept at 20 m read as gentle scallops, for 1.5 MB. The two
+  alternatives were built and compared rather than reasoned about — a fourth pass at
+  12 m is hard to tell apart and costs 2.1 MB, and the residual waviness is not
+  corner sharpness at all but the amplitude of the 244 m step itself, which corner
+  cutting cannot touch. Coarsening less to shrink that step is worse on both counts:
+  183 m cells cost 2.0 MB and bring back the isolated specks that coarsening exists
+  to merge.
 
   **The flats are painted, and they are what the bands were getting wrong.** Water
   the coastline knows about but the grid cannot answer for — the tidal maze inside
