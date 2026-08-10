@@ -32,15 +32,54 @@
   <div class="group">
     <h2>Chart</h2>
     <ul id="chart-layers">
+      <li><label><input type="checkbox" data-layer="photos" checked> Photographs</label></li>
       <li><label><input type="checkbox" data-layer="shoals" checked> Shoals</label></li>
       <li><label><input type="checkbox" data-layer="places" checked> Place names</label></li>
       <li><label><input type="checkbox" data-layer="inreach"> Overnight track</label>
           <span class="note">where the boat sat while the receiver charged</span></li>
     </ul>
   </div>
+  <div class="group">
+    <h2>How each one was placed</h2>
+    <ul id="tierkey">
+      <li><span class="key key-gps"></span> the camera recorded its own position</li>
+      <li><span class="key key-calibrated"></span> from the boat's track, at a time we know</li>
+      <li><span class="key key-inferred"></span> from the boat's track, at a time we fitted</li>
+    </ul>
+    <p class="hint">Open a photograph and the shaded ring shows how far out its
+       position could be. Much of this week happened ashore, where the boat's
+       track can only say roughly.</p>
+    <p class="hint"><button type="button" id="tray-open" class="link">Photographs not on the chart</button>
+       <span id="tray-count"></span></p>
+  </div>
 </section>
 
 <div id="scalebar"><div id="scalebar-line"></div><span id="scalebar-label"></span></div>
+
+<div id="clusters" aria-hidden="true"></div>
+
+<section id="viewer" hidden aria-modal="true" role="dialog" aria-label="Photograph">
+  <button id="viewer-close" aria-label="Close">&times;</button>
+  <button id="viewer-prev" aria-label="Previous">&#8249;</button>
+  <button id="viewer-next" aria-label="Next">&#8250;</button>
+  <figure>
+    <img id="viewer-img" alt="">
+    <figcaption>
+      <p id="viewer-when"></p>
+      <p id="viewer-note"></p>
+      <p id="viewer-meta"></p>
+    </figcaption>
+  </figure>
+</section>
+
+<section id="tray" hidden aria-label="Photographs not on the chart">
+  <header>
+    <h2>Not on the chart</h2>
+    <button id="tray-close" aria-label="Close">&times;</button>
+  </header>
+  <p class="tray-why"></p>
+  <div id="tray-body"></div>
+</section>
 
 <noscript>
   <div class="fallback">This chart needs JavaScript and WebGL to draw itself.</div>
