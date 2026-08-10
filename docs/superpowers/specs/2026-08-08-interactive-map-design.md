@@ -519,13 +519,29 @@ Every band keeps the land's area to within 0.1%, so the coarse chart is cheaper
 without being visibly wrong. **First paint is 1,324 KB, or 211 KB gzipped** —
 coarse band, tracks, places and all 2,505 photograph records.
 
-Only the coarse band carries the whole region, because zoomed out is exactly when
-the context is wanted. The medium and fine bands are clipped to the chart extent
-plus 0.3°, since zooming in only ever happens where the trek is: unclipped, the
-fine band shipped 2 MB of street-level coastline for islands nobody can reach the
-far side of. The shoals are buffered *before* clipping, or the halo would trace
-the clip line instead of a shore. Static hosts gzip by default, which is what turns a
-757 KB `photos.json` into 46 KB on the wire.
+Every band covers the whole region. The finer two were clipped to the trip area for
+a while, to save 1.4 MB on the reasoning that zooming in only happens where the trek
+is, and it was a false economy twice over: only one band draws at any zoom, so past
+z11 the land outside the clip simply vanished — and the depth raster showed its pale
+background through the gap.
+
+That was the same failure as a subtler one it took a screenshot to catch. The depth
+raster masks out land so the coastline can paint it, and it was masking with the
+*full* coastline while the map drew a simplified, area-culled one — so every islet
+the drawn band dropped became a transparent hole with the pale background showing
+through. At the medium band **40% of the mask's land pixels had no land over them**,
+which is what turned the marsh inside Great Abaco into a near-white mosaic. The mask
+now comes from the *coarsest* band's geometry, which every finer band is a superset
+of: 0% holes at coarse, 0.9% at medium.
+
+Worth remembering as a class of bug rather than an incident. Three rounds of
+measurement missed it because they all examined `sea` pixels, and these are land in
+the mask — so the palette, the fringe fill and a near-shore cap were each real
+answers to questions nobody had asked. The chart was wrong in a way the numbers
+could not see, and one screenshot of the right place at the right zoom found it.
+
+Static hosts gzip by default, which is what turns a 757 KB `photos.json` into 46 KB
+on the wire.
 
 One trap, worth recording because the geometry looked fine either way. Simplifying
 1,370 islands *individually* produced a MultiPolygon whose every part was valid
