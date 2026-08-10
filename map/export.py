@@ -30,7 +30,7 @@ from shapely.geometry import box as shapely_box
 
 from abaco_geo import COASTLINE_MAP, land_polygons
 from trip import (AIRPORT, ANCHORAGES, DAYS, EXTENT, HOTEL, MAP_LAND_BBOX,
-                  MARINA, PLACES, load_day, shoal, transfer_route)
+                  MARINA, PLACES, VIEW_BOUNDS, load_day, shoal, transfer_route)
 from map import clock_fit as C
 from map import place as P
 
@@ -275,8 +275,8 @@ def export(dest, placed):
         files["inreach.geojson"] = inr
     files["photos.json"] = photos_json(placed)
     files["meta.json"] = dict(
-        extent=list(EXTENT), bands=[dict(name=b["name"], maxzoom=b["maxzoom"])
-                                    for b in BANDS],
+        extent=list(EXTENT), view_bounds=list(VIEW_BOUNDS),
+        bands=[dict(name=b["name"], maxzoom=b["maxzoom"]) for b in BANDS],
         days=[dict(label=d["label"], color=d["color"], title=d["title"],
                    route=d["route"], n=d.get("n"), sail=bool(d.get("sail")))
               for d in DAYS],

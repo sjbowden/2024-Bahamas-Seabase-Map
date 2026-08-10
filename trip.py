@@ -79,6 +79,15 @@ LAND_BBOX = (-77.35, 26.15, -76.80, 26.85)      # lon0, lat0, lon1, lat1
 # poster's box moved 17% of its pixels.
 MAP_LAND_BBOX = (-78.55, 25.45, -75.55, 27.55)  # lon0, lat0, lon1, lat1
 
+# Where the chart may be looked at. No amount of fetching wins the race against a
+# wide enough window, so the view is bounded by the data instead of the data being
+# chased outward. Coastline is clipped where it meets the frame — measured, the
+# west and south frames, not the north or east, where the land stops short of them
+# — so this keeps a margin inside those two. app.js derives both the minimum zoom
+# and the pan clamp from this box and the container size, which is what makes it
+# hold at any window shape.
+VIEW_BOUNDS = (-78.30, -75.55, 25.70, 27.55)    # lon0, lon1, lat0, lat1
+
 # Hand-placed chart labels: (lon, lat, text, kind, ha, va). The alignment hints
 # are the poster's, and the map ignores them — but the coordinates and the choice
 # of what is worth naming are shared, so the two artefacts name the same places.

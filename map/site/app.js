@@ -82,7 +82,6 @@ map.on('load', start);
 async function start() {
   const meta = await json('data/meta.json');
   state.meta = meta;
-  map.fitBounds(bounds(meta.extent), { padding: 18, animate: false });
 
   // Don't let the chart be zoomed out past the whole trek, and don't let it be
   // panned into empty ocean. The clamp is built from what is actually *visible*
@@ -91,17 +90,12 @@ async function start() {
   // the box was tight in longitude and generous in latitude, so the chart panned
   // 21 km north but only 4 km east before sticking. Inflating the visible bounds
   // gives the same slack in every direction whatever shape the window is.
-  // Real coastline now extends well past the sheet's edge, so zooming out to see
-  // Abaco in context is worth allowing: 0.35 of a zoom level was no room at all.
-  const fitted = map.getZoom();
-  map.setMinZoom(Math.max(7, fitted - 1.2));
-  // Derive the pan clamp from the widest view the zoom limit permits, so the two
-  // constraints cannot fight each other — the previous pair did, and the clamp
-  // won, cropping the trek.
-  map.jumpTo({ zoom: map.getMinZoom() });
-  const widest = map.getBounds();
-  map.jumpTo({ zoom: fitted });
-  map.setMaxBounds(inflate(widest, 0.2));
+  applyViewLimits(meta);
+  map.fitBounds(bounds(meta.extent), { padding: 18, animate: false });
+  // A window can always be made wider than any amount of coastline, so the limits
+  // come from the data and the container rather than from the opening view, and
+  // are recomputed whenever the window changes shape.
+  map.on('resize', () => applyViewLimits(meta));
 
   addChart();
   await addTracks(meta);
@@ -115,11 +109,19 @@ async function start() {
   map.on('zoom', scaleBar);
 }
 
-// Grow a LngLatBounds by a share of its own span on each axis.
-function inflate(b, f) {
-  const dx = (b.getEast() - b.getWest()) * f;
-  const dy = (b.getNorth() - b.getSouth()) * f;
-  return [[b.getWest() - dx, b.getSouth() - dy], [b.getEast() + dx, b.getNorth() + dy]];
+// The view may not leave the region the coastline actually covers. Zooming out is
+// limited to the zoom at which that region still fills this container, so a wider
+// window buys a wider view rather than a glimpse past the edge of the data — which
+// is the only way this holds for a window of any shape.
+function applyViewLimits(meta) {
+  const v = meta.view_bounds;                    // lon0, lon1, lat0, lat1
+  const box = [[v[0], v[2]], [v[1], v[3]]];
+  // Order matters: the clamp has to exist before fitBounds, or MapLibre resolves
+  // the conflict by zooming in and cropping the trek.
+  map.setMaxBounds(null);
+  const cam = map.cameraForBounds(box, { padding: 0 });
+  map.setMinZoom(cam && cam.zoom ? cam.zoom : 8);
+  map.setMaxBounds(box);
 }
 
 /* ------------------------------------------------------------------ chart --- */
