@@ -75,7 +75,7 @@ map.addControl(new maplibregl.AttributionControl({
   // Short enough not to wrap to two lines on a phone, where it would take a
   // tenth of the chart to say something nobody opened this to read.
   customAttribution: 'Coastline © OpenStreetMap · Track from a handheld GPS',
-}), 'bottom-right');
+}), 'bottom-left');
 
 map.on('load', start);
 
