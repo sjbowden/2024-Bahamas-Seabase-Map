@@ -356,6 +356,26 @@ FLAT_DEPTH_M = 1.0
 # from this.
 COARSE_SMOOTH = 10
 MIN_PART_M2 = 60000.0
+# Depths are clipped to this before they are averaged. Nothing below the deepest
+# band edge changes which band a cell is in, and without the clip the averaging
+# reached across the shelf edge and mixed the grid's 400 m values into water of
+# twelve to sixteen metres — which pushed 120 km2 of it out of the "under 20 m"
+# band altogether, so the page background showed through as the deepest colour.
+BAND_CLAMP_M = 22.0
+# Coarse cells per side for the majority vote that cleans up each band's mask, and
+# how close to land a cell must be to be exempt from it.
+#
+# Over the bank southwest of Great Guana the depths sit right on the 4 m edge —
+# median 3.5 m, tenth to ninetieth 2.6 to 4.8 — so the mask there fragments into
+# slivers, and since a run of cells along a row becomes one rectangle, each sliver
+# came out as a horizontal lens. A vote over the neighbourhood cannot leave a
+# one-cell sliver standing.
+#
+# The exemption matters more than the vote: a majority filter erodes thin ribbons,
+# and the bands *are* thin ribbons along the shore. Eroding those is how the chart
+# ended up with a strip of bare background against every beach once before.
+MASK_MAJORITY = 5
+MASK_SHORE_EXEMPT = 2
 CHAIKIN_PASSES = 3
 GRIP_M = 60.0
 # How much of the smoothed outline to keep. This is what governs how smooth the
@@ -709,9 +729,14 @@ def band_polygons(grid, land):
     # _despeckle drops anything smaller than one of them, so a fraying edge cannot
     # survive as confetti.
     if COARSE_SMOOTH > 1:
-        num = _box_mean(np.where(cwet, coarse, 0.0).astype(np.float32), COARSE_SMOOTH)
+        clamped = np.minimum(coarse, BAND_CLAMP_M)
+        num = _box_mean(np.where(cwet, clamped, 0.0).astype(np.float32), COARSE_SMOOTH)
         den = _box_mean(cwet.astype(np.float32), COARSE_SMOOTH)
         coarse = np.where(cwet, num / np.maximum(den, 1e-6), coarse)
+
+    # Blocks close to the shore keep their own value through the vote below.
+    cshore = _cells_from(~cwet, MASK_SHORE_EXEMPT)
+    near_shore = cwet & np.isfinite(cshore)
 
     cell = grid.cell * k
     top = y0 + grid.nrows * grid.cell
@@ -720,6 +745,10 @@ def band_polygons(grid, land):
         if hi > 1e8:
             continue                  # the water background paints the deepest
         mask = cwet & (coarse > 0) & (coarse < hi)
+        # A neighbourhood vote, so a band cannot be one cell thick, except where it
+        # is against the shore and being thin is the truth.
+        vote = _box_mean(mask.astype(np.float32), MASK_MAJORITY) > 0.5
+        mask = (cwet & vote) | (mask & near_shore)
         pad = np.zeros((mask.shape[0], mask.shape[1] + 2), bool)
         pad[:, 1:-1] = mask
         boxes = []

@@ -707,6 +707,25 @@ validate, and a test asserts it.
   values on a 122 m grid painted individually. Coarsened to 244 m, smoothed, and
   given one depth, the same area reads as flats rather than confetti.
 
+  **Two things the averaging broke, both found by measuring the drawn layer against
+  the grid rather than by looking.**
+
+  Averaging reached across the shelf edge and mixed the grid's 400 m clip values
+  into water of twelve to sixteen metres, which pushed **120 km² of it out of the
+  "under 20 m" band altogether** — so the page background showed through as the
+  deepest colour, beside a shore. Depths are now clipped to 22 m before averaging:
+  nothing below the deepest band edge can change which band a cell is in, so the
+  abyss cannot drag shallow water out of one. That leaves 1.7 km² uncovered.
+
+  And over the bank southwest of Great Guana the depths sit right on the 4 m edge —
+  median 3.5 m, tenth to ninetieth 2.6 to 4.8 — so the mask fragmented into slivers,
+  and since a run of cells along a row becomes one rectangle, each sliver drew as a
+  horizontal lens. The source has no such striping (row-to-row scatter 0.055 m
+  against 0.034 m column-to-column); it was made here. Each band's mask now passes a
+  neighbourhood vote, which no one-cell sliver survives — with blocks near the shore
+  exempt, because the bands genuinely *are* thin ribbons there and eroding them is
+  how the chart got a strip of bare background against every beach once before.
+
   **Fills only, no edge lines.** Each band carried a slightly darker line along its
   boundary for a version, on the theory that the poster's halos read as crisp
   because each ring has an edge. On measured depths it looked ruled: the poster's
