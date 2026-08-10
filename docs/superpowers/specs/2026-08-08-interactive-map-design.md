@@ -206,13 +206,48 @@ plausibility: as indexed it needs a −61 min clock error, the crew's copy needs
 
 ### The refusal rule
 
-**An offset is applied only when its coincidence count stands clear of the null
-and of the best genuinely different hypothesis.** Below that the camera stays
-uncalibrated and its photographs drop a tier. A confident wrong answer is worse
-than an admitted uncertain one.
+**An offset is applied only when it clears three tests: rate, coverage and
+margin.** Otherwise the camera stays uncalibrated and its photographs go
+`unplaced`. A confident wrong answer is worse than an admitted uncertain one.
 
-Two bars, and two ways of getting them wrong that the tests caught — both fixed
-by changing the rule rather than the threshold:
+| test | what it asks | threshold |
+|---|---|---|
+| `rate` | coincidences over what a random offset in the search finds | ≥ 3.0× |
+| `coverage` | fraction landing inside a window the receiver was recording | ≥ 0.60 |
+| `margin` | the winner against the best genuinely different hypothesis | ≥ 1.10 |
+
+Calibrated against the fits that must pass — 5.6× to 10.0×, including one whose
+answer is independently known — and the inputs that must not, at 1.84×.
+
+**There is one bar, not two.** There used to be a `calibrated` and an `inferred`
+grade here, and it was doing nothing: `place.py` decides the published tier from
+the *method* — satellites and timezone tags are `calibrated`, anything fitted is
+`inferred` — so a fit that cleared the higher grade was still published as
+`inferred`. Two vocabularies that never met, one of which existed only to imply a
+distinction the pipeline does not draw. What actually separates a good fit from a
+poor one is `peak_width_s`, which becomes metres per photograph against the real
+track: the Canon's frames are `inferred` and mostly good to 8 m, the GoPro's are
+`inferred` and run to 1.8 km. No grade could have said that.
+
+**`rate`, not a z-score.** z divides by the null's spread, and the Canon's spread
+is inflated to ±25.0 by its own peak shoulder — so z ranked the Canon *below* two
+cameras with weaker evidence, despite 176 coincidences against 27.6 expected and
+a peak sharp to under 30 s. A ratio to the chance rate is comparable between a
+547-photograph camera and a 114-photograph one, which is the whole job.
+
+The reassuring result from all this: the three fitted cameras score 6.4×, 10.0×
+and 6.4×, and the one fit whose answer is independently known — the iPhone 15 Pro
+with its satellite times hidden, recovering +240.03 min against a truth of
++239.98 — scores 5.6×. The fitted 810 are about as trustworthy as a fit
+demonstrably right to two seconds.
+
+Three ways of getting the rule wrong that the tests caught, all fixed by changing
+the rule rather than the threshold:
+
+**Coverage is a gate, not a tiebreaker.** This took a degenerate input to settle:
+150 times scattered pseudo-randomly inside a single day score **56× the chance
+rate with no rival offset at all**, sailing through rate and margin together.
+Coverage 0.00 is the only thing that refuses them.
 
 **The search is bounded to ±12 h.** The crew's days look alike, so searched
 wider, an offset a whole day out scores nearly as well as the truth. The GoPro's
@@ -232,12 +267,16 @@ residual-shape concern it motivated has no purchase here: this method never
 measures distance from the track, so a camera that flies away from the boat
 cannot bias it.
 
-All 810 fitted photographs currently land at `inferred` rather than `calibrated`.
-The Canon misses by a whisker (z = 5.9 against a 6.0 bar) on the strongest
-evidence of the three, which says less about the Canon than about `z` being
-sensitive to a camera's photograph count. Worth revisiting once `place.py` shows
-whether the distinction changes anything a viewer can see; being conservative
-costs nothing until then.
+All 810 fitted photographs are published as `inferred`, and that is the correct
+answer rather than a conservative one: their time was fitted, which is a different
+claim from a satellite timestamp however well the fit scores. How *good* each one
+is travels separately, as metres.
+
+One property worth remembering: **the fits are sequential.** Cameras are fitted
+largest first, and each accepted one joins the reference the next is measured
+against — so the GoPro's fit rests partly on the Canon's being right. With the
+Canon at 6.4× and a peak under 30 s that is a safe dependency, but it is a
+dependency, and it argues for keeping the thresholds conservative.
 
 ### Tiers
 
