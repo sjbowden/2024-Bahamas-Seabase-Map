@@ -602,32 +602,36 @@ validate, and a test asserts it.
   into a drawn band — and each moved well under 1% of anything. The problem was
   never the depths.
 
-  **Drawn as a raster with antialiased band edges, not as vector polygons.** Each
-  pixel is the mean of 3×3 band lookups taken through the bilinearly interpolated
-  seabed, so an edge crossing a cell is a blend rather than a step. Before this the
-  bands drew as rectilinear staircases at 61 m — the survey's scale, not the
-  seabed's — and MapLibre's own resampling cannot help, because given a hard edge on
-  a coarse lattice it can only return a staircase or a blur, and it was asked for
-  both in turn. This costs 265 KB → 692 KB and no GPU memory, since the raster
-  stays the size it was. The deepest band is painted rather than left transparent
-  for the page background to show through, so its edge antialiases like the others;
-  its colour is `--water`, so flat areas look unchanged.
+  **Drawn as vector bands, built from the cells rather than by contouring them.**
+  A raster of a 61 m grid can only be a staircase or a blur once it is magnified,
+  and both were shipped and both looked it: hard rectilinear steps at the survey's
+  scale, then — after antialiasing each pixel through 3x3 lookups of the bilinearly
+  interpolated seabed — soft everywhere instead. The polygons are also *smaller*,
+  728 KB against the 692 KB PNG plus no reprojection, and each band carries a
+  stroked edge, which is what actually made the poster's shoal halos read as crisp:
+  a ring with an edge, not only a fill.
 
-  Averaging the *depths* over a neighbourhood was tried first and was worse, which
-  is why the interpolation is bilinear: box-averaging pulled wide areas of the bank
-  onto the 4 m boundary, where the least variation flips a cell, and the chart
-  dithered into a mosaic. Bilinear interpolation reproduces each cell centre exactly
-  and moves monotonically between them, so it cannot do that.
+  Contouring was tried three times and lost 40–60% of the two shallow bands' area
+  every time, differently each time. Those two bands are ribbons hugging the coast,
+  which is exactly where every assumption about ring winding and nesting breaks:
+  discarding the self-touching rings that shapely calls invalid threw away the
+  largest shallow areas (39% recovered), repairing them and inferring nesting by
+  parity got 59%, and trusting matplotlib's winding with union-minus-difference got
+  62%. Matplotlib's rings themselves were never wrong — their signed areas sum to
+  1633 km² against the grid's 1644.
 
-  Vector bands were then measured properly rather than left at the earlier claim,
-  and rejected on cost: **5.4 MB** against 265 KB, for 5 m edges drawn from 61 m
-  data. The first attempt at them had reported 6.7% of the wet area in a band, and
-  that number was wrong — contour rings pinch against themselves where a shallow
-  region narrows, shapely calls the result invalid, and discarding them threw away
-  the largest shallow areas. Matplotlib's rings sum to 1633 km² against the grid's
-  1644, so the contouring had been right all along; padding the field so every
-  contour closes inside it disposes of the "lines that run off the edge" problem.
-  Kept here because the reasoning, not just the verdict, was faulty.
+  So the bands are built from the cells instead. The grid is coarsened to about
+  244 m, each run of band cells in a row becomes a rectangle, and GEOS unions them,
+  so holes and nesting are *computed* rather than inferred. The staircase is then
+  rounded the way the poster's halos were drawn — buffer out, back past, and out
+  again — which closes the corners and cuts the file by two thirds. Area comes to
+  1.01–1.07× the grid's own figure, always over rather than under, which is the safe
+  direction for a chart about shoals.
+
+  Averaging the depths over a neighbourhood before banding was also tried, while
+  this was still a raster, and was worse: it pulled wide areas of the bank onto the
+  4 m boundary, where the least variation flips a cell, and the chart dithered into
+  a mosaic.
 
   Reprojected to web mercator on the way out — handing MapLibre rows linear in
   latitude would stretch them onto its mercator quad and misregister the depths

@@ -276,16 +276,16 @@ def export(dest, placed):
         tiers=sorted({r["tier"] for r in placed}),
         counts=dict(collections.Counter(r["tier"] for r in placed)))
 
-    # The depth layer is a picture of a grid rather than vector bands: bathymetry
-    # is a continuous field, and contouring it into polygons put only 6.7% of the
-    # wet area into a band. Written before meta.json so its geometry can go in.
-    depth_mask = mask_land(land)
-    depth_img = DEPTH.render_png(grid, os.path.join(dest, "depth.png"),
-                                land=depth_mask)
-    files["meta.json"]["depth_image"] = dict(
-        url="data/depth.png", coordinates=depth_img["coordinates"],
-        width=depth_img["width"], height=depth_img["height"])
-
+    # The depth bands, as polygons. They were a raster until a raster of a 61 m
+    # grid proved to be either a staircase or a blur at the zooms people actually
+    # use, and both were tried. Nested: each band's polygon is everything shallower
+    # than its upper edge, so the browser draws them deepest first and the
+    # shallowest ends up on top.
+    bands = DEPTH.band_polygons(grid, mask_land(land))
+    files["depth.geojson"] = _fc([
+        dict(type="Feature", properties=dict(hi=hi),
+             geometry=dict(type="MultiPolygon", coordinates=_rings(g, 0.0, 0.0)))
+        for hi, _, _, g in bands])
 
     written = {}
     for name, payload in files.items():
@@ -293,7 +293,6 @@ def export(dest, placed):
         with open(path, "w") as fh:
             json.dump(payload, fh, separators=(",", ":"))
         written[name] = os.path.getsize(path)
-    written["depth.png"] = os.path.getsize(os.path.join(dest, "depth.png"))
     return written
 
 
