@@ -340,6 +340,10 @@ COARSEN = 4
 # The nudge outward is what keeps the bands *touching* the shore: cutting a corner
 # moves it inward a little, and the land is drawn on top, so erring outward costs
 # nothing and erring inward shows as a pale gap.
+# What to call water the coastline knows about and the grid does not. The tidal
+# flats inside Great Abaco are the case that matters, and 1.0 m is the median of
+# GMRT's own readings where it does report them there.
+FLAT_DEPTH_M = 1.0
 CHAIKIN_PASSES = 2
 GRIP_M = 60.0
 # How much of the smoothed outline to keep. Simplifying at a third of a coarse cell
@@ -621,7 +625,18 @@ def band_polygons(grid, land):
     x0, y0, x1, y1 = grid.bounds
     dry = _land_mask(land, grid.ncols, grid.nrows, x0, y0, x1, y1, lambda lat: lat)
     depth, sea = cleaned(grid.depth, dry)
-    wet = sea & (depth > 0)
+
+    # Water the coastline knows about but the grid could not answer for — the tidal
+    # flats inside Great Abaco, cut off from the flood fill or suppressed for sitting
+    # in a neighbourhood that is mostly land — is flat, not deep. Left out it showed
+    # as bare page background, which is the palest thing on the chart, so the marsh
+    # read as the deepest water in the region while the open bank beside it read as
+    # shoal. This is not a guess: where GMRT does report a depth in that maze the
+    # median is 1.0 m, so this carries the grid's own answer into the cells it could
+    # not resolve.
+    flats = ~dry & ~(sea & (depth > 0))
+    depth = np.where(flats, FLAT_DEPTH_M, depth)
+    wet = ~dry & (depth > 0)
 
     # Coarsen to about 244 m, which is the generalisation the poster's drawn shoal
     # halos had and roughly what a 61 m satellite-derived grid can honestly claim.
@@ -631,7 +646,12 @@ def band_polygons(grid, land):
     wsum = wet[:nr, :nc].reshape(nr // k, k, nc // k, k)
     n = wsum.sum((1, 3))
     coarse = np.where(n > 0, dsum.sum((1, 3)) / np.maximum(n, 1), -1.0)
-    cwet = n > (k * k) // 2
+    # Any water in the block at all makes it water. Requiring most of the block to
+    # be wet left the marsh lace — thousands of islets tens of metres across, so
+    # every block there is mostly land — as unpainted holes. Blocks that straddle a
+    # shore now reach a little way over it, which nobody sees: the land is drawn on
+    # top, and erring that way is what keeps the bands against the beach.
+    cwet = n > 0
 
     cell = grid.cell * k
     top = y0 + grid.nrows * grid.cell

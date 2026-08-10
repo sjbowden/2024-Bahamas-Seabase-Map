@@ -637,6 +637,28 @@ validate, and a test asserts it.
   the shore — cutting a corner pulls it in slightly, the land is drawn on top, so
   erring outward costs nothing and erring inward shows as a pale gap. 1.2 MB.
 
+  **The flats are painted, and they are what the bands were getting wrong.** Water
+  the coastline knows about but the grid cannot answer for — the tidal maze inside
+  Great Abaco, either cut off from the flood fill or suppressed for sitting in a
+  neighbourhood that is mostly land — was left out of the polygons entirely, so it
+  showed as bare page background. That is the *palest* thing on the chart, which
+  put the marsh down as the deepest water in the region while the open bank beside
+  it read as shoal. It now takes 1.0 m, which is the median of GMRT's own readings
+  where it does report them in that maze, so this carries the grid's answer into the
+  cells it could not resolve rather than inventing one.
+
+  A block also counts as water if *any* of its cells are, where it used to need
+  more than half. The marsh is thousands of islets tens of metres across, so every
+  244 m block there is mostly land and the whole lace fell through the test. Blocks
+  straddling a shore now reach slightly over it, which nobody sees — the land is
+  drawn on top — and erring that way is the same thing that keeps the bands against
+  the beach.
+
+  This reverses an earlier decision, deliberately. Shading the flats was dropped
+  once before because it turned the island into a blue mosaic; that was per-cell
+  values on a 122 m grid painted individually. Coarsened to 244 m, smoothed, and
+  given one depth, the same area reads as flats rather than confetti.
+
   **Fills only, no edge lines.** Each band carried a slightly darker line along its
   boundary for a version, on the theory that the poster's halos read as crisp
   because each ring has an edge. On measured depths it looked ruled: the poster's
