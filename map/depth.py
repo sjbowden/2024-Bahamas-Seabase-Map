@@ -35,6 +35,7 @@ import math
 import os
 import urllib.parse
 import urllib.request
+import warnings
 
 import numpy as np
 
@@ -213,6 +214,12 @@ def _land_mask(land, w, h, x0, y0, x1, y1, merc_y):
 # nothing useful to say. 5 cells is about 600 m here.
 FLATS_WINDOW = 5
 FLATS_LAND_FRACTION = 0.25
+# How far the fill reaches into the untrusted fringe. At 5 passes 5.8% of the
+# shoreline was still bare — reading as deep water against a beach — and at 24 it
+# is 0.4%, for a few more numpy passes over the grid. It also has the happy effect
+# of smoothing the flats instead of leaving them a mosaic, because each pass
+# averages the neighbours it grew from.
+FRINGE_PASSES = 24
 
 
 def _box_mean(a, k):
@@ -224,6 +231,35 @@ def _box_mean(a, k):
     y1, x1 = y0 + k, x0 + k
     total = s[y1, x1] - s[y0, x1] - s[y1, x0] + s[y0, x0]
     return total / float(k * k)
+
+
+def _grow_into(values, region, trusted, passes=FRINGE_PASSES):
+    """Spread depths from trusted water into the untrusted fringe beside it.
+
+    Nearest-neighbour fill, done as a few dilations because the fringe is only as
+    wide as the window that created it. Averaging the known neighbours rather than
+    assuming a value is what keeps the Atlantic side deep.
+    """
+    out = values.astype(np.float32).copy()
+    known = trusted.copy()
+    out[~known] = np.nan
+    for _ in range(passes + 1):
+        todo = region & ~known
+        if not todo.any():
+            break
+        nb = np.stack([
+            np.roll(out, 1, 0), np.roll(out, -1, 0),
+            np.roll(out, 1, 1), np.roll(out, -1, 1),
+        ])
+        with warnings.catch_warnings():
+            # A pixel with no known neighbour yet is expected, not exceptional.
+            warnings.simplefilter("ignore", RuntimeWarning)
+            mean = np.nanmean(nb, axis=0)
+        fill = todo & ~np.isnan(mean)
+        out[fill] = mean[fill]
+        known |= fill
+    out[np.isnan(out)] = -1.0
+    return out
 
 
 def _sea_only(water):
@@ -323,7 +359,15 @@ def render_png(grid, path, max_px=2600, land=None):
     # separate islets, not holes), so the test is local: if a neighbourhood is
     # more than a quarter land, the grid is out of its depth and says nothing.
     crowded = _box_mean(dry.astype(np.float32), FLATS_WINDOW) > FLATS_LAND_FRACTION
-    sampled = np.where(_sea_only(~dry) & ~crowded, sampled, -1.0)
+    sea = _sea_only(~dry)
+    # Suppressing crowded water outright left every shoreline with an unshaded
+    # band about 600 m wide, so the chart read as deep water right up to the
+    # beach — the opposite of the truth, and in the one place the shallows matter
+    # most. Instead the fringe is filled from the nearest water the grid *is*
+    # trusted on, which gets both sides right: shallow on the bank, and still deep
+    # along the Atlantic shore of the cays where the bottom drops away fast.
+    sampled = _grow_into(sampled, sea, trusted=sea & ~crowded & (sampled > 0))
+    sampled = np.where(sea, sampled, -1.0)
     for lo, hi, colour, _ in BANDS:
         if hi > 1e8:
             continue                    # the water background paints the deepest
