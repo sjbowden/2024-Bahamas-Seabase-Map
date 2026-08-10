@@ -26,7 +26,8 @@ from matplotlib.patches import PathPatch
 
 from abaco_geo import land_polygons
 from roads import route as road_route
-from trip import DAYS, LAT0, NM, haversine, load_day, shoal
+from trip import (AIRPORT, ANCHORAGES, DAYS, EXTENT, HOTEL, LAND_BBOX,
+                  LAT0, MARINA, NM, PLACES, haversine, load_day, shoal)
 
 
 def transfer_route():
@@ -100,33 +101,9 @@ SANS_B = FontProperties(family="Lato", weight="bold")
 # DAYS, load_day() and the rest of "what a sailing day is" live in trip.py, so
 # the map build can read them without importing matplotlib.
 
-# hand-placed chart labels: (lon, lat, text, kind, ha, va)
-PLACES = [
-    (-77.0640, 26.5310, "MARSH HARBOUR", "town", "right", "center"),
-    (-76.9594, 26.5407, "HOPE TOWN", "town", "left", "center"),
-    (-77.0002, 26.3242, "LITTLE HARBOUR", "town", "left", "center"),
-    (-77.1310, 26.6790, "Great Guana Cay", "isle", "center", "bottom"),
-    (-77.0030, 26.5930, "Man-O-War Cay", "isle", "left", "center"),
-    (-76.9700, 26.4950, "Elbow Cay", "isle", "left", "center"),
-    (-77.0270, 26.4700, "Lubbers\nQuarters", "isle", "right", "center"),
-    (-76.9830, 26.4400, "Tilloo Cay", "isle", "left", "center"),
-    (-77.1550, 26.4300, "G R E A T   A B A C O", "big", "center", "center"),
-    (-77.0450, 26.6300, "S E A   O F   A B A C O", "water", "center", "center"),
-    (-76.9400, 26.4780, "A T L A N T I C\nO C E A N", "water", "center", "center"),
-]
-
-# overnight anchorages worth marking: (lon, lat, text, ha)
-AIRPORT = (-77.0782, 26.5135, "MHH", "Leonard M. Thompson Intl")
-# hotel fixed from the EXIF of IMG_0496.JPG (14:43 EDT, 22 Mar, ±4.6 m); the
-# marina is where Saturday's walk ends and the boat then sits for 90 minutes
-HOTEL = (-77.048906, 26.545222)
-MARINA = (-77.05192, 26.54688)
-
-# (lon, lat, label, ha, va) — Lynyard sits below its marker to clear the rose
-ANCHORAGES = [
-    (-76.9907, 26.4488, "Tilloo Pond", "left", "center"),
-    (-76.9849, 26.3568, "Lynyard Cay", "center", "top"),
-]
+# PLACES, ANCHORAGES, AIRPORT, HOTEL and MARINA moved to trip.py alongside DAYS:
+# the map names the same places, and one list means the two artefacts cannot
+# drift apart about where Hope Town is.
 
 
 # --------------------------------------------------------------- rendering ---
@@ -801,8 +778,8 @@ def build(dpi, out_png, out_pdf=None, spread=True):
     max_kn = max(tracks[d["file"]]["max_kn"] for d in DAYS if d["sail"])
     dropped = sum(tracks[d["file"]]["dropped"] for d in DAYS)
 
-    extent = (-77.185, -76.912, 26.298, 26.712)
-    land = land_polygons((-77.35, 26.15, -76.80, 26.85))
+    extent = EXTENT
+    land = land_polygons(LAND_BBOX)
 
     fig = plt.figure(figsize=(18, 24), dpi=dpi)
     fig.patch.set_facecolor(C_PAPER)
@@ -1010,7 +987,7 @@ def compare(dpi=110):
     tracks = {d["file"]: load_day(d["file"], walk_split=d.get("walk_split"),
                                   road_split=d.get("road_split"))
               for d in DAYS}
-    land = land_polygons((-77.35, 26.15, -76.80, 26.85))
+    land = land_polygons(LAND_BBOX)
     zoom = (-77.030, -76.958, 26.330, 26.560)     # the Tilloo/Elbow run
 
     fig = plt.figure(figsize=(13, 17), dpi=dpi)

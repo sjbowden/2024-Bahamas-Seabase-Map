@@ -62,6 +62,49 @@ DAYS = [
 ]
 
 
+# ------------------------------------------------------------------ places ---
+# The chart's own bounds, and the wider box the land is loaded over. The poster
+# draws EXTENT; anything outside it is not on this chart, which is how a
+# photograph taken in Portland is told apart from one taken in Abaco.
+EXTENT = (-77.185, -76.912, 26.298, 26.712)     # lon0, lon1, lat0, lat1
+LAND_BBOX = (-77.35, 26.15, -76.80, 26.85)      # lon0, lat0, lon1, lat1
+
+# Hand-placed chart labels: (lon, lat, text, kind, ha, va). The alignment hints
+# are the poster's, and the map ignores them — but the coordinates and the choice
+# of what is worth naming are shared, so the two artefacts name the same places.
+PLACES = [
+    (-77.0640, 26.5310, "MARSH HARBOUR", "town", "right", "center"),
+    (-76.9594, 26.5407, "HOPE TOWN", "town", "left", "center"),
+    (-77.0002, 26.3242, "LITTLE HARBOUR", "town", "left", "center"),
+    (-77.1310, 26.6790, "Great Guana Cay", "isle", "center", "bottom"),
+    (-77.0030, 26.5930, "Man-O-War Cay", "isle", "left", "center"),
+    (-76.9700, 26.4950, "Elbow Cay", "isle", "left", "center"),
+    (-77.0270, 26.4700, "Lubbers\nQuarters", "isle", "right", "center"),
+    (-76.9830, 26.4400, "Tilloo Cay", "isle", "left", "center"),
+    (-77.1550, 26.4300, "G R E A T   A B A C O", "big", "center", "center"),
+    (-77.0450, 26.6300, "S E A   O F   A B A C O", "water", "center", "center"),
+    (-76.9400, 26.4780, "A T L A N T I C\nO C E A N", "water", "center", "center"),
+]
+
+AIRPORT = (-77.0782, 26.5135, "MHH", "Leonard M. Thompson Intl")
+# hotel fixed from the EXIF of IMG_0496.JPG (14:43 EDT, 22 Mar, ±4.6 m); the
+# marina is where Saturday's walk ends and the boat then sits for 90 minutes
+HOTEL = (-77.048906, 26.545222)
+MARINA = (-77.05192, 26.54688)
+
+# (lon, lat, label, ha, va) — Lynyard sits below its marker to clear the rose
+ANCHORAGES = [
+    (-76.9907, 26.4488, "Tilloo Pond", "left", "center"),
+    (-76.9849, 26.3568, "Lynyard Cay", "center", "top"),
+]
+
+
+def in_chart(lat, lon):
+    """Is this position on the Abaco chart at all?"""
+    lon0, lon1, lat0, lat1 = EXTENT
+    return lon0 <= lon <= lon1 and lat0 <= lat <= lat1
+
+
 # ------------------------------------------------------------------ tracks ---
 def haversine(a_lat, a_lon, b_lat, b_lon):
     R = 6371000.0

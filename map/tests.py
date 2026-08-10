@@ -22,7 +22,13 @@ import os
 import sys
 from datetime import datetime, timedelta
 
+from shapely.validation import explain_validity
+
+from abaco_geo import land_polygons
+from trip import LAND_BBOX, haversine, in_chart
 from map import clock_fit as C
+from map import export as E
+from map import place as P
 from map.photo_index import _stamp, camera_key
 
 INDEX = os.path.join(C.HERE, "out", "photo_index.json")
@@ -193,6 +199,154 @@ def test_invariants(photos, spans):
           f"{gps_only}")
 
 
+def test_interpolation():
+    section("track interpolation")
+    fixes = P.track()
+    times = [f[0] for f in fixes]
+    check("the whole week is one sorted stream", times == sorted(times),
+          f"{len(fixes)} fixes")
+
+    # A midpoint between two adjacent fixes must land between them, not on one.
+    i = next(j for j in range(1, len(fixes))
+             if 1.0 <= (fixes[j][0] - fixes[j - 1][0]).total_seconds() <= 20.0
+             and haversine(fixes[j - 1][1], fixes[j - 1][2],
+                           fixes[j][1], fixes[j][2]) > 10.0)
+    a, b = fixes[i - 1], fixes[i]
+    mid = a[0] + (b[0] - a[0]) / 2
+    got = P.at(fixes, times, mid)
+    da = haversine(got[0], got[1], a[1], a[2])
+    db = haversine(got[0], got[1], b[1], b[2])
+    gap = haversine(a[1], a[2], b[1], b[2])
+    check("a midpoint interpolates between the bracketing fixes",
+          da > 0.5 and db > 0.5 and abs(da - db) < gap * 0.25,
+          f"{da:.1f} m from one, {db:.1f} m from the other, {gap:.1f} m apart")
+
+    # Overnight, there is nothing to interpolate and it must say so.
+    biggest = max(range(1, len(fixes)),
+                  key=lambda j: (fixes[j][0] - fixes[j - 1][0]).total_seconds())
+    hole = fixes[biggest - 1][0] + (fixes[biggest][0] - fixes[biggest - 1][0]) / 2
+    check("a time in a hole gets no position", P.at(fixes, times, hole) is None,
+          f"{(fixes[biggest][0] - fixes[biggest - 1][0]).total_seconds() / 3600:.1f} h hole")
+    check("before the first fix gets no position",
+          P.at(fixes, times, times[0] - timedelta(hours=1)) is None)
+    check("after the last fix gets no position",
+          P.at(fixes, times, times[-1] + timedelta(hours=1)) is None)
+
+
+def test_uncertainty():
+    section("uncertainty is the boat's behaviour, not the clock's")
+    fixes = P.track()
+    times = [f[0] for f in fixes]
+    # The same wide timing window costs almost nothing at anchor and real
+    # distance under way. This is the whole argument for measuring it.
+    anchored = [f for f in fixes if f[3] is not None and f[3] <= 0.2]
+    moving = [f for f in fixes if f[3] is not None and f[3] >= 4.0]
+    check("the week has both anchored and sailing moments", anchored and moving,
+          f"{len(anchored)} anchored fixes, {len(moving)} at 4 kn or more")
+    wide = 600.0
+    at_anchor = [P.spread_m(fixes, times, f[0], wide) for f in anchored[::200]]
+    at_sail = [P.spread_m(fixes, times, f[0], wide) for f in moving[::200]]
+    at_anchor = [x for x in at_anchor if x is not None]
+    at_sail = [x for x in at_sail if x is not None]
+    ma = sorted(at_anchor)[len(at_anchor) // 2]
+    ms = sorted(at_sail)[len(at_sail) // 2]
+    check("a 10 min window costs little at anchor", ma < 200, f"median {ma:.0f} m")
+    check("and a lot under way", ms > 500, f"median {ms:.0f} m")
+    check("anchored is markedly better than sailing", ms > ma * 3,
+          f"{ms:.0f} m against {ma:.0f} m")
+    check("a zero window costs nothing",
+          P.spread_m(fixes, times, moving[0][0], 0.0) == 0.0)
+
+
+def test_placement(photos, spans):
+    section("placement")
+    per_photo, cameras, _ = C.fit(photos)
+    placed = P.place(photos, per_photo, cameras)
+    check("one record per photograph", len(placed) == len(photos))
+    tiers = collections.Counter(r["tier"] for r in placed)
+    known = {"gps", "bracket", "calibrated", "inferred", "travel", "unplaced"}
+    check("no tier outside the design's ladder", set(tiers) <= known,
+          str(set(tiers) - known))
+    check("the tiers partition the set", sum(tiers.values()) == len(placed))
+
+    plotted = [r for r in placed
+               if r["tier"] in ("gps", "bracket", "calibrated", "inferred")]
+    off = [r for r in plotted if r["lat"] is None or not in_chart(r["lat"], r["lon"])]
+    check("everything plotted is on the Abaco chart", not off,
+          f"{len(off)} off it, e.g. {off[0]['name'] if off else '-'} "
+          f"{(off[0]['lat'], off[0]['lon']) if off else ''}")
+    check("everything plotted has a position",
+          all(r["lat"] is not None and r["lon"] is not None for r in plotted))
+    check("everything plotted has a sailing day",
+          all(r["day"] for r in plotted),
+          f"{sum(1 for r in plotted if not r['day'])} without one")
+    check("nothing off the chart keeps a position",
+          all(r["lat"] is None or r["tier"] != "unplaced" for r in placed))
+    check("every photograph has a note", all(r["note"] for r in placed))
+
+    # A camera with a wider fit must not end up claiming more precision than one
+    # with a narrow fit, taken across all its photographs.
+    byc = collections.defaultdict(list)
+    for r in plotted:
+        if r["uncertainty_m"] is not None and r["tier"] in ("calibrated", "inferred"):
+            byc[r["camera"]].append(r["uncertainty_m"])
+    def p90(xs):
+        xs = sorted(xs)
+        return xs[int(len(xs) * 0.9)]
+    gopro = next((c for c in byc if "HERO5" in c), None)
+    phone = next((c for c in byc if "iPhone 14" in c), None)
+    if gopro and phone:
+        check("the GoPro's +/-20 min costs more than a phone's +/-2 s",
+              p90(byc[gopro]) > p90(byc[phone]) * 10,
+              f"90th: GoPro {p90(byc[gopro])} m, iPhone 14 Pro {p90(byc[phone])} m")
+    return placed
+
+
+def test_export(placed):
+    section("export")
+    from shapely.geometry import shape
+    land = land_polygons(LAND_BBOX)
+    for band in E.BANDS:
+        rings = E._rings(land, band["tol"], band["min_area_m2"])
+        geom = shape(dict(type="MultiPolygon", coordinates=rings))
+        check(f"{band['name']} band is valid geometry", geom.is_valid,
+              explain_validity(geom)[:70])
+        check(f"{band['name']} band keeps the land's area",
+              abs(geom.area - land.area) / land.area < 0.01,
+              f"{geom.area / land.area * 100:.1f}% of source, "
+              f"{len(geom.geoms)} of {len(land.geoms)} parts")
+    coarse = shape(dict(type="MultiPolygon",
+                        coordinates=E._rings(land, E.BANDS[0]["tol"],
+                                             E.BANDS[0]["min_area_m2"])))
+    fine = shape(dict(type="MultiPolygon",
+                      coordinates=E._rings(land, E.BANDS[-1]["tol"],
+                                           E.BANDS[-1]["min_area_m2"])))
+    check("the coarse band is genuinely cheaper than the fine one",
+          len(coarse.geoms) < len(fine.geoms) / 2,
+          f"{len(coarse.geoms)} parts against {len(fine.geoms)}")
+
+    pj = E.photos_json(placed)
+    check("photos.json carries every photograph", len(pj) == len(placed))
+    check("photos.json is in time order",
+          [r["utc"] for r in pj if r["utc"]] == sorted(r["utc"] for r in pj if r["utc"]))
+    check("no photograph off the chart carries coordinates",
+          not [r for r in pj if r["tier"] in ("travel", "unplaced") and "lat" in r])
+    check("coordinates are rounded to the output grid",
+          all(len(str(r["lat"]).split(".")[-1]) <= E.PRECISION
+              for r in pj if "lat" in r))
+    check("every photograph names its media by convention",
+          all(r["thumb"].endswith(".jpg") and r["id"] in r["thumb"] for r in pj))
+    tracks = E.track_layer()
+    check("tracks cover the sailing days",
+          len({f["properties"]["day"] for f in tracks["features"]}) >= 6,
+          f"{len(tracks['features'])} features")
+    places = E.places_layer()
+    check("places carry a label and a minzoom",
+          all(f["properties"].get("label") and f["properties"].get("minzoom")
+              for f in places["features"]),
+          f"{len(places['features'])} places")
+
+
 def main():
     test_units()
     spans = test_coverage()
@@ -205,6 +359,10 @@ def main():
         test_anchor_starvation(photos, spans)
         test_refusal(photos, spans)
         test_invariants(photos, spans)
+        test_interpolation()
+        test_uncertainty()
+        placed = test_placement(photos, spans)
+        test_export(placed)
 
     print(f"\n{_pass} passed, {len(_fail)} failed")
     if _fail:
