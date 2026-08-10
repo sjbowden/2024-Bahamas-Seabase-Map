@@ -340,6 +340,24 @@ def test_export(placed):
           len(coarse.geoms) < len(fine.geoms) / 2,
           f"{len(coarse.geoms)} parts against {len(fine.geoms)}")
 
+    # Where the depth mask calls something land but the drawn band calls it water,
+    # the raster is blank and the pale page background shows through beside a
+    # beach, reading as the deepest water. Using the coarse band as the mask was
+    # supposed to prevent that, on the reasoning that finer bands are supersets of
+    # it — 31.5 km2 of coastline said otherwise.
+    mask = E.mask_land(land)
+    worst = 0.0
+    for band in E.BANDS:
+        drawn = shape(dict(type="MultiPolygon",
+                           coordinates=E._rings(land, band["tol"],
+                                                band["min_area_m2"])))
+        worst = max(worst, mask.difference(drawn).area * E._M_PER_DEG_LAT * E._M_PER_DEG_LON)
+    check("no drawn water is left unpainted by the depth mask", worst < 1000.0,
+          f"worst band leaves {worst:.0f} m2")
+    check("the depth mask is a real mask, not everything",
+          0.5 < mask.area / land.area < 1.0,
+          f"{mask.area / land.area * 100:.1f}% of the coastline's area")
+
     pj = E.photos_json(placed)
     check("photos.json carries every photograph", len(pj) == len(placed))
     check("photos.json is in time order",

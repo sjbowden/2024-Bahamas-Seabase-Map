@@ -100,17 +100,26 @@ def _poly(rings, props):
                 geometry=dict(type="MultiPolygon", coordinates=rings))
 
 
-def coarse_land(land):
-    """The land as the *coarsest* band draws it.
+def mask_land(land):
+    """Land for the depth mask: only where *every* zoom band draws land.
 
-    The depth raster masks itself with this rather than with the full coastline, so
-    that the mask can never claim land where no land is painted: every finer band
-    is a superset of it, and a transparent hole with nothing over it shows the pale
-    background and reads as deep water.
+    The depth raster masks itself with this rather than with the full coastline so
+    that the mask can never claim land where no land is painted — a blank hole with
+    nothing drawn over it shows the pale page background and reads as the deepest
+    water, beside a beach.
+
+    This was the coarsest band alone, on the reasoning that the finer bands are
+    supersets of it. They are not: `simplify` moves a boundary outward as readily as
+    inward, and 31.5 km² of what the coarse band called land is water in the fine
+    band. Intersecting the three bands is the assumption made true instead of
+    assumed.
     """
-    band = BANDS[0]
-    return shape(dict(type="MultiPolygon",
-                      coordinates=_rings(land, band["tol"], band["min_area_m2"])))
+    out = None
+    for band in BANDS:
+        g = shape(dict(type="MultiPolygon",
+                       coordinates=_rings(land, band["tol"], band["min_area_m2"])))
+        out = g if out is None else out.intersection(g)
+    return out
 
 
 def chart_layers(land):
@@ -270,9 +279,9 @@ def export(dest, placed):
     # The depth layer is a picture of a grid rather than vector bands: bathymetry
     # is a continuous field, and contouring it into polygons put only 6.7% of the
     # wet area into a band. Written before meta.json so its geometry can go in.
-    mask_land = coarse_land(land)
+    depth_mask = mask_land(land)
     depth_img = DEPTH.render_png(grid, os.path.join(dest, "depth.png"),
-                                land=mask_land)
+                                land=depth_mask)
     files["meta.json"]["depth_image"] = dict(
         url="data/depth.png", coordinates=depth_img["coordinates"],
         width=depth_img["width"], height=depth_img["height"])
