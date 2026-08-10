@@ -133,21 +133,17 @@ function applyViewLimits(meta) {
 // Measured bathymetry, drawn deepest band first so the shallowest sits on top.
 // The deepest band is not in the data at all — it is the water background, which
 // paints "everywhere else" for nothing.
-// A hex colour, darkened, for band edges. The poster's shoal halos read as crisp
-// because each ring has a visible edge, not only a fill; these are the same idea
-// over measured depths instead of buffers around the coastline.
-function shade(hex, f) {
-  const n = parseInt(hex.slice(1), 16);
-  const c = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map(
-    (v) => Math.max(0, Math.round(v * f)));
-  return `rgb(${c[0]},${c[1]},${c[2]})`;
-}
-
 function addDepth(meta) {
   // Vector bands, not a raster. A raster of a 61 m grid can only be a staircase or
   // a blur when magnified, and both were shipped and both looked it. Each feature
   // is everything shallower than its `hi`, so they nest, and drawing them in
   // descending order of `hi` leaves the shallowest on top.
+  //
+  // Fills only. Each band had a slightly darker line along its edge for a while, on
+  // the theory that the poster's shoal halos read as crisp because each ring has an
+  // edge — but on measured depths, where the bands are large and their boundaries
+  // are a judgement about a 61 m survey rather than a drawn outline, it just looked
+  // ruled.
   map.addSource('depth', { type: 'geojson', data: 'data/depth.geojson' });
   const bands = (meta.depth_bands || []).filter((b) => b.hi != null);
   for (const b of [...bands].sort((p, q) => q.hi - p.hi)) {
@@ -155,14 +151,6 @@ function addDepth(meta) {
       id: `depth-${b.hi}`, type: 'fill', source: 'depth',
       filter: ['==', ['get', 'hi'], b.hi],
       paint: { 'fill-color': b.colour, 'fill-antialias': true },
-    });
-    map.addLayer({
-      id: `depth-edge-${b.hi}`, type: 'line', source: 'depth',
-      filter: ['==', ['get', 'hi'], b.hi],
-      paint: {
-        'line-color': shade(b.colour, 0.82),
-        'line-width': ['interpolate', ['linear'], ['zoom'], 9, 0.4, 13, 0.8, 17, 1.4],
-      },
     });
   }
 }
@@ -333,11 +321,8 @@ function wirePanel() {
       const key = cb.dataset.layer;
       state.layers[key] = cb.checked;
       if (key === 'depth') {
-        for (const b of ((state.meta && state.meta.depth_bands) || [])) {
-          if (b.hi == null) continue;
-          setVisible(`depth-${b.hi}`, cb.checked);
-          setVisible(`depth-edge-${b.hi}`, cb.checked);
-        }
+        for (const b of ((state.meta && state.meta.depth_bands) || []))
+          if (b.hi != null) setVisible(`depth-${b.hi}`, cb.checked);
       } else if (key === 'places') {
         state.refreshPlaces && state.refreshPlaces();
       } else if (key === 'photos') {

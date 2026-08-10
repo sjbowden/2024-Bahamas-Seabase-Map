@@ -622,11 +622,26 @@ validate, and a test asserts it.
 
   So the bands are built from the cells instead. The grid is coarsened to about
   244 m, each run of band cells in a row becomes a rectangle, and GEOS unions them,
-  so holes and nesting are *computed* rather than inferred. The staircase is then
-  rounded the way the poster's halos were drawn — buffer out, back past, and out
-  again — which closes the corners and cuts the file by two thirds. Area comes to
-  1.01–1.07× the grid's own figure, always over rather than under, which is the safe
-  direction for a chart about shoals.
+  so holes and nesting are *computed* rather than inferred. Area comes to 1.01–1.07×
+  the grid's own figure, always over rather than under, which is the safe direction
+  for a chart about shoals.
+
+  **The staircase is smoothed by cutting corners, not by morphology.** It was
+  morphology first — dilate, erode twice, dilate — and that was wrong in a way worth
+  recording: a closing followed by an opening deletes anything thinner than the
+  radius, and the shallow bands are thin ribbons along the coast. It ate them off
+  the shoreline and left a 240 m strip of bare page background hugging every beach,
+  which is the precise opposite of what a shoal chart is for. Two passes of corner
+  cutting move vertices rather than adding and removing area, so a one-cell ribbon
+  survives, and a 60 m nudge outward afterwards guarantees the bands still *touch*
+  the shore — cutting a corner pulls it in slightly, the land is drawn on top, so
+  erring outward costs nothing and erring inward shows as a pale gap. 1.2 MB.
+
+  **Fills only, no edge lines.** Each band carried a slightly darker line along its
+  boundary for a version, on the theory that the poster's halos read as crisp
+  because each ring has an edge. On measured depths it looked ruled: the poster's
+  edges outline a drawn buffer, while these boundaries are a judgement about a 61 m
+  survey and should not be stated that firmly.
 
   Averaging the depths over a neighbourhood before banding was also tried, while
   this was still a raster, and was worse: it pulled wide areas of the bank onto the

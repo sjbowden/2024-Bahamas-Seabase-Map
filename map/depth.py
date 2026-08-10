@@ -328,11 +328,24 @@ SUSPECT_WINDOW = 25
 # dithered into a mosaic. Coarsening by whole cells and rounding the outline cannot
 # do that.
 COARSEN = 4
-ROUND_M = 240.0
-# How much of the rounded outline to keep. Simplifying at a third of a coarse cell
-# (81 m) undid the rounding and left the bands visibly faceted, which is the one
+# Corner-cutting passes over each ring, and a small outward nudge afterwards.
+#
+# The corners were rounded by morphology first — dilate, erode twice, dilate — and
+# that was a bad mistake: closing followed by opening deletes anything thinner than
+# the radius, and the shallow bands are thin ribbons along the coast. It ate them
+# off the shoreline and left a 240 m strip of bare background hugging every beach,
+# which is the exact opposite of a shoal chart. Corner cutting moves vertices
+# instead of adding and removing area, so a one-cell ribbon survives it.
+#
+# The nudge outward is what keeps the bands *touching* the shore: cutting a corner
+# moves it inward a little, and the land is drawn on top, so erring outward costs
+# nothing and erring inward shows as a pale gap.
+CHAIKIN_PASSES = 2
+GRIP_M = 60.0
+# How much of the smoothed outline to keep. Simplifying at a third of a coarse cell
+# (81 m) undid the smoothing and left the bands visibly faceted, which is the one
 # thing the poster's halos never were.
-SIMPLIFY_M = 25.0
+SIMPLIFY_M = 45.0
 
 # No shore shelves from nothing to twenty metres inside one 61 m cell. Water is
 # therefore not allowed to be deeper than this many metres per cell of distance
@@ -550,6 +563,41 @@ def cleaned(depth, dry):
     return np.where(sea, out, -1.0), sea
 
 
+def _chaikin(pts, passes):
+    """Corner cutting on a closed ring: each corner becomes two, a quarter in."""
+    p = np.asarray(pts, dtype=np.float64)
+    if len(p) > 1 and np.array_equal(p[0], p[-1]):
+        p = p[:-1]
+    if len(p) < 3:
+        return pts
+    for _ in range(passes):
+        nxt = np.roll(p, -1, axis=0)
+        q = np.empty((len(p) * 2, 2))
+        q[0::2] = 0.75 * p + 0.25 * nxt
+        q[1::2] = 0.25 * p + 0.75 * nxt
+        p = q
+    return np.vstack([p, p[:1]])
+
+
+def _rounded(geom):
+    """The staircase of coarse cells, smoothed, and never pulled off the shore."""
+    from shapely.geometry import Polygon
+    from shapely import make_valid, unary_union
+
+    parts = []
+    for g in (list(geom.geoms) if hasattr(geom, "geoms") else [geom]):
+        if g.is_empty or not hasattr(g, "exterior"):
+            continue
+        p = Polygon(_chaikin(g.exterior.coords, CHAIKIN_PASSES),
+                    [_chaikin(h.coords, CHAIKIN_PASSES) for h in g.interiors])
+        if not p.is_valid:
+            p = make_valid(p)
+        parts.append(p)
+    out = unary_union(parts)
+    out = out.buffer(GRIP_M / 111320.0, join_style=1)
+    return out.simplify(SIMPLIFY_M / 111320.0, preserve_topology=True)
+
+
 def band_polygons(grid, land):
     """The depth bands as polygons: (hi, colour, label, geometry), deepest first.
 
@@ -601,14 +649,7 @@ def band_polygons(grid, land):
             hi_lat, lo_lat = top - r * cell, top - (r + 1) * cell
             boxes += [box(x0 + a * cell, lo_lat, x0 + b * cell, hi_lat)
                       for a, b in zip(edges[0::2], edges[1::2])]
-        g = unary_union(boxes)
-        # Round the staircase off the way the poster's halos were drawn — buffer
-        # out, back past, and out again. Closing then opening keeps the shape and
-        # loses the corners; it also cuts the file by two thirds.
-        r = ROUND_M / 111320.0
-        g = g.buffer(r, join_style=1).buffer(-2 * r, join_style=1)
-        g = g.buffer(r, join_style=1).simplify(SIMPLIFY_M / 111320.0,
-                                               preserve_topology=True)
+        g = _rounded(unary_union(boxes))
         out.append((hi, colour, label, g))
     return out
 
