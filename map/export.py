@@ -32,6 +32,7 @@ from abaco_geo import COASTLINE_MAP, land_polygons
 from trip import (AIRPORT, ANCHORAGES, DAYS, EXTENT, HOTEL, MAP_LAND_BBOX,
                   MARINA, PLACES, VIEW_BOUNDS, load_day, shoal, transfer_route)
 from map import clock_fit as C
+from map import depth as DEPTH
 from map import place as P
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -130,7 +131,7 @@ def chart_layers(land):
     return files
 
 
-def track_layer():
+def track_layer(depth_days=None):
     """Seven days, drawn true. The poster's lateral offset is a print compromise
     and zoom solves the crowding properly, so nothing is nudged here."""
     feats = []
@@ -158,7 +159,8 @@ def track_layer():
                 properties=dict(day=d["label"], mode=mode, color=d["color"],
                                 title=d["title"], route=d["route"],
                                 n=d.get("n"), sail=bool(d.get("sail")),
-                                nm=round(t["nm"], 1) if mode == "afloat" else None),
+                                nm=round(t["nm"], 1) if mode == "afloat" else None,
+                                **((depth_days or {}).get(d["label"]) or {})),
                 geometry=dict(type="LineString",
                               coordinates=_round([(p[2], p[1]) for p in pts]))))
     return _fc(feats)
@@ -268,7 +270,9 @@ def export(dest, placed):
     # coastline, not different coastline.
     land = land_polygons(MAP_LAND_BBOX, source=COASTLINE_MAP)
     files = chart_layers(land)
-    files["tracks.geojson"] = track_layer()
+    grid = DEPTH.Grid()
+    depth_days = DEPTH.day_summary(grid)
+    files["tracks.geojson"] = track_layer(depth_days)
     files["places.geojson"] = places_layer()
     inr = inreach_layer()
     if inr:
@@ -280,8 +284,20 @@ def export(dest, placed):
         days=[dict(label=d["label"], color=d["color"], title=d["title"],
                    route=d["route"], n=d.get("n"), sail=bool(d.get("sail")))
               for d in DAYS],
+        depth_bands=[dict(lo=lo, hi=None if hi > 1e8 else hi, colour=c, label=l)
+                     for lo, hi, c, l in DEPTH.BANDS],
+        depth_days=depth_days,
         tiers=sorted({r["tier"] for r in placed}),
         counts=dict(collections.Counter(r["tier"] for r in placed)))
+
+    # The depth layer is a picture of a grid rather than vector bands: bathymetry
+    # is a continuous field, and contouring it into polygons put only 6.7% of the
+    # wet area into a band. Written before meta.json so its geometry can go in.
+    depth_img = DEPTH.render_png(grid, os.path.join(dest, "depth.png"),
+                                land=land)
+    files["meta.json"]["depth_image"] = dict(
+        url="data/depth.png", coordinates=depth_img["coordinates"],
+        width=depth_img["width"], height=depth_img["height"])
 
     written = {}
     for name, payload in files.items():
@@ -289,6 +305,7 @@ def export(dest, placed):
         with open(path, "w") as fh:
             json.dump(payload, fh, separators=(",", ":"))
         written[name] = os.path.getsize(path)
+    written["depth.png"] = os.path.getsize(os.path.join(dest, "depth.png"))
     return written
 
 

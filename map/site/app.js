@@ -9,6 +9,9 @@
 const PALETTE = {
   water: '#E7F1F5', shoal1: '#CDE3EE', shoal2: '#B2D3E6',
   land: '#F0E2C2', landEdge: '#8A7F6A', ink: '#2E3A42', inkSoft: '#5C6B75',
+  // The deepest depth band, painted by the background rather than shipped as
+  // 53,543 km2 of polygon.
+  deepWater: '#EDF4F8',
 };
 
 // Which band serves which zooms. The coarse band is 138 KB and the fine one
@@ -40,7 +43,8 @@ const map = new maplibregl.Map({
   style: {
     version: 8,
     sources: {},
-    layers: [{ id: 'water', type: 'background', paint: { 'background-color': PALETTE.water } }],
+    layers: [{ id: 'water', type: 'background',
+               paint: { 'background-color': PALETTE.deepWater } }],
   },
   attributionControl: false,
   // This chart is one 27 x 46 km box and maxBounds forbids panning off it, so
@@ -74,7 +78,8 @@ map.addControl(new maplibregl.AttributionControl({
   compact: true,
   // Short enough not to wrap to two lines on a phone, where it would take a
   // tenth of the chart to say something nobody opened this to read.
-  customAttribution: 'Coastline © OpenStreetMap · Track from a handheld GPS',
+  customAttribution: 'Coastline © OpenStreetMap · Depths GMRT · '
+                   + 'Track from a handheld GPS',
 }), 'bottom-left');
 
 map.on('load', start);
@@ -97,7 +102,7 @@ async function start() {
   // are recomputed whenever the window changes shape.
   map.on('resize', () => applyViewLimits(meta));
 
-  addChart();
+  addChart(meta);
   await addTracks(meta);
   await addPhotos();
   await addPlaces();
@@ -125,18 +130,35 @@ function applyViewLimits(meta) {
 }
 
 /* ------------------------------------------------------------------ chart --- */
-function addChart() {
+// Measured bathymetry, drawn deepest band first so the shallowest sits on top.
+// The deepest band is not in the data at all — it is the water background, which
+// paints "everywhere else" for nothing.
+function addDepth(meta) {
+  const d = meta.depth_image;
+  if (!d) return;
+  map.addSource('depth', { type: 'image', url: d.url, coordinates: d.coordinates });
+  map.addLayer({
+    id: 'depth', type: 'raster', source: 'depth',
+    paint: { 'raster-opacity': 1, 'raster-fade-duration': 0,
+             'raster-resampling': 'linear' },
+  });
+}
+
+function addChart(meta) {
+  addDepth(meta);
   // Shoals under the land, so the halo reads as shallows running up to a beach.
   for (const b of BANDS) {
     map.addSource(`shoals-${b.name}`, { type: 'geojson', data: `data/shoals.${b.name}.geojson` });
     map.addLayer({
       id: `shoals-outer-${b.name}`, type: 'fill', source: `shoals-${b.name}`,
       filter: ['==', ['get', 'ring'], 'outer'],
+      layout: { visibility: 'none' },
       ...zoomRange(b), paint: { 'fill-color': PALETTE.shoal1 },
     });
     map.addLayer({
       id: `shoals-inner-${b.name}`, type: 'fill', source: `shoals-${b.name}`,
       filter: ['==', ['get', 'ring'], 'inner'],
+      layout: { visibility: 'none' },
       ...zoomRange(b), paint: { 'fill-color': PALETTE.shoal2 },
     });
   }
@@ -212,11 +234,16 @@ async function addTracks(meta) {
   for (const id of ['track-afloat', 'track-ashore']) {
     map.on('click', id, (e) => {
       const p = e.features[0].properties;
+      const bits = [];
+      if (p.nm) bits.push(`${Number(p.nm).toFixed(1)} nm`);
+      if (p.shallowest_m) {
+        bits.push(`shallowest water ${Number(p.shallowest_m).toFixed(1)} m`);
+      }
       new maplibregl.Popup({ closeButton: false, offset: 8, maxWidth: '17rem' })
         .setLngLat(e.lngLat)
         .setHTML(`<strong>${esc(p.day)}</strong><br>${esc(p.title)}` +
                  `<br><span class="popup-route">${esc(p.route)}</span>` +
-                 (p.nm ? `<br><span class="popup-route">${Number(p.nm).toFixed(1)} nm</span>` : ''))
+                 (bits.length ? `<br><span class="popup-route">${esc(bits.join(' · '))}</span>` : ''))
         .addTo(map);
     });
     map.on('mouseenter', id, () => { map.getCanvas().style.cursor = 'pointer'; });
@@ -300,7 +327,8 @@ function buildPanel(meta) {
 }
 
 function wirePanel() {
-  state.layers = { photos: true, shoals: true, places: true, inreach: false };
+  state.layers = { photos: true, depth: true, shoals: false, places: true,
+                   inreach: false };
   const panel = $('#panel'), toggle = $('#panel-toggle');
   const setOpen = (open) => {
     panel.hidden = !open;
@@ -313,10 +341,19 @@ function wirePanel() {
     cb.addEventListener('change', () => {
       const key = cb.dataset.layer;
       state.layers[key] = cb.checked;
-      if (key === 'shoals') {
+      if (key === 'shoals' || key === 'depth') {
+        // Two answers to one question — measured depth, or the poster's drawn
+        // shoal halo — so turning either on turns the other off. Keeping both
+        // would stack a made-up shallows band over a real one.
+        if (cb.checked) {
+          const other = key === 'depth' ? 'shoals' : 'depth';
+          const box = document.querySelector(`#chart-layers input[data-layer="${other}"]`);
+          if (box && box.checked) { box.checked = false; state.layers[other] = false; }
+        }
+        setVisible('depth', !!state.layers.depth);
         for (const b of BANDS) {
           for (const r of ['outer', 'inner']) {
-            setVisible(`shoals-${r}-${b.name}`, cb.checked);
+            setVisible(`shoals-${r}-${b.name}`, !!state.layers.shoals);
           }
         }
       } else if (key === 'places') {

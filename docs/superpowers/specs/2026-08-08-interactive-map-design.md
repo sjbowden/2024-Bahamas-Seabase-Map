@@ -540,9 +540,42 @@ validate, and a test asserts it.
 
 **Layers, all toggleable**
 
-- **Chart** — land, shoal halos, water in the poster's palette. Shoals are
-  pre-computed at build time; that buffering is already solved and is slow to
-  redo in a browser.
+- **Chart** — land, water in the poster's palette, and **measured depth**. The
+  shoal halos were cartography: two buffers around the land, coloured to suggest
+  shallows and knowing nothing about the seabed. GMRT — the Global Multi-Resolution
+  Topography synthesis — serves a grid subset over one HTTP request with no key,
+  and at 122 m cells it resolves the Sea of Abaco's banks plainly. The drawn halo
+  survives as an alternative toggle, since the two are answers to the same question
+  and stacking a made-up shallows band over a real one would only confuse.
+
+  It also settles a question the poster could not: **how little water the crew had
+  under them.** Sunday and Tuesday both touch 1.0 m; Tuesday spent 1,352 fixes
+  under 2 m and Wednesday 2,378 under 3 m. Each day's popup now says its
+  shallowest, straight off the track.
+
+  Drawn as a raster, not vector bands. Bathymetry is a continuous field, and
+  contouring it into polygons put only **6.7% of the wet area into a band** because
+  contour lines that run off the grid edge never close into faces. A 2504×1683
+  paletted PNG is 124 KB, exact, and reprojected to web mercator on the way out —
+  handing MapLibre rows linear in latitude would stretch them onto its mercator
+  quad and misregister the depths against the coastline by a few hundred metres.
+
+  Three things it is not, kept in the code and here rather than printed on the
+  chart: not soundings (GMRT in shallow banks is largely satellite-derived, good to
+  a metre or so, and nothing should be navigated by it); not tide-corrected; and
+  blind to anything narrower than a cell, which is why a harbour entrance or a
+  dredged berth reads as land.
+
+  Two masks earn their place, and the second only after the first two attempts
+  failed. Land is rasterised from the coastline, because GMRT is a *bathymetry*
+  synthesis whose land elevations sit near zero — testing `depth > 0` painted the
+  pine forest in the middle of Great Abaco as shallow water. Then the interior
+  still came out a blue mosaic: those flats are not holes in one island (filling
+  holes changed nothing) and they *are* connected to the sea (a flood fill reached
+  them), so neither topology test excludes them. They are thousands of islets tens
+  of metres across, finer than a 122 m cell, where the grid has nothing to say — so
+  the test is local density: a neighbourhood more than a quarter land goes
+  unshaded.
 - **Tracks** — seven days in poster colours, each independently toggleable, all
   drawn **true**. The lateral offset was a compromise for one fixed print scale;
   zoom solves the crowding properly. Drawn from the thinned `load_day()` output,
