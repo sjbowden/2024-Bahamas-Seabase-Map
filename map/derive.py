@@ -27,7 +27,11 @@ in the files themselves: the coordinates the site needs are in photos.json, wher
 they have been through the guards, and the ones the camera wrote are not.
 
 Idempotent: an interrupted run resumes, because it skips any derivative already
-on disk. That matters at this size on a laptop.
+on disk. That matters at this size on a laptop. The other edge of that: a re-run
+cannot *repair* anything. If ids ever shift, p00001.jpg stays as it was and now
+shows the photograph that used to be p00001 -- present, sized right, stripped
+clean, and wrong. tests.py re-derives a few and insists on the same bytes,
+because nothing cheaper can tell the difference.
 """
 import argparse
 import io
