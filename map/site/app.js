@@ -288,7 +288,9 @@ function applyDays() {
  * source clusters: a filter hides the dots a cluster is made of while the cluster
  * goes on reporting how many it had, so unticking a day would leave "37" floating
  * over water with nothing under it. Clustering is done by the source, so the
- * honest fix is to give the source less to cluster.
+ * honest fix is to give the source less to cluster. The cluster counts follow by
+ * themselves: setData fires sourcedata, and the listener there redraws them once
+ * the new tiles exist -- redrawing here would only repaint the old ones.
  *
  * state.shown is the visible set, not the placeable one -- the viewer's next and
  * previous walk it, so they cannot wander into a day that has been switched off.
@@ -296,7 +298,8 @@ function applyDays() {
 function refreshPhotos() {
   if (!state.onChart) return;                 // called once before photos load
   // Read the open photograph before rebuilding: state.at indexes state.shown, so
-  // the moment that array changes the index means something else.
+  // the moment that array changes the index means something else. A photograph
+  // opened from the tray leaves state.at null, and the rebuild leaves it alone.
   const openId = ($('#viewer').hidden || state.at == null || !state.shown)
     ? null : (state.shown[state.at] || {}).id;
   state.shown = state.onChart.filter((p) => state.days.has(p.day));
@@ -306,12 +309,14 @@ function refreshPhotos() {
   // A photograph whose day just went away should not stay open over a chart that
   // no longer shows where it was. One that survives is re-shown at its new index
   // rather than just reassigned: "Photograph 571 of 2180" has to stop saying 2180
-  // the moment 610 of them are hidden.
+  // the moment 610 of them are hidden. Re-shown where it stands, though --
+  // renumbering the caption is no reason to move the camera.
   if (openId != null) {
-    if (state.indexById.has(openId)) showAt(state.indexById.get(openId));
+    if (state.indexById.has(openId)) showAt(state.indexById.get(openId), { pan: false });
     else closeViewer();
   }
-  drawClusterCounts();
+  // The tray answers to the same checkboxes as the chart.
+  buildTray();
 }
 
 function photoFC(list) {
@@ -468,11 +473,10 @@ async function addPhotos() {
   // Time order is already how the build wrote it, so previous/next in the viewer
   // follows the day as it happened rather than wandering by proximity.
   // onChart is everything that has a position; shown is the subset whose day is
-  // ticked. They start equal, and refreshPhotos keeps shown in step after that.
+  // ticked. refreshPhotos owns that subset -- the first paint and every toggle
+  // after it run the same computation, so they cannot drift apart.
   state.onChart = all.filter((p) => ON_CHART.includes(p.tier) && p.lat != null);
   state.offChart = all.filter((p) => !ON_CHART.includes(p.tier));
-  state.shown = state.onChart.filter((p) => state.days.has(p.day));
-  state.indexById = new Map(state.shown.map((p, i) => [p.id, i]));
 
   map.addSource('photos', {
     type: 'geojson',
@@ -484,7 +488,7 @@ async function addPhotos() {
     // the split has to happen somewhere a person would still be exploring.
     clusterMaxZoom: 13,
     clusterRadius: 42,
-    data: photoFC(state.shown),
+    data: emptyFC(),        // refreshPhotos hands it the visible set below
   });
 
   // The ring that says how far out a position could be. Drawn in metres, so it
@@ -568,7 +572,7 @@ async function addPhotos() {
   map.on('sourcedata', (e) => { if (e.sourceId === 'photos') redraw(); });
   redraw();
 
-  buildTray();
+  refreshPhotos();          // computes state.shown, fills the source, builds the tray
   wireViewer();
 }
 
@@ -625,12 +629,17 @@ function openViewer(id) {
   showAt(i);
 }
 
-function showAt(i) {
+function showAt(i, { pan = true } = {}) {
   const p = state.shown[i];
   if (!p) return;
   state.at = i;
-  $('#viewer-img').src = p.view;
-  $('#viewer-img').alt = `Photograph ${i + 1} of ${state.shown.length}`;
+  const img = $('#viewer-img');
+  // Same photograph, new index: renumbering the caption must not reload the image.
+  if (img.getAttribute('src') !== p.view) img.src = p.view;
+  img.alt = `Photograph ${i + 1} of ${state.shown.length}`;
+  // Previous and next walk state.shown, which a tray photograph is not in.
+  $('#viewer-prev').hidden = false;
+  $('#viewer-next').hidden = false;
   $('#viewer-when').textContent = whenText(p);
   $('#viewer-note').textContent = p.note || '';
   $('#viewer-meta').textContent =
@@ -647,18 +656,24 @@ function showAt(i) {
                  geometry: { type: 'Point', coordinates: [p.lon, p.lat] } }],
   });
   // Bring it into view without yanking the chart around if it is already there.
-  if (!map.getBounds().contains([p.lon, p.lat])) {
+  // Not at all when a day toggle is only renumbering the sequence: unticking
+  // Monday must not drag the camera back to the Thursday photograph that is open.
+  if (pan && !map.getBounds().contains([p.lon, p.lat])) {
     map.easeTo({ center: [p.lon, p.lat], duration: 400 });
   }
 }
 
 function whenText(p) {
-  if (!p.utc) return p.day ? `${p.day} — time unknown` : 'time unknown';
+  // A day off a WhatsApp filename is a date somebody's phone wrote, not a
+  // measurement. export.py ships the flag; this is the only place a human
+  // sees it, so this is where the hedge has to be said.
+  const day = p.day && p.day_provisional ? `${p.day}, at a guess` : p.day;
+  if (!p.utc) return day ? `${day} — time unknown` : 'time unknown';
   const d = new Date(p.utc);
   const edt = new Date(d.getTime() - 4 * 3600 * 1000);
   const hh = String(edt.getUTCHours()).padStart(2, '0');
   const mm = String(edt.getUTCMinutes()).padStart(2, '0');
-  return `${p.day || ''} · ${hh}:${mm}`.trim();
+  return `${day || ''} · ${hh}:${mm}`.trim();
 }
 
 function fmtDistance(m) {
@@ -670,19 +685,25 @@ function fmtDistance(m) {
 function closeViewer() {
   $('#viewer').hidden = true;
   document.body.classList.remove('viewing');
+  // state.at is only meaningful while the viewer is open on a chart photograph.
+  // Left behind, it would tell refreshPhotos a closed viewer was still showing it.
+  state.at = null;
   map.getSource('uncertainty').setData(emptyFC());
   map.getSource('selected').setData(emptyFC());
 }
 
 function wireViewer() {
   $('#viewer-close').addEventListener('click', closeViewer);
-  $('#viewer-prev').addEventListener('click', () => showAt(Math.max(0, state.at - 1)));
+  // The null checks cover a photograph opened from the tray: it is not in
+  // state.shown, so there is nowhere for previous or next to go from it.
+  $('#viewer-prev').addEventListener('click',
+    () => { if (state.at != null) showAt(Math.max(0, state.at - 1)); });
   $('#viewer-next').addEventListener('click',
-    () => showAt(Math.min(state.shown.length - 1, state.at + 1)));
+    () => { if (state.at != null) showAt(Math.min(state.shown.length - 1, state.at + 1)); });
   document.addEventListener('keydown', (e) => {
     if ($('#viewer').hidden && $('#tray').hidden) return;
     if (e.key === 'Escape') { closeViewer(); $('#tray').hidden = true; }
-    if ($('#viewer').hidden) return;
+    if ($('#viewer').hidden || state.at == null) return;
     if (e.key === 'ArrowLeft') showAt(Math.max(0, state.at - 1));
     if (e.key === 'ArrowRight') showAt(Math.min(state.shown.length - 1, state.at + 1));
   });
@@ -691,8 +712,11 @@ function wireViewer() {
 }
 
 /* ------------------------------------------------------------------- tray --- */
+// Rebuilt by refreshPhotos on every day toggle: "unticked" has to mean the same
+// thing in the tray as on the chart. A photograph with no day has no checkbox
+// to answer to, so it is always listed.
 function buildTray() {
-  const off = state.offChart;
+  const off = state.offChart.filter((p) => !p.day || state.days.has(p.day));
   $('#tray-count').textContent = `(${off.length})`;
   const heading = {
     unplaced: 'Ashore, or between receivers',
@@ -747,13 +771,19 @@ function buildTray() {
 }
 
 function openOffChart(p) {
-  // Same viewer, but there is no position to show or ring to draw.
+  // Same viewer, but there is no position to show or ring to draw -- and no
+  // index either: state.at must not go on pointing at whatever chart photograph
+  // it last held, or a day toggle would swap this one for that one.
+  state.at = null;
   $('#viewer-img').src = p.view;
   $('#viewer-img').alt = '';
   $('#viewer-when').textContent = whenText(p);
   $('#viewer-note').textContent = p.note || '';
   $('#viewer-meta').textContent = p.camera || '';
+  $('#viewer-prev').hidden = true;
+  $('#viewer-next').hidden = true;
   $('#viewer').hidden = false;
   document.body.classList.add('viewing');
   map.getSource('uncertainty').setData(emptyFC());
+  map.getSource('selected').setData(emptyFC());
 }

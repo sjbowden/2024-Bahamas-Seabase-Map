@@ -89,6 +89,33 @@ def _to_srgb(im):
         return im
 
 
+def prepare(data):
+    """Decode and normalise one photograph: rotation baked in, sRGB, RGB pixels.
+
+    Everything both sizes share. Split from render() so tests.py can re-derive
+    a photograph through the very code that published it, not a hand copy."""
+    im = Image.open(io.BytesIO(data))
+    im = ImageOps.exif_transpose(im)     # bake rotation in before EXIF goes
+    im = _to_srgb(im)
+    if im.mode not in ("RGB", "L"):
+        im = im.convert("RGB")
+    return im
+
+
+def render(im, spec):
+    """One derivative of a prepared image, as JPEG bytes.
+
+    The only statement of the save settings: one() writes these bytes to disk,
+    and tests.py insists a fresh rebuild produces the same ones."""
+    copy = im.copy()
+    copy.thumbnail((spec["px"], spec["px"]), Image.LANCZOS)
+    buf = io.BytesIO()
+    # No exif=, no icc_profile=: this is where metadata stops.
+    copy.save(buf, "JPEG", quality=spec["quality"], optimize=True,
+              progressive=spec["progressive"], subsampling="4:2:0")
+    return buf.getvalue()
+
+
 def one(job):
     """Make both derivatives for one photograph. Returns (id, bytes, error)."""
     pid, archive, member, dest = job
@@ -99,20 +126,13 @@ def one(job):
         if not wanted:
             return pid, 0, None
         with _zip(archive).open(member) as fh:
-            data = fh.read()
-        im = Image.open(io.BytesIO(data))
-        im = ImageOps.exif_transpose(im)     # bake rotation in before EXIF goes
-        im = _to_srgb(im)
-        if im.mode not in ("RGB", "L"):
-            im = im.convert("RGB")
+            im = prepare(fh.read())
         for spec in wanted:
             out = os.path.join(dest, spec["name"], f"{pid}.jpg")
-            copy = im.copy()
-            copy.thumbnail((spec["px"], spec["px"]), Image.LANCZOS)
-            # No exif=, no icc_profile=: this is where metadata stops.
-            copy.save(out, "JPEG", quality=spec["quality"], optimize=True,
-                      progressive=spec["progressive"], subsampling="4:2:0")
-            made += os.path.getsize(out)
+            payload = render(im, spec)
+            with open(out, "wb") as f:
+                f.write(payload)
+            made += len(payload)
         return pid, made, None
     except Exception as e:                   # noqa: BLE001
         return pid, made, f"{type(e).__name__}: {e}"[:120]

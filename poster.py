@@ -511,8 +511,7 @@ def _dm(value, pos, neg):
     return f"{d}°{m:02d}′{hemi}"
 
 
-def chart_neatline(ax, extent, fig, lw_scale=1.0, label_every=5,
-                   corner_clip=True):
+def chart_neatline(ax, extent, fig, lw_scale=1.0, label_every=5):
     """The graduated border of a paper chart: a band ticked off in whole
     minutes of arc, alternating light and dark, labelled every 5'."""
     w, e, s, n = extent
@@ -553,12 +552,8 @@ def chart_neatline(ax, extent, fig, lw_scale=1.0, label_every=5,
     # one runs into a light cell of the other, so the top edge's rhythm appeared to
     # break. Clipping each edge to the span between the other two keeps every edge
     # graduated in its own units, and leaves the four corners as plain squares.
-    if corner_clip:
-        bands(w, e, True, clip=(w + tx, e - tx))
-        bands(s, n, False, clip=(s + ty, n - ty))
-    else:
-        bands(w, e, True)
-        bands(s, n, False)
+    bands(w, e, True, clip=(w + tx, e - tx))
+    bands(s, n, False, clip=(s + ty, n - ty))
 
     for rect in ((w, s, e - w, n - s), (w + tx, s + ty, e - w - 2 * tx, n - s - 2 * ty)):
         ax.add_patch(plt.Rectangle(rect[:2], rect[2], rect[3], fill=False,
