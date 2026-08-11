@@ -18,6 +18,9 @@ out/proof_depth.png
 # Delete these two lines if the depth edition should be the one in the repo.
 out/abaco_poster_depth_18x24_300dpi.png
 out/abaco_poster_depth_18x24.pdf
+
+# the square page for the photobook, in both water treatments and any dpi
+out/photobook_*.png
 out/proof_offset.png
 
 # derived caches — regenerated from the committed geo/*.json, and pickles are

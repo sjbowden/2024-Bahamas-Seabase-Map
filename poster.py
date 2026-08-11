@@ -1004,6 +1004,79 @@ def build(dpi, out_png, out_pdf=None, spread=True, depth=False):
     plt.close(fig)
 
 
+def photobook_extent(tracks, margin=0.11):
+    """A square frame around the path, in degrees.
+
+    The chart axes render degrees true — one degree of latitude is ASPECT times the
+    display size of one degree of longitude — so a square *page* needs a longitude
+    span ASPECT times the latitude span, not an equal one. The path itself is 37 km
+    north to south and 17 km across, so the square is set by its height and the
+    extra width is the Sea of Abaco and the Atlantic either side.
+    """
+    lats, lons = [], []
+    for d in DAYS:
+        t = tracks[d["file"]]
+        for mode in ("afloat", "walk", "road"):
+            for p in (t.get(mode) or []):
+                lats.append(p[1]); lons.append(p[2])
+    for lon, lat in transfer_route():
+        lats.append(lat); lons.append(lon)
+    # The labels have to fit as well as the path. Fitted to the track alone, Great
+    # Guana Cay's name fell outside the neatline entirely — its cay is north of
+    # anywhere the boat went — and Little Harbour's landed under the scale bar.
+    for lon, lat, *_ in list(PLACES) + list(ANCHORAGES):
+        lats.append(lat); lons.append(lon)
+    # The margin is generous because a label is a box, not the point it hangs off:
+    # fitted tight to the coordinates, Great Guana Cay's name and Little Harbour's
+    # both ended up lying along the neatline.
+    clat, clon = (min(lats) + max(lats)) / 2, (min(lons) + max(lons)) / 2
+    span = max(max(lats) - min(lats), (max(lons) - min(lons)) / ASPECT) * (1 + margin)
+    return (clon - span * ASPECT / 2, clon + span * ASPECT / 2,
+            clat - span / 2, clat + span / 2)
+
+
+def photobook(dpi, out_png, depth=False, title=True):
+    """One square page of chart, for an 8 x 8 in photobook.
+
+    The sheet is 18 x 24 and its hero chart is portrait, so this is not a crop of it:
+    the frame is recomputed square around the path and everything is drawn at the
+    scale that suits 8 inches. Same drawing code as the poster, so the two agree
+    about coastline, colour, tracks and type.
+
+    At 300 dpi this is 2400 px square, which is what a photobook printer asks for;
+    600 gives 4800 px for a printer that wants more.
+    """
+    tracks = {d["file"]: load_day(d["file"], walk_split=d.get("walk_split"),
+                                 road_split=d.get("road_split"))
+              for d in DAYS}
+    land = land_polygons(LAND_BBOX)
+    bands = depth_bands(land) if depth else None
+    extent = photobook_extent(tracks)
+
+    fig = plt.figure(figsize=(8, 8), dpi=dpi)
+    fig.patch.set_facecolor(C_PAPER)
+    # Room at the top for a title, and a hair all round for the neatline.
+    ax = fig.add_axes([0.055, 0.052, 0.890, 0.842 if title else 0.896])
+    # 0.8 rather than 1.0: this frame is about half the poster's scale, so the same
+    # line weights would read as heavier here than they do on the sheet.
+    draw_chart(ax, extent, land, DAYS, tracks, detail=True, lw_scale=0.80,
+               spread=True, depth=bands)
+    draw_badges(ax, DAYS, badge_positions(DAYS, tracks), lw_scale=0.80)
+    compass_rose(ax, -76.8800, 26.3600, 0.0135)
+    scale_bar(ax, extent, y_frac=0.038, x_frac=0.055, nm_len=5, lw_scale=0.80)
+    chart_neatline(ax, extent, fig, lw_scale=0.80, label_every=5)
+
+    if title:
+        fig.text(0.5, 0.962, "SEA BASE 1830", fontproperties=SERIF, fontsize=26,
+                 color=C_INK, ha="center", va="center")
+        fig.text(0.5, 0.930, "SEA OF ABACO  ·  22–28 MARCH 2024",
+                 fontproperties=SANS, fontsize=9.5, color=C_INK_SOFT,
+                 ha="center", va="center", linespacing=1.4)
+    fig.savefig(out_png, dpi=dpi, facecolor=C_PAPER)
+    print("wrote", out_png)
+    plt.close(fig)
+
+
 def compare(dpi=110):
     """Two proofs, identical but for the lateral offset, plus a zoom on the
     stretch that motivated it — so the distortion can be judged directly."""
@@ -1046,10 +1119,20 @@ if __name__ == "__main__":
                     help="proofs with and without the lateral offset")
     ap.add_argument("--depth", action="store_true",
                     help="measured GMRT depth bands instead of the drawn shoal halo")
+    ap.add_argument("--photobook", action="store_true",
+                    help="one square 8 x 8 in page of chart")
+    ap.add_argument("--dpi", type=int, default=300,
+                    help="dots per inch for --photobook (default 300)")
+    ap.add_argument("--no-title", action="store_true",
+                    help="leave the title off --photobook")
     a = ap.parse_args()
     os.makedirs(os.path.join(HERE, "out"), exist_ok=True)
     suffix = "_depth" if a.depth else ""
-    if a.compare:
+    if a.photobook:
+        photobook(a.dpi, os.path.join(
+            HERE, "out", f"photobook{suffix}_8x8_{a.dpi}dpi.png"),
+            depth=a.depth, title=not a.no_title)
+    elif a.compare:
         compare()
     elif a.final:
         build(300, os.path.join(HERE, "out",

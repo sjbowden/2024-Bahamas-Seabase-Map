@@ -26,6 +26,8 @@ python3 -m venv .venv && .venv/bin/pip install shapely matplotlib numpy
 .venv/bin/python poster.py              # 100 dpi proof → out/proof.png
 .venv/bin/python poster.py --final      # 300 dpi PNG + vector PDF, 18×24 in
 .venv/bin/python poster.py --compare    # offset vs true, see below
+.venv/bin/python poster.py --photobook  # one square 8x8 in page, 2400 px
+.venv/bin/python poster.py --photobook --depth --dpi 600   # measured depths, 4800 px
 ```
 
 Outputs, all under `out/`:
@@ -36,6 +38,7 @@ Outputs, all under `out/`:
 | `abaco_poster_18x24.pdf` | vector, best for a print shop | yes |
 | `compare_offset.png` | side-by-side proof of the one deliberate distortion | yes |
 | `proof.png`, `proof_true.png`, `proof_offset.png` | 100 dpi working renders | no |
+| `photobook_8x8_300dpi.png` | square page for an 8×8 in photobook | no |
 
 The two finished renders are committed so the poster is downloadable without
 running anything, but they are ~20 MB a pair — commit them when the sheet is
@@ -114,6 +117,20 @@ Other things worth remembering:
   overnight, but the boat moved only 12–210 m between each day's last fix and
   the next day's first, i.e. anchor swing, not an unrecorded passage. (Only the
   22 Mar arrival log has gaps: five of them, totalling 133 m of movement.)
+
+### The square page
+
+`--photobook` is not a crop of the sheet. The sheet's hero chart is portrait and
+the path is 37 km north to south by 17 km across, so the frame is recomputed
+square around the path *and its labels* — fitted to the track alone, Great Guana
+Cay's name fell outside the neatline and Little Harbour's landed under the scale
+bar. It comes out about 42 km on a side. Everything else is the poster's own
+drawing code, so the two agree about coastline, colour, tracks and type, with line
+weights at 0.8 because the frame is roughly half the sheet's scale.
+
+Add `--depth` for the measured GMRT bands instead of the drawn shoal halo,
+`--dpi 600` for a printer that wants more than 2400 px, and `--no-title` for a bare
+map.
 
 ## Three independent records
 
