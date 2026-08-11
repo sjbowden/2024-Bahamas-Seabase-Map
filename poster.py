@@ -1175,11 +1175,14 @@ def photobook(dpi, out_png, depth=False, title=True):
     # measure counts distance to five tracks equally and the junction is only one of
     # them. Measuring distance from the junction itself, subject to staying 130 m off
     # the other tracks and labels, moves it to the marina end of Saturday's own leg,
-    # 3.3 km away, then a further 0.4 km west along it. That last step costs
-    # clearance — 296 m from the other tracks becomes 108 m — and it is as far as the
-    # leg goes before Sunday's track closes in: 0.8 km west leaves only 19 m.
+    # 3.3 km away — and then off the line rather than on it. On the leg itself there
+    # is nowhere good: the badge covered the start at the marina end, the far west end
+    # covers the junction, and the middle runs alongside Sunday's track with 7 to 39 m
+    # to spare, so a badge there hides Sunday instead. This sits 1.3 km west of the
+    # start and 400 m north of Saturday's own line, in open water, 446 m from any
+    # other track — near enough to read as Saturday's, over nothing at all.
     badges = badge_positions(DAYS, tracks)
-    badges[[d for d in DAYS if d.get("n") == 1][0]["file"]] = (-77.0557, 26.5479)
+    badges[[d for d in DAYS if d.get("n") == 1][0]["file"]] = (-77.0630, 26.5530)
     draw_badges(ax, DAYS, badges, lw_scale=0.80)
     # Bigger than the sheet's rose in map degrees, because this frame is half the
     # scale: at 0.0135 the cardinals and the fleur were on top of each other. The
