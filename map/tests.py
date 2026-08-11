@@ -358,6 +358,34 @@ def test_export(placed):
           0.5 < mask.area / land.area < 1.0,
           f"{mask.area / land.area * 100:.1f}% of the coastline's area")
 
+    # The handheld runs one battery charge a day, so the drawn track breaks at every
+    # handover — 207 m of it between Tuesday and Wednesday, which reads as two lines
+    # that do not meet. The inReach was recording through all of them.
+    from trip import DAYS as _DAYS, load_day as _load_day
+    tracks = E.track_layer()
+    bridges = {f["properties"]["day"]: f
+               for f in tracks["features"] if f["properties"]["mode"] == "moored"}
+    firsts, lasts = {}, {}
+    for d in _DAYS:
+        t = _load_day(d["file"], walk_split=d.get("walk_split"),
+                      road_split=d.get("road_split"))
+        pts = sorted((t.get("afloat") or []) + (t.get("walk") or [])
+                     + (t.get("road") or []), key=lambda p: p[0])
+        if pts:
+            firsts[d["label"]], lasts[d["label"]] = pts[0], pts[-1]
+    order = [d["label"] for d in _DAYS if d["label"] in firsts]
+    check("every night between two days is bridged",
+          all(b in bridges for b in order[1:]),
+          f"{len(bridges)} bridges for {len(order) - 1} handovers")
+    worst = 0.0
+    for prev, day in zip(order, order[1:]):
+        c = bridges[day]["geometry"]["coordinates"]
+        worst = max(worst,
+                    haversine(c[0][1], c[0][0], lasts[prev][1], lasts[prev][2]),
+                    haversine(c[-1][1], c[-1][0], firsts[day][1], firsts[day][2]))
+    check("each bridge touches both tracks it joins", worst < 5.0,
+          f"worst end is {worst:.1f} m out; coordinates round to about 1 m")
+
     pj = E.photos_json(placed)
     check("photos.json carries every photograph", len(pj) == len(placed))
     check("photos.json is in time order",

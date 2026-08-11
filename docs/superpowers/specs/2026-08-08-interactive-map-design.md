@@ -984,6 +984,28 @@ poster's PNGs came out byte-identical.
 | Timestamp outside receiver coverage | `unplaced` — no inReach fallback |
 | Interrupted build | Derivatives are idempotent; re-running resumes |
 
+### The nights, from the other receiver
+
+The handheld runs one battery charge a day, so its log stops each evening and
+starts again the next morning, and the drawn track breaks at every handover. Five
+are 9 to 115 m and pass unnoticed. The Tuesday-to-Wednesday one is **207 m**, which
+reads as two lines that simply do not meet — the boat moved that far off the Hope
+Town mooring in the 45 minutes before the handheld came on.
+
+`overnight_bridges()` closes each break with the inReach's reports for that night,
+anchored at both ends to the handheld's own last and first drawn fix so the line
+joins what it is joining; a test holds the worst end within 5 m and it is at 0.7 m,
+which is coordinate rounding. They are `mode: "moored"`, so the existing
+`track-ashore` layer draws them without new code, on the finest dash — the same
+thing the arrival transfer says, that this is a reconstruction rather than
+something the handheld saw. Each is filed under the day it leads into, so unticking
+Wednesday takes Tuesday night with it, and clicking one says which night it is and
+where it came from.
+
+The GPX parser moved to `trip.py` so `corroborate.py` and the map read the file
+through the same code; `corroborate.py`'s output is unchanged, which is how that
+refactor was checked.
+
 ### Labels the sheet does not carry
 
 The map carries seventeen labels the poster does not: eleven islands in `MAP_CAYS`,

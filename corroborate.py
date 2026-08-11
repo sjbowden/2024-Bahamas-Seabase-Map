@@ -23,22 +23,16 @@ import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 
 from trip import (DAYS, EDT, LAT0, OFFSHORE_KM, haversine, load_day,
-                  offshore_km)
+                  offshore_km, read_inreach)
 
 NS = "{http://www.topografix.com/GPX/1/1}"
 HERE = os.path.dirname(os.path.abspath(__file__))
 
 
 def load_gpx(path):
-    pts = []
-    for tp in ET.parse(path).getroot().iter(NS + "trkpt"):
-        t = tp.find(NS + "time")
-        if t is None:
-            continue
-        pts.append((datetime.strptime(t.text, "%Y-%m-%dT%H:%M:%SZ")
-                    .replace(tzinfo=timezone.utc),
-                    float(tp.get("lat")), float(tp.get("lon"))))
-    return sorted(pts)
+    """The inReach's reports. One parser, shared with the map, which bridges the
+    nightly gaps in the handheld's track with these."""
+    return read_inreach(path)
 
 
 def handheld_windows():
