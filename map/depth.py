@@ -344,6 +344,13 @@ COARSEN = 2
 # flats inside Great Abaco are the case that matters, and 1.0 m is the median of
 # GMRT's own readings where it does report them there.
 FLAT_DEPTH_M = 1.0
+# How much finer than the depth grid to rasterise the coastline when deciding what
+# is water at all. The coastline resolves creeks the grid cannot — 49 km2 of water,
+# 7.4 of it inside the poster's frame, sits in cells the 61 m grid calls land — and
+# with no band over it the page background showed through as pale hairlines in the
+# marsh. At 2 the mask is 30 m and 64 MB, which finds them; at 4 it would be a
+# gigabyte to resolve creeks narrower than the boats that used them.
+SUBCELL = 2
 # Coarse cells per side to average the depths over before banding them, and the
 # smallest piece of a band worth drawing. 10 cells is about 1.2 km, and 60,000 m2
 # is four coarse cells.
@@ -736,13 +743,24 @@ def band_polygons(grid, land):
     dsum = np.where(wet, depth, 0.0)[:nr, :nc].reshape(nr // k, k, nc // k, k)
     wsum = wet[:nr, :nc].reshape(nr // k, k, nc // k, k)
     n = wsum.sum((1, 3))
-    coarse = np.where(n > 0, dsum.sum((1, 3)) / np.maximum(n, 1), -1.0)
+
+    # Water the grid missed but the coastline knows about. It gets the flats' depth:
+    # a channel too narrow for the grid to see is not one it can put a number on
+    # either, and every one of them is inshore.
+    fine = _land_mask(land, grid.ncols * SUBCELL, grid.nrows * SUBCELL,
+                      x0, y0, x1, y1, lambda lat: lat)
+    step = k * SUBCELL
+    nr2, nc2 = (grid.nrows // k) * step, (grid.ncols // k) * step
+    narrow = (~fine)[:nr2, :nc2].reshape(nr2 // step, step,
+                                        nc2 // step, step).any((1, 3))
+    coarse = np.where(n > 0, dsum.sum((1, 3)) / np.maximum(n, 1),
+                      np.where(narrow, FLAT_DEPTH_M, -1.0))
     # Any water in the block at all makes it water. Requiring most of the block to
     # be wet left the marsh lace — thousands of islets tens of metres across, so
     # every block there is mostly land — as unpainted holes. Blocks that straddle a
     # shore now reach a little way over it, which nobody sees: the land is drawn on
     # top, and erring that way is what keeps the bands against the beach.
-    cwet = n > 0
+    cwet = (n > 0) | narrow
     # Average the coarse depths a little before sorting them into bands. Where the
     # bottom shelves steadily — the Atlantic side of the cays — the contours really
     # are close to parallel with the shore, and without this each band's edge

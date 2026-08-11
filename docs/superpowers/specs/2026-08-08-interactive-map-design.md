@@ -649,6 +649,22 @@ validate, and a test asserts it.
   blocks and anything smaller than one block is dropped, so a fraying edge cannot
   survive as confetti.
 
+  **What counts as water comes from the coastline, at twice the grid's resolution.**
+  The coastline resolves creeks the depth grid cannot: 49.4 km² of water, 7.4 of it
+  inside the poster's frame, sits in cells the 61 m grid calls land. No band covered
+  those, so the page background showed through as pale hairlines threading the
+  marsh — again the deepest colour in the shallowest place. The same coastline is now
+  rasterised at 30 m to decide what is wet, and anything it finds that the grid
+  cannot speak to takes the flats' 1.0 m: a channel too narrow for the grid to see
+  is not one it can put a number on either, and every one of them is inshore. 30 m
+  costs 64 MB; 60 m would need a gigabyte to resolve creeks narrower than the boats
+  that used them.
+
+  Inshore water with no band over it is **0.00 km²** at that resolution, inside the
+  frame and out. The file got *smaller* — 1.57 MB to 1.35 MB — because filling the
+  creeks merges what were separate parts. Band areas against the coastline's own
+  water are 1.03–1.07×.
+
   The speck filter that came in with the averaging keeps anything touching land,
   whatever its size. A small part is only a speck if it sits in open water: ponds,
   creeks and narrow inlets are small *and* real, and dropping them took them out of
