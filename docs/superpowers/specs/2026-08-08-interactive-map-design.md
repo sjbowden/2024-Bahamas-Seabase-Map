@@ -986,21 +986,34 @@ poster's PNGs came out byte-identical.
 
 ### Labels the sheet does not carry
 
-The map names six cays and one region the poster leaves anonymous — Green Turtle
-Cay, Whale Cay, Scotland Cay, Matt Lowe's Cay, Pelican Cays, Dickie's Cay and
-The Marls — held back to z11, and Dickie's to z13.5 because it sits 400 m from
-Man-O-War Cay's label and these are HTML markers with no collision detection. The
-Marls needs its own `region` kind: the map hides the poster's `big` and `water`
-legends outright, since those are spaced for one printed frame.
+The map carries seventeen labels the poster does not: eleven islands in `MAP_CAYS`,
+five settlements, points and bays in `MAP_SPOTS`, and The Marls in `MAP_REGIONS`.
+Most appear at z11; Water Cay waits until z13 and Dickie's until z13.5, the first
+because the coastline gives it 0.15 ha and sixty metres so any earlier the name
+floats in apparently open water, the second because it sits 400 m from Man-O-War
+Cay's label and these are HTML markers with no collision detection. Nothing overlaps
+at any zoom except Hotel/Marina, which predates all of this.
 
-The names come from two reference maps of the Abacos rather than from memory, which
-is what made Pelican Cays (between Tilloo and Lynyard), Whale Cay and Green Turtle
-Cay placeable at all, and what gave The Marls its name. Each was then matched to a
-real island by size and position and given that island's own interior point. The
-check that matters is that the reference's north-to-south order down the barrier
-chain — Whale, Great Guana, Scotland, Man-O-War, Elbow, Lubbers, Tilloo, Pelican,
-Lynyard — matches the latitudes this chart puts them at, which it does. Water Cay
-is left off: two candidate islands fit it and the reference does not separate them. `MAP_CAYS` lives in `trip.py` beside `PLACES` but is deliberately not
+Three kinds, because a chart separates them: `cay` in the isles' italic, `spot`
+upright for a place that is not a piece of land, `region` in the poster's voice for
+water legends — which the map otherwise hides outright, since those are letter-spaced
+for one printed frame.
+
+The names came from three reference maps and a set of supplied coordinates, not from
+memory. Every island label is then snapped to that island's own interior point, and
+a check asserts each `cay` is on land, each `region` in water, and everything inside
+`VIEW_BOUNDS`.
+
+Two of the supplied coordinates disagreed with themselves and the geometry settled
+it. Manjack Cay came as "just north of Green Turtle Cay" with a figure that lands
+*south* of it, on Treasure Cay; the description won, and a third reference confirmed
+the 3.9 km island rather than the 1.8 km one beside it. Spanish Cay came with two
+figures 40 km apart, and only one agrees with the references. Winding Bay's point was
+400 m inland, and a bay belongs in its own water. What made all of this checkable
+was ordering rather than pixel arithmetic: the references' north-to-south chain —
+Spanish, Powell, Manjack, Green Turtle, Whale, Great Guana, Scotland, Man-O-War,
+Elbow, Lubbers, Tilloo, Pelican, Lynyard — matches the latitudes this chart puts
+them at. `MAP_CAYS` lives in `trip.py` beside `PLACES` but is deliberately not
 imported by `poster.py`: the sheet is one frame at one scale with hand-placed
 labels, while the map can hold names in reserve until somebody zooms in.
 

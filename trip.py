@@ -126,6 +126,35 @@ MAP_CAYS = [
     (-77.02866, 26.55015, "Matt Lowe's Cay", 11.0),
     (-76.99656, 26.41404, "Pelican Cays", 11.0),
     (-77.00851, 26.59472, "Dickie's Cay", 13.5),
+    # Water Cay, on the southern side of the Sea of Abaco off Great Abaco. The
+    # anchorage is at N 26 36.340' W 077 11.069' — 26.60567, -77.18448 — and the
+    # label goes on the islet 616 m from it rather than on the water, so a cay's
+    # name sits on a cay. The coastline gives that islet 0.15 ha and sixty metres
+    # of length, which is why this one waits until z13: any earlier and the name
+    # floats in what looks like open water.
+    (-77.17931, 26.60304, "Water Cay", 13.0),
+    # The chain north of Green Turtle, each landed on its own island. Manjack is the
+    # 3.9 km one: north of Green Turtle comes little Crab Cay and then Manjack, and
+    # the two candidates there are 1.8 km and 3.9 km long. The decimal figure I was
+    # given for it, 26.68 / -77.29, is south of Green Turtle and lands on Treasure
+    # Cay, so the description — "just north of Green Turtle Cay" — was followed
+    # instead. Spanish Cay came with two figures and this is the one that agrees
+    # with the reference map; the other, 26.56 / -77.31, is down by Marsh Harbour.
+    (-77.37152, 26.83119, "Manjack Cay", 11.0),   # OSM spells it Nunjack Cay
+    (-77.47842, 26.90338, "Powell Cay", 11.0),
+    (-77.53761, 26.94675, "Spanish Cay", 11.0),
+    (-77.64000, 26.88000, "Little Abaco Island", 10.0),
+]
+
+# Settlements, points and bays: named places that are not islands, so they get their
+# own kind rather than a cay's italic. Coordinates as supplied, except Winding Bay,
+# which was given a point 400 m inland — a bay belongs in its own water.
+MAP_SPOTS = [
+    (-77.28580, 26.67690, "Treasure Cay", 11.0),
+    (-77.14800, 26.68600, "Baker's Bay", 12.0),
+    (-77.02342, 26.30257, "Winding Bay", 11.0),
+    (-77.05000, 26.28000, "Cherokee Sound", 11.0),
+    (-77.09105, 26.29370, "Casuarina Point", 11.0),
 ]
 
 # Regions rather than islands. The map hides the poster's own big and water
