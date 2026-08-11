@@ -123,16 +123,19 @@ MAP_CAYS = [
     (-77.32683, 26.77384, "Green Turtle Cay", 11.0),
     (-77.23625, 26.70974, "Whale Cay", 11.0),
     (-77.07431, 26.64559, "Scotland Cay", 11.0),
-    (-77.02866, 26.55015, "Matt Lowe's Cay", 11.0),
-    (-76.99656, 26.41404, "Pelican Cays", 11.0),
+    (-77.02866, 26.55015, "Sugar Loaf Cay", 11.0),
+    (-77.01460, 26.56386, "Matt Lowe's Cay", 11.0),
+    (-76.99656, 26.41404, "Channel Cay", 11.0),
     (-77.00851, 26.59472, "Dickie's Cay", 13.5),
-    # Water Cay, on the southern side of the Sea of Abaco off Great Abaco. The
-    # anchorage is at N 26 36.340' W 077 11.069' — 26.60567, -77.18448 — and the
-    # label goes on the islet 616 m from it rather than on the water, so a cay's
-    # name sits on a cay. The coastline gives that islet 0.15 ha and sixty metres
-    # of length, which is why this one waits until z13: any earlier and the name
-    # floats in what looks like open water.
-    (-77.17931, 26.60304, "Water Cay", 13.0),
+    # Channel Cay. This was labelled Pelican Cays for a build, which is the name of
+    # the whole group of cays here rather than of this one island, so the group name
+    # is dropped and the island gets its own.
+    # Water Cay, on the southern side of the Sea of Abaco off Great Abaco, at the
+    # coordinate given: N 26 36.340' W 077 11.069'. This label was moved 616 m onto
+    # the nearest islet for a build, on the principle that a cay's name belongs on a
+    # cay — and that move crossed a headland, putting the name on the wrong side of
+    # the point. The coordinate given was already right. So this one is water rather
+    # than land, deliberately, and the on-land check below knows it.
     # The chain north of Green Turtle, each landed on its own island. Manjack is the
     # 3.9 km one: north of Green Turtle comes little Crab Cay and then Manjack, and
     # the two candidates there are 1.8 km and 3.9 km long. The decimal figure I was
@@ -140,6 +143,7 @@ MAP_CAYS = [
     # Cay, so the description — "just north of Green Turtle Cay" — was followed
     # instead. Spanish Cay came with two figures and this is the one that agrees
     # with the reference map; the other, 26.56 / -77.31, is down by Marsh Harbour.
+    (-77.18448, 26.60567, "Water Cay", 13.0),
     (-77.37152, 26.83119, "Manjack Cay", 11.0),   # OSM spells it Nunjack Cay
     (-77.47842, 26.90338, "Powell Cay", 11.0),
     (-77.53761, 26.94675, "Spanish Cay", 11.0),
@@ -147,12 +151,13 @@ MAP_CAYS = [
 ]
 
 # Settlements, points and bays: named places that are not islands, so they get their
-# own kind rather than a cay's italic. Coordinates as supplied, except Winding Bay,
-# which was given a point 400 m inland — a bay belongs in its own water.
+# own kind rather than a cay's italic. Coordinates as supplied, except Winding Bay:
+# the point given was 400 m inland, and the bay is on the Atlantic side, so the label
+# sits in the water on that coast rather than in the sound behind it.
 MAP_SPOTS = [
     (-77.28580, 26.67690, "Treasure Cay", 11.0),
     (-77.14800, 26.68600, "Baker's Bay", 12.0),
-    (-77.02342, 26.30257, "Winding Bay", 11.0),
+    (-77.01000, 26.29000, "Winding Bay", 11.0),
     (-77.05000, 26.28000, "Cherokee Sound", 11.0),
     (-77.09105, 26.29370, "Casuarina Point", 11.0),
 ]
@@ -192,6 +197,20 @@ MAP_REGIONS = [
 #   26.33446 -77.02760   20 ha  1.5 km
 #   26.56368 -77.01499   20 ha  1.0 km
 #   26.41405 -76.99644   10 ha  0.9 km
+
+# Nudges applied to shared labels on the map only, in degrees (lon, lat). The
+# poster draws ANCHORAGES too — and uses their positions to decide where its day
+# badges go — so moving one of those coordinates would move the printed sheet. The
+# map can shift a label without asking the sheet to agree.
+#
+# Lynyard Cay sat low on a cay that runs 4.3 km north to south, so on the map it
+# moves 0.9 km north and 0.2 km east, to the middle of the cay it names.
+MAP_LABEL_NUDGE = {"Lynyard Cay": (0.0020, 0.0080)}
+
+# The one island label that belongs in water: Water Cay's coordinate is its
+# anchorage, and the islet is small enough that moving the label onto it crossed a
+# headland and put the name on the wrong side of the point.
+MAP_CAYS_AFLOAT = {"Water Cay"}
 
 AIRPORT = (-77.0782, 26.5135, "MHH", "Leonard M. Thompson Intl")
 # hotel fixed from the EXIF of IMG_0496.JPG (14:43 EDT, 22 Mar, ±4.6 m); the

@@ -29,8 +29,8 @@ from shapely.geometry import shape
 
 from abaco_geo import COASTLINE_MAP, land_polygons
 from trip import (AIRPORT, ANCHORAGES, DAYS, EXTENT, HOTEL, MAP_CAYS,
-                  MAP_LAND_BBOX, MAP_REGIONS,
-                  MAP_SPOTS, shoal,
+                  MAP_LABEL_NUDGE, MAP_LAND_BBOX,
+                  MAP_REGIONS, MAP_SPOTS, shoal,
                   MARINA, PLACES, VIEW_BOUNDS, load_day, transfer_route)
 from map import clock_fit as C
 from map import depth as DEPTH
@@ -232,6 +232,10 @@ def places_layer():
                                         coordinates=[round(lon, PRECISION),
                                                      round(lat, PRECISION)])))
     for lon, lat, text, *_ in ANCHORAGES:
+        # Shifted on the map only where a shared label wants a different spot here;
+        # the poster draws these too, and its day badges are placed around them.
+        dlon, dlat = MAP_LABEL_NUDGE.get(text, (0.0, 0.0))
+        lon, lat = lon + dlon, lat + dlat
         feats.append(dict(type="Feature",
                           properties=dict(label=text, kind="anchorage", minzoom=11.5),
                           geometry=dict(type="Point", coordinates=[round(lon, 5),
