@@ -505,7 +505,7 @@ def _dm(value, pos, neg):
 
 
 def chart_neatline(ax, extent, fig, lw_scale=1.0, label_every=5,
-                   corner_clip=False):
+                   corner_clip=True):
     """The graduated border of a paper chart: a band ticked off in whole
     minutes of arc, alternating light and dark, labelled every 5'."""
     w, e, s, n = extent
@@ -812,7 +812,11 @@ def compass_rose(ax, lon, lat, R, lw_scale=1.0, *, magnetic=True,
 
     for b, ch in ((0, "N"), (90, "E"), (180, "S"), (270, "W")):
         al, _ = axes_for(b)
-        x, y = XY(*(al * letter_r))
+        # letter_r may be one radius or one per cardinal: the four have different
+        # room around them, since the fleur crowds N and the ring's own graduations
+        # sit closer to E and W than to N and S.
+        r = letter_r.get(ch, 1.26) if isinstance(letter_r, dict) else letter_r
+        x, y = XY(*(al * r))
         ax.text(x, y, ch, fontproperties=SERIF_I, fontsize=12 * lw_scale,
                 color=C_ROSE, ha="center", va="center", zorder=13,
                 path_effects=_halo(3.0 * lw_scale))
@@ -882,9 +886,20 @@ def build(dpi, out_png, out_pdf=None, spread=True, depth=False):
 
     # ---- hero map
     ax = fig.add_axes([0.065, 0.225, 0.545, 0.685])
+    # Lynyard Cay's name is left where it is, though it sits only 89 m off the
+    # track. The square page moves it 1.2 km east, which clears by 502 m — but this
+    # sheet has the compass rose at 26.352, and the rose's W reaches to lon -76.971,
+    # so any step east big enough to clear the track lands on the rose. West clears
+    # the track only at 2 km, which detaches the name from the cay it labels. So the
+    # choice here is the rose's position or the overlap, and the overlap is quieter.
     draw_chart(ax, extent, land, DAYS, tracks, lw_scale=1.0, spread=spread,
                depth=bands)
-    draw_badges(ax, DAYS, badge_positions(DAYS, tracks))
+    # And Saturday's badge sat on the junction where its track meets Sunday's, which
+    # is the part worth seeing. This is the marina end of Saturday's own leg, 3.3 km
+    # from the junction and 296 m from any other track.
+    badges = badge_positions(DAYS, tracks)
+    badges[[d for d in DAYS if d.get("n") == 1][0]["file"]] = (-77.0517, 26.5469)
+    draw_badges(ax, DAYS, badges)
     compass_rose(ax, -76.9450, 26.3520, 0.0160)
     scale_bar(ax, extent)
     chart_neatline(ax, extent, fig)
@@ -1135,7 +1150,10 @@ def photobook(dpi, out_png, depth=False, title=True):
                skip_labels=("Lubbers\nQuarters", "Lynyard Cay"),
                label_nudge={"S E A   O F   A B A C O": (-0.0300, -0.0245),
                             "Great Guana Cay": (0.0330, 0.0),
-                            "G R E A T   A B A C O": (0.0230, 0.0),
+                            # The island allows up to about +0.048 before the
+                            # letter-spaced type runs off the coast into the water.
+                            "G R E A T   A B A C O": (0.0345, 0.0),
+                            "MARSH HARBOUR": (0.0, 0.0058),
                             "Man-O-War Cay": (-0.0140, 0.0204),
                             "Elbow Cay": (-0.0095, 0.0),
                             "Tilloo Cay": (0.0035, 0.0)},
@@ -1152,9 +1170,11 @@ def photobook(dpi, out_png, depth=False, title=True):
     # measure counts distance to five tracks equally and the junction is only one of
     # them. Measuring distance from the junction itself, subject to staying 130 m off
     # the other tracks and labels, moves it to the marina end of Saturday's own leg,
-    # 3.3 km away.
+    # 3.3 km away, then a further 0.4 km west along it. That last step costs
+    # clearance — 296 m from the other tracks becomes 108 m — and it is as far as the
+    # leg goes before Sunday's track closes in: 0.8 km west leaves only 19 m.
     badges = badge_positions(DAYS, tracks)
-    badges[[d for d in DAYS if d.get("n") == 1][0]["file"]] = (-77.0517, 26.5469)
+    badges[[d for d in DAYS if d.get("n") == 1][0]["file"]] = (-77.0557, 26.5479)
     draw_badges(ax, DAYS, badges, lw_scale=0.80)
     # Bigger than the sheet's rose in map degrees, because this frame is half the
     # scale: at 0.0135 the cardinals and the fleur were on top of each other. The
@@ -1168,13 +1188,13 @@ def photobook(dpi, out_png, depth=False, title=True):
                  # Pushing the letters out to clear the spears walked N into the
                  # fleur, which sits at 1.68 and is 0.42 tall, so the fleur goes up
                  # with them. One overlap traded for another otherwise.
-                 letter_r=1.40, fleur_r=1.98)
+                 letter_r={"N": 1.30, "E": 1.34, "S": 1.40, "W": 1.40},
+                 fleur_r=1.86)
     # Over Great Abaco rather than out in the water: ink on the land tone reads
     # better than ink on pale blue, and that corner of the island is empty.
     scale_bar(ax, extent, y_frac=0.052, x_frac=0.185, nm_len=5, lw_scale=0.80,
               caption_top=True)
-    chart_neatline(ax, extent, fig, lw_scale=0.80, label_every=5,
-                   corner_clip=True)
+    chart_neatline(ax, extent, fig, lw_scale=0.80, label_every=5)
 
     # Lynyard Cay, in the same serif as Tilloo and Elbow, north of its anchorage.
     ax.text(-76.9775, 26.3720, "Lynyard Cay", fontproperties=SERIF,
