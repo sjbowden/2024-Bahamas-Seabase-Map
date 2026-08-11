@@ -248,7 +248,7 @@ def depth_bands(land):
 
 def draw_chart(ax, extent, land, days, tracks, *, detail=True, lw_scale=1.0,
                show_airport=False, spread=False, depth=None,
-               skip_labels=(), label_nudge=None, vessel=None,
+               skip_labels=(), skip_anchorages=(), label_nudge=None, vessel=None,
                airport_text=None, airport_nudge=(0.0, 0.0)):
     w, e, s, n = extent
     ax.set_xlim(w, e)
@@ -319,6 +319,10 @@ def draw_chart(ax, extent, land, days, tracks, *, detail=True, lw_scale=1.0,
 
     # anchorages
     for lon, lat, text, ha, va in ANCHORAGES:
+        # skip_labels drops the name and keeps the ring; skip_anchorages drops both,
+        # for a page where an unnamed ring would be a mark with nothing to say.
+        if text in set(skip_anchorages):
+            continue
         if text in skip:
             continue
         # The ring stays on the anchorage — that is a measured position, and moving
@@ -1148,6 +1152,11 @@ def photobook(dpi, out_png, depth=False, title=True):
                # cays' own serif, because it is a cay on this page and not only
                # somewhere the boat lay. Its anchorage ring stays regardless.
                skip_labels=("Lubbers\nQuarters", "Lynyard Cay"),
+               # Tilloo Pond goes entirely, ring and name. It was the last label in
+               # the anchorages' bold sans once Lynyard Cay moved to the cays' serif,
+               # so the style marked a category of one — and with the name gone the
+               # ring would mark a spot with nothing to say about it.
+               skip_anchorages=("Tilloo Pond",),
                label_nudge={"S E A   O F   A B A C O": (-0.0300, -0.0245),
                             "Great Guana Cay": (0.0330, 0.0),
                             # East is limited to about +0.048 before the letter-
@@ -1161,7 +1170,11 @@ def photobook(dpi, out_png, depth=False, title=True):
                             "MARSH HARBOUR": (0.0, 0.0058),
                             "Man-O-War Cay": (-0.0140, 0.0204),
                             "Elbow Cay": (-0.0095, 0.0),
-                            "Tilloo Cay": (0.0035, 0.0)},
+                            # Up into the space Tilloo Pond's name has left, at
+                            # the same latitude but east of it: the tracks run
+                            # through the pond itself, so the old spot is 26 m off
+                            # them and this one is 522 m.
+                            "Tilloo Cay": (-0.0020, 0.0088)},
                airport_nudge=(-0.0115, 0.0),
                # The full name, over two lines, since a photobook page is read
                # closer than a wall.
