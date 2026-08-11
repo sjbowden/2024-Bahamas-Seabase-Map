@@ -986,10 +986,21 @@ poster's PNGs came out byte-identical.
 
 ### Labels the sheet does not carry
 
-The map names three cays the poster leaves anonymous — Scotland Cay, Matt Lowe's
-Cay and Dickie's Cay — held back to z11, and Dickie's to z13.5 because it sits
-400 m from Man-O-War Cay's label and these are HTML markers with no collision
-detection. `MAP_CAYS` lives in `trip.py` beside `PLACES` but is deliberately not
+The map names six cays and one region the poster leaves anonymous — Green Turtle
+Cay, Whale Cay, Scotland Cay, Matt Lowe's Cay, Pelican Cays, Dickie's Cay and
+The Marls — held back to z11, and Dickie's to z13.5 because it sits 400 m from
+Man-O-War Cay's label and these are HTML markers with no collision detection. The
+Marls needs its own `region` kind: the map hides the poster's `big` and `water`
+legends outright, since those are spaced for one printed frame.
+
+The names come from two reference maps of the Abacos rather than from memory, which
+is what made Pelican Cays (between Tilloo and Lynyard), Whale Cay and Green Turtle
+Cay placeable at all, and what gave The Marls its name. Each was then matched to a
+real island by size and position and given that island's own interior point. The
+check that matters is that the reference's north-to-south order down the barrier
+chain — Whale, Great Guana, Scotland, Man-O-War, Elbow, Lubbers, Tilloo, Pelican,
+Lynyard — matches the latitudes this chart puts them at, which it does. Water Cay
+is left off: two candidate islands fit it and the reference does not separate them. `MAP_CAYS` lives in `trip.py` beside `PLACES` but is deliberately not
 imported by `poster.py`: the sheet is one frame at one scale with hand-placed
 labels, while the map can hold names in reserve until somebody zooms in.
 

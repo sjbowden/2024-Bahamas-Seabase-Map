@@ -120,9 +120,19 @@ PLACES = [
 # Cay sits 500 m from Man-O-War Cay's label, so it has to wait until the two are
 # far enough apart on screen to read as two names.
 MAP_CAYS = [
+    (-77.32683, 26.77384, "Green Turtle Cay", 11.0),
+    (-77.23625, 26.70974, "Whale Cay", 11.0),
     (-77.07431, 26.64559, "Scotland Cay", 11.0),
     (-77.02866, 26.55015, "Matt Lowe's Cay", 11.0),
+    (-76.99656, 26.41404, "Pelican Cays", 11.0),
     (-77.00851, 26.59472, "Dickie's Cay", 13.5),
+]
+
+# Regions rather than islands. The map hides the poster's own big and water
+# legends — `.place-big, .place-water { display: none }` — because they are set for
+# one printed frame, so a region the map wants to name needs its own kind.
+MAP_REGIONS = [
+    (-77.3200, 26.4500, "T H E   M A R L S", 10.0),
 ]
 # Each coordinate is `representative_point()` of the island, which is guaranteed to
 # fall inside it. Centroids were tried first and two of the four landed in open
@@ -134,6 +144,12 @@ MAP_CAYS = [
 # thing to my guessed position was a rock of a fifth of a hectare — a group label
 # wants someone who knows which cays it covers.
 
+# Named against a hand-drawn map of the Abacos, which settled Pelican Cays (between
+# Tilloo and Lynyard), Whale Cay and Green Turtle Cay, and gave The Marls its name —
+# the marsh west of Great Abaco that this chart's depth layer spent so long getting
+# right. Each was then matched to a real island by size and position and given that
+# island's own interior point.
+#
 # Islands the coastline draws in the trip area that nothing names yet, largest
 # first, with the size and length the geometry gives them. Left here because naming
 # them is local knowledge rather than something to infer from a polygon:
