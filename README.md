@@ -353,3 +353,11 @@ An interactive version of this map (zoomable, day toggles, time scrubber) is
 planned — `tracks/*.csv` and `geo/` are the inputs it should reuse.
 
 Coastline data © OpenStreetMap contributors (ODbL).
+
+Depths from GMRT, the Global Multi-Resolution Topography synthesis, drawn by the
+`--depth` edition of the poster and by the interactive chart. On banks this
+shallow GMRT is largely satellite-derived and interpolated rather than sounded,
+it is not tide-corrected, and it is blind to anything narrower than a 61 m cell.
+It says where the shallow water is, to a metre or so. It is not a survey and
+nothing here should be navigated by — which is why that caveat lives here and not
+on the sheet, which hangs on a wall.

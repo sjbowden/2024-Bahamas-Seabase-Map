@@ -991,15 +991,9 @@ def build(dpi, out_png, out_pdf=None, spread=True, depth=False):
 
     # This hangs on a wall, so the footer is a credit line, not a methods
     # section — the data caveats all live in the README instead.
-    # The depth sheet says where its water came from. It is a measurement now, and
-    # an unattributed one on a wall is worse than a drawn halo that claims nothing.
-    credit = ("Recorded on a handheld GPS receiver  ·  Dotted lines are ashore"
-              "  ·  Coastline © OpenStreetMap contributors")
-    if depth:
-        credit = ("Recorded on a handheld GPS receiver  ·  Dotted lines are ashore"
-                  "  ·  Coastline © OpenStreetMap contributors"
-                  "  ·  Depths GMRT — not for navigation")
-    fig.text(0.5, 0.016, credit,
+    fig.text(0.5, 0.016,
+             "Recorded on a handheld GPS receiver  ·  Dotted lines are ashore"
+             "  ·  Coastline © OpenStreetMap contributors",
              fontproperties=SANS, fontsize=9, color=C_INK_SOFT, ha="center", va="bottom")
 
     fig.savefig(out_png, dpi=dpi, facecolor=C_PAPER)
