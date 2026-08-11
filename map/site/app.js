@@ -654,21 +654,31 @@ function wireViewer() {
 function buildTray() {
   const off = state.offChart;
   $('#tray-count').textContent = `(${off.length})`;
+  const heading = {
+    unplaced: 'Ashore, or between receivers',
+    travel: 'Travel',
+    screenshot: 'Screenshots',
+  };
   const why = {
     travel: 'Taken away from Abaco — the flights, and home either side. '
           + 'Plotting Portland on a chart of the Sea of Abaco would be nonsense.',
-    unplaced: 'The camera knew when, but the receiver was on its charger — '
-            + 'these are mostly the evenings ashore.',
+    unplaced: 'No position, for one of three reasons: the moment falls outside '
+            + 'both receivers, which is most of the arrival and departure days; '
+            + 'the boat was moving between satellite reports; or the file reached '
+            + 'us with its timestamp stripped. The evenings on a mooring used to '
+            + 'be here and are on the chart now. Open one to see which it is.',
+    screenshot: 'Phone screenshots — flight trackers, a lock screen. Nothing to '
+              + 'place: these are the shape of a screen, not of a camera.',
   };
   const byTier = {};
   for (const p of off) (byTier[p.tier] = byTier[p.tier] || []).push(p);
   const body = $('#tray-body');
   body.innerHTML = '';
-  for (const tier of ['unplaced', 'travel']) {
+  for (const tier of ['unplaced', 'travel', 'screenshot']) {
     const list = byTier[tier];
     if (!list) continue;
     const h = document.createElement('h3');
-    h.textContent = `${tier === 'travel' ? 'Travel' : 'Ashore, after the receiver stopped'} — ${list.length}`;
+    h.textContent = `${heading[tier] || tier} — ${list.length}`;
     const note = document.createElement('p');
     note.className = 'tray-why';
     note.textContent = why[tier] || '';

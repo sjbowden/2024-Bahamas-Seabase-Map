@@ -35,10 +35,11 @@ import bisect
 import collections
 import json
 import os
+import re
 from datetime import datetime, timedelta, timezone
 
-from trip import (ANCHORAGES, DAYS, MOVING_KN, PLACES, haversine, in_chart,
-                  read_fixes)
+from trip import (ANCHORAGES, DAYS, HOTEL, MARINA, MOVING_KN, PLACES, haversine,
+                  in_chart, read_fixes, read_inreach)
 from map import clock_fit as C
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -53,6 +54,28 @@ MAX_GAP_S = 120.0
 # `travel` if it falls outside, because then the crew was not in Abaco at all.
 SAIL_LO = datetime(2024, 3, 22, tzinfo=UTC)
 SAIL_HI = datetime(2024, 3, 29, tzinfo=UTC)
+
+# What a position from the satellite communicator is worth. corroborate.py
+# measures it against the handheld at the same instants: median 10 m apart, worst
+# 34 m, and all 150 of its reports within 50 m of the handheld's path.
+INREACH_M = 35.0
+
+# A photograph in a gap can be placed only if the boat did not go anywhere while
+# the gap lasted, and then the gap's length stops mattering — four hours on a
+# mooring is still a mooring. corroborate.py measures each night's entire path at
+# 17 to 27 m, so 50 m between the bracketing fixes means moored.
+MOORED_M = 50.0
+
+# A screenshot is the shape of the screen it came from, and iOS writes them as
+# PNG. Every PNG in this archive is 1179 or 1170 px on its short edge — an iPhone
+# screen — or 2250 px, which is a photograph somebody saved as PNG. Nothing lies
+# between the two, so the short edge decides. JPEGs are deliberately not asked:
+# WhatsApp downscales those to 1200 px and narrower, and they are photographs.
+SCREEN_PX = 1400
+
+# WhatsApp strips EXIF and writes the date into the filename. That is a day, not
+# a moment, so it names the day and never places anything.
+WHATSAPP = re.compile(r"IMG-(\d{4})(\d{2})(\d{2})-WA\d+", re.I)
 
 
 def _day_by_date():
@@ -113,6 +136,42 @@ def at(fixes, times, t):
             a[3] + (b[3] - a[3]) * f, a[4])
 
 
+def both_receivers():
+    """The handheld and the satellite communicator, one time-ordered stream.
+
+    Deliberately separate from track(): interleaving the inReach's 10-minute
+    reports into the stream the main pass uses would let one of them become the
+    bracketing fix for a photograph the handheld already had to five seconds, and
+    2,083 good positions would get quietly worse. This stream is only ever asked
+    about the moments the handheld missed.
+    """
+    fixes = [(f[0], f[1], f[2], "handheld") for f in track()]
+    fixes += [(t, lat, lon, "inreach") for t, lat, lon in read_inreach()]
+    fixes.sort(key=lambda f: f[0])
+    return fixes
+
+
+def moored_at(fixes, times, t):
+    """Where a photograph was, if the boat lay still across the gap holding it.
+
+    Returns (lat, lon, moved_m, gap_s, receivers) or None. The question is not how long the
+    gap is but whether the boat used it: between two fixes 50 m apart, everything
+    that happened is within 50 m of both, however many hours passed. That is the
+    evening on a mooring, which is where most of these photographs were taken.
+    """
+    i = bisect.bisect_left(times, t)
+    if i == 0 or i >= len(times):
+        return None
+    a, b = fixes[i - 1], fixes[i]
+    moved = haversine(a[1], a[2], b[1], b[2])
+    if moved > MOORED_M:
+        return None
+    span = (b[0] - a[0]).total_seconds()
+    f = 0.0 if span == 0 else (t - a[0]).total_seconds() / span
+    return (a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f, moved, span,
+            {a[3], b[3]})
+
+
 def spread_m(fixes, times, t, half_window_s):
     """How far the boat moved across a photograph's timing uncertainty.
 
@@ -170,6 +229,15 @@ def place(photos, per_photo, cameras, fixes=None):
                    utc=v["utc"], time_method=v["method"], tier=None,
                    lat=None, lon=None, uncertainty_m=None, day=None, note=None)
 
+        # 0. a screenshot has no place on a chart of the Sea of Abaco. It was
+        #    being counted as a photograph the pipeline had failed to place,
+        #    which flattered nothing and hid the real failures.
+        if p["ext"] == ".png" and p.get("px") and min(p["px"]) <= SCREEN_PX:
+            rec.update(tier="screenshot",
+                       note="a screenshot — a phone's screen, not a place")
+            out.append(_finish(rec, p))
+            continue
+
         # 1. its own coordinates, which beat the track by definition
         if p.get("gps"):
             lat, lon = p["gps"]
@@ -184,6 +252,17 @@ def place(photos, per_photo, cameras, fixes=None):
         # 2. the boat's track at this photograph's UTC
         if not v["utc"]:
             rec.update(tier="unplaced", note="no timestamp this build could trust")
+            # WhatsApp took the EXIF off and put the date in the filename. That
+            # cannot place the photograph — there is no time of day in it — but it
+            # does say which day, and the tray is grouped by day.
+            m = WHATSAPP.match(p["name"])
+            if m:
+                d = datetime(*(int(g) for g in m.groups())).date()
+                if DAY_BY_DATE.get(d):
+                    rec["day"] = DAY_BY_DATE[d]
+                    rec["day_provisional"] = True
+                    rec["note"] = ("shared over WhatsApp, which kept the date "
+                                   "in the filename and dropped the time")
             out.append(rec)
             continue
         t = C._utc(v["utc"])
@@ -203,7 +282,70 @@ def place(photos, per_photo, cameras, fixes=None):
                    uncertainty_m=None if u is None else round(u))
         rec["note"] = _track_note(t, sog, lat, lon, u)
         out.append(rec)
+
+    # A second pass over what the handheld missed. The other receiver was running
+    # the whole time, and where it shows the boat in one place either side of a
+    # gap, the photographs inside that gap are in that place too. This only ever
+    # looks at records the first pass left unplaced, so nothing already positioned
+    # can be moved by it.
+    both = both_receivers()
+    bt = [f[0] for f in both]
+    for rec in out:
+        if rec["tier"] != "unplaced" or not rec["utc"]:
+            continue
+        t = C._utc(rec["utc"])
+        got = moored_at(both, bt, t)
+        if got is None:
+            continue
+        lat, lon, moved, gap, who = got
+        if not in_chart(lat, lon):
+            continue
+        rec.update(lat=lat, lon=lon,
+                   tier=("calibrated" if rec["time_method"] in ("gps_utc", "tz_tag")
+                         else "inferred"),
+                   uncertainty_m=round(moved + INREACH_M),
+                   day=rec["day"] or day_for(t)[0])
+        rec["note"] = _moored_note(t, lat, lon, moved, gap, who)
     return out
+
+
+# Close enough to name the place outright instead of the nearest chart label.
+LANDMARK_M = 120.0
+
+
+def _whereabouts(lat, lon):
+    """Name the spot without claiming anyone was afloat.
+
+    Friday's photographs are at the hotel — the crew had flown in that afternoon
+    and had not boarded — and Saturday's early ones are at the marina. Calling
+    either of them "off MARSH HARBOUR" reads as at anchor, so the two places the
+    trip knows by coordinate get named, and everything else is only "near".
+    """
+    for pt, name in ((HOTEL, "at the hotel"), (MARINA, "at the marina")):
+        if haversine(lat, lon, pt[1], pt[0]) <= LANDMARK_M:
+            return name
+    near = nearest_named(lat, lon)
+    return f"near {near[0]}" if near else "in the Sea of Abaco"
+
+
+def _moored_note(t, lat, lon, moved, gap_s, who):
+    """What the viewer says about a photograph placed across a gap in the record.
+
+    Which receiver bracketed it decides the wording, because the two cases are
+    genuinely different: saying "the handheld was on its charger" about a daytime
+    dropout is a claim about the trip that is not true. Neither wording says "the
+    boat" — half of these were taken before the crew had one.
+    """
+    local = (t - timedelta(hours=4)).strftime("%H:%M")
+    where = _whereabouts(lat, lon)
+    hours = gap_s / 3600.0
+    span = f"{hours:.0f} h" if hours >= 1 else f"{gap_s / 60:.0f} min"
+    if "inreach" in who:
+        return (f"placed from the satellite communicator at {local} EDT, {where} — "
+                f"the handheld had stopped, and the reports either side of the "
+                f"{span} gap are {moved:.0f} m apart")
+    return (f"placed at {local} EDT, {where} — the handheld recorded nothing for "
+            f"{span}, and its fixes either side are {moved:.0f} m apart")
 
 
 def _track_note(t, sog, lat, lon, u):

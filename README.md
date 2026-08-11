@@ -210,6 +210,35 @@ night's bracketing fixes sit within tens of metres of each other. The Fri→Sat
 night has a single fix in 18.4 hours and is effectively unobserved; the crew
 was ashore at the hotel, so there was no boat to move.
 
+### The same argument places 97 photographs
+
+Those tens of metres are the whole point. A photograph in a gap cannot be
+interpolated — but if the fixes either side of the gap are 26 m apart, everything
+that happened between them is within 26 m of both, and the gap's *length* stops
+mattering. Four hours on a mooring is still a mooring.
+
+So placement takes a second pass over what the handheld missed, asking both
+receivers and accepting only where they bracket the moment within **50 m**. That
+recovered 97 of the 222 photographs previously marked "the receiver was not
+recording at this moment", at 37–84 m of uncertainty — the movement across the
+gap, plus 35 m for the inReach's own disagreement with the handheld.
+
+| where they landed | |
+|---|---|
+| at the hotel, Friday and Saturday | 34 |
+| on the Marsh Harbour mooring | 37 |
+| Hope Town · Tilloo Pond · Lynyard Cay | 13 · 9 · 4 |
+
+The 125 still unplaced are the ones this cannot honestly reach: the arrival and
+departure days outside both receivers, and one 48-minute crossing on Wednesday
+where the boat moved 773 m between reports. Interpolating that would be drawing
+a straight line through an unobserved manoeuvre and calling it a position.
+
+The second pass reads a stream built separately from the one the first pass uses.
+Interleaving 10-minute satellite reports into the handheld's 5-second track would
+let a report become the bracketing fix for a photograph already known to metres,
+and 2,083 good positions would quietly get worse.
+
 ### The one trip outside the barrier cays
 
 **Sunday 24 March, 10:05–12:03 EDT** — out through the cut by Man-O-War Cay to
@@ -251,6 +280,21 @@ Note that Google Photos **strips latitude and longitude** from anything served
 through a share link — the `GPSHPositioningError` tag survives, proving a fix
 existed, while the coordinates are gone. Use the originals, Takeout, or
 timestamp matching.
+
+### Not everything in the archive is a photograph of a place
+
+Two groups were being counted as placement failures, which flattered nothing and
+hid the real ones:
+
+- **28 screenshots** — flight trackers, a lock screen. They give themselves away
+  by shape: every PNG here is 1179 or 1170 px on its short edge (an iPhone
+  screen) or 2250 px (a photograph somebody saved as PNG). Nothing lies between,
+  so the short edge decides, and it is asked only of PNGs — WhatsApp downscales
+  JPEGs to 1200 px and narrower, and those *are* photographs. Ten PNGs are.
+- **36 WhatsApp files** — EXIF stripped, but the date survives in the filename
+  (`IMG-20240325-WA0018.jpg`). That names a sailing day, so the tray can group
+  them, and it never places one: a date is not a time, and the boat moved during
+  the day.
 
 ## Chart conventions
 
