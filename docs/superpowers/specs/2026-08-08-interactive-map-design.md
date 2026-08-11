@@ -739,6 +739,21 @@ validate, and a test asserts it.
   exempt, because the bands genuinely *are* thin ribbons there and eroding them is
   how the chart got a strip of bare background against every beach once before.
 
+  **Unticking Depth draws the halo, not bare water.** The drawn shoal rings — the
+  same two buffers the printed sheet uses — ship as `shoals.geojson`, 479 KB,
+  simplified at the medium band's tolerance because they are decorative and do not
+  earn the fine band's vertices. They left the map once, when the measurement
+  replaced them, and are back because bare water was the wrong thing to fall back
+  to: having the two a click apart is the only way to see what the measurement
+  changed. The halo remains the default on the printed sheet, and the measured
+  edition is `--depth`.
+
+  This turned up a latent bug worth recording. `shoal()` memoized on the buffer
+  distance alone, which was safe only while one coastline existed — the poster
+  buffers its own bbox at full resolution and the map a wider one, so a process
+  drawing both would have been handed whichever ring was built first. It now keys on
+  the land as well.
+
   **Fills only, no edge lines.** Each band carried a slightly darker line along its
   boundary for a version, on the theory that the poster's halos read as crisp
   because each ring has an edge. On measured depths it looked ruled: the poster's

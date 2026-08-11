@@ -242,11 +242,18 @@ _SHOAL_CACHE = {}
 
 
 def shoal(land, buf):
-    """Buffered 'shallows' ring around the land — expensive, so memoize it."""
-    if buf not in _SHOAL_CACHE:
-        _SHOAL_CACHE[buf] = land.buffer(buf, join_style=1).buffer(
+    """Buffered 'shallows' ring around the land — expensive, so memoize it.
+
+    Keyed on the land as well as the distance. It used to key on the distance
+    alone, which was safe only while one coastline existed: the poster buffers its
+    own bbox at full resolution and the map buffers a wider one, so a process that
+    drew both would have been handed whichever ring was built first.
+    """
+    key = (buf, round(land.area, 9), len(getattr(land, "geoms", [land])))
+    if key not in _SHOAL_CACHE:
+        _SHOAL_CACHE[key] = land.buffer(buf, join_style=1).buffer(
             -buf * 0.15, join_style=1)
-    return _SHOAL_CACHE[buf]
+    return _SHOAL_CACHE[key]
 
 
 # ----------------------------------------------------------------- barrier ---
