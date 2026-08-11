@@ -223,10 +223,13 @@ async function addTracks(meta) {
     layout: { 'line-cap': 'butt', 'line-join': 'round' },
     paint: {
       'line-color': ['get', 'color'],
-      // Dotted for the walk and the van; finer dots for the arrival transfer,
-      // which is a road reconstruction rather than anything the receiver saw.
-      'line-dasharray': ['case', ['==', ['get', 'mode'], 'transfer'],
-                         ['literal', [1, 2.2]], ['literal', [1.4, 1.6]]],
+      // Dotted for the walk and the van; finer dots for the arrival transfer and
+      // for the nights, which are reconstructions rather than anything the handheld
+      // saw — the transfer from the road, the nights from the inReach's reports.
+      'line-dasharray': ['case',
+                         ['==', ['get', 'mode'], 'transfer'], ['literal', [1, 2.2]],
+                         ['==', ['get', 'mode'], 'moored'], ['literal', [0.8, 1.8]],
+                         ['literal', [1.4, 1.6]]],
       'line-width': ['interpolate', ['linear'], ['zoom'], 8, 1.4, 12, 2.2, 17, 3.4],
     },
   });

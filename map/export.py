@@ -30,7 +30,8 @@ from shapely.geometry import shape
 from abaco_geo import COASTLINE_MAP, land_polygons
 from trip import (AIRPORT, ANCHORAGES, DAYS, EXTENT, HOTEL, MAP_CAYS,
                   MAP_LABEL_NUDGE, MAP_LAND_BBOX,
-                  MAP_REGIONS, MAP_SPOTS, shoal,
+                  MAP_REGIONS, MAP_SPOTS,
+                  overnight_bridges, shoal,
                   MARINA, PLACES, VIEW_BOUNDS, load_day, transfer_route)
 from map import clock_fit as C
 from map import depth as DEPTH
@@ -186,6 +187,21 @@ def track_layer(depth_days=None):
                                 **((depth_days or {}).get(d["label"]) or {})),
                 geometry=dict(type="LineString",
                               coordinates=_round([(p[2], p[1]) for p in pts]))))
+
+    # The nights, bridged from the inReach. The handheld runs one battery charge a
+    # day, so the drawn track breaks at every handover — 9 to 115 m at five of them
+    # and 207 m between Tuesday and Wednesday, which reads as two lines that do not
+    # meet. Each bridge is filed under the day it leads into, so unticking Wednesday
+    # takes Tuesday night with it.
+    for label, came_from, colour, line in overnight_bridges():
+        feats.append(dict(
+            type="Feature",
+            properties=dict(day=label, mode="moored", color=colour,
+                            title=f"Overnight, {came_from} to {label}",
+                            route="Position reports from the inReach",
+                            n=None, sail=False, nm=None),
+            geometry=dict(type="LineString",
+                          coordinates=_round([(lon, lat) for lat, lon in line]))))
     return _fc(feats)
 
 

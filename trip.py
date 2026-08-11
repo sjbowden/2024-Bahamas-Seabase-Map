@@ -260,6 +260,59 @@ MAX_HDOP = 4.0
 MOVING_KN = 0.5                 # below this the boat is swinging on its hook
 
 
+def read_inreach(path=None):
+    """The inReach's position reports, sorted: (utc, lat, lon).
+
+    The satellite communicator, not the handheld — a report every 10 minutes by day
+    and every 4 hours overnight, running while the handheld was on its charger.
+    `corroborate.py` reads the same function so there is one parser for the file.
+    """
+    import xml.etree.ElementTree as ET
+
+    path = path or os.path.join(HERE, "geo", "inreach.gpx")
+    ns = "{http://www.topografix.com/GPX/1/1}"
+    out = []
+    for tp in ET.parse(path).getroot().iter(ns + "trkpt"):
+        t = tp.find(ns + "time")
+        if t is None:
+            continue
+        when = datetime.strptime(t.text, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+        out.append((when, float(tp.get("lat")), float(tp.get("lon"))))
+    return sorted(out)
+
+
+def overnight_bridges():
+    """The nights, from the other receiver: (label, colour_from, [(lat, lon), ...]).
+
+    The handheld runs one battery charge a day, so every day's log stops in the
+    evening and the next begins in the morning and the drawn track has a break at
+    each handover. Five are 9 to 115 m and pass unnoticed; the Tuesday-to-Wednesday
+    one is 207 m, which reads plainly as two lines that do not meet.
+
+    The inReach was recording through all of it, so each break is bridged with its
+    own reports, anchored at both ends to the handheld's own last and first fixes so
+    the line actually joins what it is joining. Mostly the boat was moored and the
+    bridge is a few metres long; the Tuesday night one carries the 200 m move off
+    the mooring that happened before the handheld came on.
+    """
+    days = []
+    for d in DAYS:
+        t = load_day(d["file"], walk_split=d.get("walk_split"),
+                     road_split=d.get("road_split"))
+        pts = sorted((t.get("afloat") or []) + (t.get("walk") or [])
+                     + (t.get("road") or []), key=lambda p: p[0])
+        if pts:
+            days.append((d, pts[0], pts[-1]))
+    inreach = read_inreach()
+    out = []
+    for (d1, _, end), (d2, start, _) in zip(days, days[1:]):
+        between = [(p[1], p[2]) for p in inreach if end[0] < p[0] < start[0]]
+        line = [(end[1], end[2])] + between + [(start[1], start[2])]
+        if len(line) >= 2:
+            out.append((d2["label"], d1["label"], d2["color"], line))
+    return out
+
+
 def read_fixes(stem):
     """Every usable fix from one log, in time order. Returns (fixes, dropped).
 

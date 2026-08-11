@@ -123,10 +123,20 @@ other. That is what makes the chart checkable rather than merely plausible.
 | source | cadence | coverage |
 |---|---|---|
 | handheld GPS receiver (`GPSFILES/*.log`) | a fix every ~5 s | 10–13 h a day, one battery charge |
-| inReach satellite communicator (`geo/inreach.gpx`) | 10 min by day, 4 h overnight | continuous, including nights |
+| inReach satellite communicator (`geo/inreach.gpx`) | 10 min by day, 4 h overnight | continuous, including nights — and it bridges them |
 | crew cameras (EXIF) | per shot | 458 located photos |
 
 `python corroborate.py` regenerates every number below.
+
+The inReach does more than corroborate. The handheld runs one battery charge a
+day, so its log stops each evening and resumes the next morning, and the drawn
+track breaks at all six handovers — five of them 9 to 115 m and unnoticeable, and
+207 m between Tuesday and Wednesday, which reads plainly as two lines that do not
+meet. The interactive chart closes each break with the inReach's own reports for
+that night, anchored at both ends to the handheld's last and first fix, and draws
+them as fine dots to say they are not a recorded track. Mostly the boat was moored
+and the bridge is tens of metres; Tuesday night carries the 200 m move off the
+Hope Town mooring that happened before the handheld came on.
 
 The inReach export is committed as `geo/inreach.gpx`, exactly as Garmin Explore
 wrote it except that the two device IDs have been replaced with `00000001` and
