@@ -279,6 +279,50 @@ function applyDays() {
   map.setFilter('track-casing', f);
   map.setFilter('track-afloat', ['all', f, ['==', ['get', 'mode'], 'afloat']]);
   map.setFilter('track-ashore', ['all', f, ['!=', ['get', 'mode'], 'afloat']]);
+  refreshPhotos();
+}
+
+/* Hiding a day hides its photographs with it.
+ *
+ * This rebuilds the source's data rather than filtering the layers, because the
+ * source clusters: a filter hides the dots a cluster is made of while the cluster
+ * goes on reporting how many it had, so unticking a day would leave "37" floating
+ * over water with nothing under it. Clustering is done by the source, so the
+ * honest fix is to give the source less to cluster.
+ *
+ * state.shown is the visible set, not the placeable one -- the viewer's next and
+ * previous walk it, so they cannot wander into a day that has been switched off.
+ */
+function refreshPhotos() {
+  if (!state.onChart) return;                 // called once before photos load
+  // Read the open photograph before rebuilding: state.at indexes state.shown, so
+  // the moment that array changes the index means something else.
+  const openId = ($('#viewer').hidden || state.at == null || !state.shown)
+    ? null : (state.shown[state.at] || {}).id;
+  state.shown = state.onChart.filter((p) => state.days.has(p.day));
+  state.indexById = new Map(state.shown.map((p, i) => [p.id, i]));
+  const src = map.getSource('photos');
+  if (src) src.setData(photoFC(state.shown));
+  // A photograph whose day just went away should not stay open over a chart that
+  // no longer shows where it was. One that survives is re-shown at its new index
+  // rather than just reassigned: "Photograph 571 of 2180" has to stop saying 2180
+  // the moment 610 of them are hidden.
+  if (openId != null) {
+    if (state.indexById.has(openId)) showAt(state.indexById.get(openId));
+    else closeViewer();
+  }
+  drawClusterCounts();
+}
+
+function photoFC(list) {
+  return {
+    type: 'FeatureCollection',
+    features: list.map((p) => ({
+      type: 'Feature',
+      properties: { id: p.id, tier: p.tier },
+      geometry: { type: 'Point', coordinates: [p.lon, p.lat] },
+    })),
+  };
 }
 
 /* ----------------------------------------------------------------- places --- */
@@ -423,8 +467,11 @@ async function addPhotos() {
   state.photos = all;
   // Time order is already how the build wrote it, so previous/next in the viewer
   // follows the day as it happened rather than wandering by proximity.
-  state.shown = all.filter((p) => ON_CHART.includes(p.tier) && p.lat != null);
+  // onChart is everything that has a position; shown is the subset whose day is
+  // ticked. They start equal, and refreshPhotos keeps shown in step after that.
+  state.onChart = all.filter((p) => ON_CHART.includes(p.tier) && p.lat != null);
   state.offChart = all.filter((p) => !ON_CHART.includes(p.tier));
+  state.shown = state.onChart.filter((p) => state.days.has(p.day));
   state.indexById = new Map(state.shown.map((p, i) => [p.id, i]));
 
   map.addSource('photos', {
@@ -437,14 +484,7 @@ async function addPhotos() {
     // the split has to happen somewhere a person would still be exploring.
     clusterMaxZoom: 13,
     clusterRadius: 42,
-    data: {
-      type: 'FeatureCollection',
-      features: state.shown.map((p) => ({
-        type: 'Feature',
-        properties: { id: p.id, tier: p.tier },
-        geometry: { type: 'Point', coordinates: [p.lon, p.lat] },
-      })),
-    },
+    data: photoFC(state.shown),
   });
 
   // The ring that says how far out a position could be. Drawn in metres, so it
