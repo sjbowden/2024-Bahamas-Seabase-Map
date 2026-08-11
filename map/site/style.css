@@ -215,6 +215,12 @@ html, body {
 /* The cays the sheet leaves unnamed: same voice as the isles it does name, a shade
    smaller, because they arrive later and there are more of them. */
 .place-cay { font-size: .74rem; font-style: italic; color: var(--ink-soft); }
+/* A region, in the poster's voice for water legends — which the map otherwise hides,
+   since those are spaced for one printed frame. */
+.place-region {
+  font-size: .8rem; font-style: italic; letter-spacing: .18em;
+  color: #6E8894;
+}
 .place-anchorage {
   font-family: var(--sans);
   font-size: .68rem; letter-spacing: .05em; color: var(--ink-soft);
