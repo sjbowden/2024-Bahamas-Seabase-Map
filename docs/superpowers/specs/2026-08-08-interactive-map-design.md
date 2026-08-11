@@ -637,33 +637,30 @@ validate, and a test asserts it.
   the shore — cutting a corner pulls it in slightly, the land is drawn on top, so
   erring outward costs nothing and erring inward shows as a pale gap.
 
-  **The depths are averaged over about 1.2 km before they are banded, and that is
-  what makes the bands run parallel.** Where the bottom shelves steadily — the
-  Atlantic side of the cays — the contours really are close to parallel with the
-  beach, but each band's edge was wobbling by a cell or so on its own, so corner
-  cutting rounded the wobble off instead of removing it and the bands came out
-  lumpy. Averaging first removes the wobble itself.
+  **The depths are not averaged. The masks are voted on instead, and that took four
+  rounds to get right.** Averaging the coarse depths over about 2 km was added to
+  straighten the contours on the open slope, and it worked, but it also painted
+  **18.5% of the under-2 m water in a paler band** — patches of open-sea colour
+  scattered through tidal flats. That band is largely a thin fringe along the shores,
+  and averaging pushes a fringe out of its own class.
 
-  This is the operation that failed when it was tried on the 61 m raster, where it
-  dithered the bank into a mosaic, and the difference is that it now runs on coarse
-  blocks and anything smaller than one block is dropped, so a fraying edge cannot
-  survive as confetti.
+  Three explanations were measured and discarded before the right one: the mask vote
+  eroding the flats (18.24% with the vote off — not it), the smoothing dragging deep
+  water across the islands (inside the marsh it makes them *shallower*, 91.5% to
+  97.2% under 2 m — not it), and coarsening alone (10.58%). Turning each stage off in
+  turn settled it: the averaging, and only the averaging. Making it fall away near
+  land helped to 13.0% and no further.
 
-  **What counts as water comes from the coastline, at twice the grid's resolution.**
-  The coastline resolves creeks the depth grid cannot: 49.4 km² of water, 7.4 of it
-  inside the poster's frame, sits in cells the 61 m grid calls land. No band covered
-  those, so the page background showed through as pale hairlines threading the
-  marsh — again the deepest colour in the shallowest place. The same coastline is now
-  rasterised at 30 m to decide what is wet, and anything it finds that the grid
-  cannot speak to takes the flats' 1.0 m: a channel too narrow for the grid to see
-  is not one it can put a number on either, and every one of them is inshore. 30 m
-  costs 64 MB; 60 m would need a gigabyte to resolve creeks narrower than the boats
-  that used them.
+  A wider neighbourhood vote on the band masks — 13 cells instead of 7, with blocks
+  near land exempt — gives the same clean contours for **7.9%**, because it moves
+  boundaries rather than depths. Verified by rendering both against each other at
+  Great Guana and Elbow Cay: no striping, contours still parallel on the wall. The
+  clamp that stopped the averaging dragging the 400 m abyss into twelve-metre water
+  went with it; nothing averages any more, so nothing needs protecting from it.
 
-  Inshore water with no band over it is **0.00 km²** at that resolution, inside the
-  frame and out. The file got *smaller* — 1.57 MB to 1.35 MB — because filling the
-  creeks merges what were separate parts. Band areas against the coastline's own
-  water are 1.03–1.07×.
+  Where the boundary lands is still generous rather than mean: under-2 m covers
+  1.18× the area the grid gives it, over-20 m water painted as shallower is 0.08%,
+  and inshore water with no band at all is 0.00 km². 1.77 MB.
 
   The speck filter that came in with the averaging keeps anything touching land,
   whatever its size. A small part is only a speck if it sits in open water: ponds,
