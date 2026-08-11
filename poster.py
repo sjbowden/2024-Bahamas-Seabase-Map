@@ -247,7 +247,8 @@ def depth_bands(land):
 
 
 def draw_chart(ax, extent, land, days, tracks, *, detail=True, lw_scale=1.0,
-               show_airport=False, spread=False, depth=None):
+               show_airport=False, spread=False, depth=None,
+               skip_labels=(), label_nudge=None, vessel=None):
     w, e, s, n = extent
     ax.set_xlim(w, e)
     ax.set_ylim(s, n)
@@ -270,7 +271,10 @@ def draw_chart(ax, extent, land, days, tracks, *, detail=True, lw_scale=1.0,
     _fill(ax, land, C_LAND, C_LAND_EDGE, 0.5 * lw_scale)
 
     if detail:                       # the vessel belongs on the hero chart only
-        draw_vessel(ax, -76.9515, 26.6460, 0.0570)
+        # A square page puts its top edge much closer to the engraving than the
+        # sheet's portrait frame does, so the caller can move and resize it.
+        vlon, vlat, vwidth = vessel or (-76.9515, 26.6460, 0.0570)
+        draw_vessel(ax, vlon, vlat, vwidth)
 
     # tracks — a pale casing under each line keeps crossings readable where
     # five days share the same channel
@@ -306,10 +310,22 @@ def draw_chart(ax, extent, land, days, tracks, *, detail=True, lw_scale=1.0,
 
     draw_airport(ax, lw_scale)
 
+    # Labels a caller may drop or shift. The two artefacts frame the same water at
+    # different shapes and scales, so a name that sits clear on the sheet can land
+    # on a track on a square page. Defaults are empty: the sheet is unaffected.
+    nudge = label_nudge or {}
+    skip = set(skip_labels)
+
     # anchorages
     for lon, lat, text, ha, va in ANCHORAGES:
+        if text in skip:
+            continue
+        # The ring stays on the anchorage — that is a measured position, and moving
+        # it would say the boat lay somewhere it did not. Only the name shifts.
         ax.plot([lon], [lat], marker="o", ms=6 * lw_scale, mfc=C_PAPER,
                 mec=C_INK, mew=1.3 * lw_scale, zorder=8)
+        lon, lat = (lon + nudge.get(text, (0, 0))[0],
+                    lat + nudge.get(text, (0, 0))[1])
         dx = {"left": 0.006, "right": -0.006}.get(ha, 0.0)
         dy = {"top": -0.005, "bottom": 0.005}.get(va, 0.0)
         ax.text(lon + dx, lat + dy, text, fontproperties=SANS_B,
@@ -319,6 +335,10 @@ def draw_chart(ax, extent, land, days, tracks, *, detail=True, lw_scale=1.0,
     # place names
     sizes = {"town": 10.5, "isle": 9.5, "big": 15.0, "water": 13.0}
     for lon, lat, text, kind, ha, va in PLACES:
+        if text in skip:
+            continue
+        lon, lat = (lon + nudge.get(text, (0, 0))[0],
+                    lat + nudge.get(text, (0, 0))[1])
         fp = SERIF_I if kind == "water" else SERIF
         col = "#5E7C8A" if kind == "water" else C_INK
         if kind == "big":
@@ -1056,20 +1076,41 @@ def photobook(dpi, out_png, depth=False, title=True):
     fig = plt.figure(figsize=(8, 8), dpi=dpi)
     fig.patch.set_facecolor(C_PAPER)
     # Room at the top for a title, and a hair all round for the neatline.
-    ax = fig.add_axes([0.055, 0.052, 0.890, 0.842 if title else 0.896])
+    ax = fig.add_axes([0.055, 0.052, 0.890, 0.858 if title else 0.896])
     # 0.8 rather than 1.0: this frame is about half the poster's scale, so the same
     # line weights would read as heavier here than they do on the sheet.
+    #
+    # Two names move and one goes. Sea of Abaco sat above Wednesday's track and now
+    # sits between it and Sunday's, which is the water it names — and west as well,
+    # because dropping it to that latitude ran its letter-spaced type into
+    # Man-O-War Cay. Lynyard Cay's label lay along the track, so it steps east onto
+    # open water, leaving its anchorage ring where the boat actually lay. Lubbers Quarters is
+    # dropped: the square page carries the same names at half the scale, and that one
+    # had nowhere to go that was not a track or another label.
     draw_chart(ax, extent, land, DAYS, tracks, detail=True, lw_scale=0.80,
-               spread=True, depth=bands)
-    draw_badges(ax, DAYS, badge_positions(DAYS, tracks), lw_scale=0.80)
-    compass_rose(ax, -76.8800, 26.3600, 0.0135)
-    scale_bar(ax, extent, y_frac=0.038, x_frac=0.055, nm_len=5, lw_scale=0.80)
+               spread=True, depth=bands,
+               skip_labels=("Lubbers\nQuarters",),
+               label_nudge={"S E A   O F   A B A C O": (-0.0300, -0.0380),
+                            "Lynyard Cay": (0.0175, -0.0020),
+                            "Tilloo Cay": (0.0035, 0.0)},
+               # Lower and a shade smaller: on a square page the sheet's position
+               # ran the topmast through the neatline.
+               vessel=(-76.9250, 26.6180, 0.0505))
+    # Saturday's badge sat 189 m from where Sunday's and Wednesday's tracks cross.
+    # This is the clearest point on Saturday's own track — 451 m from anything else.
+    badges = badge_positions(DAYS, tracks)
+    badges[[d for d in DAYS if d.get("n") == 1][0]["file"]] = (-77.0867, 26.5575)
+    draw_badges(ax, DAYS, badges, lw_scale=0.80)
+    # Bigger than the sheet's rose in map degrees, because this frame is half the
+    # scale: at 0.0135 the cardinals and the fleur were on top of each other.
+    compass_rose(ax, -76.8850, 26.3700, 0.0235)
+    scale_bar(ax, extent, y_frac=0.062, x_frac=0.055, nm_len=5, lw_scale=0.80)
     chart_neatline(ax, extent, fig, lw_scale=0.80, label_every=5)
 
     if title:
-        fig.text(0.5, 0.962, "SEA BASE 1830", fontproperties=SERIF, fontsize=26,
+        fig.text(0.5, 0.952, "SEA BASE 1830", fontproperties=SERIF, fontsize=25,
                  color=C_INK, ha="center", va="center")
-        fig.text(0.5, 0.930, "SEA OF ABACO  ·  22–28 MARCH 2024",
+        fig.text(0.5, 0.924, "SEA OF ABACO  ·  22–28 MARCH 2024",
                  fontproperties=SANS, fontsize=9.5, color=C_INK_SOFT,
                  ha="center", va="center", linespacing=1.4)
     fig.savefig(out_png, dpi=dpi, facecolor=C_PAPER)
