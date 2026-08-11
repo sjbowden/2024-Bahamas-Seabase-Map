@@ -430,15 +430,43 @@ def test_nothing_published_carries_metadata(placed):
     if not os.path.isdir(thumbs):
         print("  SKIP  derivatives not generated (python -m map.derive)")
         return
-    from PIL import Image
+    import io
+    from PIL import Image, ImageOps
+    from map import derive as D
+
+    # Completeness first, over the whole set: the page asks for exactly the paths
+    # in photos.json, so a single missing or empty file is a broken photograph.
+    # This is stat-only, so checking all 5,010 costs nothing.
+    want = {r["id"] for r in pj}
+    for kind in ("thumb", "view"):
+        d = os.path.join(media, kind)
+        have = {n[:-4] for n in os.listdir(d) if n.endswith(".jpg")}
+        empty = [i for i in sorted(want & have)
+                 if os.path.getsize(os.path.join(d, f"{i}.jpg")) == 0]
+        check(f"every photograph has a {kind}", want <= have,
+              f"{len(want - have)} missing of {len(want)}")
+        check(f"no {kind} is an empty file", not empty, str(empty[:4]))
+        # Orphans are stale, not broken -- but they are how a renamed id hides.
+        check(f"no {kind} is left over from an older index", not (have - want),
+              f"{len(have - want)} orphaned")
+
+    # Both sizes now, not just thumbnails: the viewing copies are the ones that
+    # would carry a camera's GPS onto the internet, and they were never checked.
+    for kind, edge in (("thumb", D.THUMB["px"]), ("view", D.VIEW["px"])):
+        d = os.path.join(media, kind)
+        names = sorted(n for n in os.listdir(d) if n.endswith(".jpg"))[::37][:60]
+        meta, big = [], []
+        for n in names:
+            im = Image.open(os.path.join(d, n))
+            if im.getexif() or im.info.get("icc_profile"):
+                meta.append(n)
+            if max(im.size) > edge:
+                big.append((n, im.size))
+        check(f"no {kind} carries EXIF or an ICC profile", not meta,
+              f"checked {len(names)}, {len(meta)} carried metadata")
+        check(f"no {kind} exceeds its {edge} px long edge", not big, str(big[:3]))
+
     names = sorted(n for n in os.listdir(thumbs) if n.endswith(".jpg"))[:60]
-    with_exif = []
-    for n in names:
-        im = Image.open(os.path.join(thumbs, n))
-        if im.getexif() or im.info.get("icc_profile"):
-            with_exif.append(n)
-    check("no derivative carries EXIF or an ICC profile", not with_exif,
-          f"checked {len(names)}, {len(with_exif)} carried metadata")
     portraits = 0
     for n in names:
         w, h = Image.open(os.path.join(thumbs, n)).size
@@ -446,6 +474,44 @@ def test_nothing_published_carries_metadata(placed):
     check("portrait frames stayed portrait", portraits > 0,
           f"{portraits} of {len(names)} are taller than wide, so rotation was "
           f"baked in before the tags went")
+
+    # And the failure the other checks cannot see. derive skips any derivative
+    # already on disk, which makes an interrupted run cheap to resume but also
+    # means a re-run will never repair a mismatch: if ids ever shift, p00001.jpg
+    # stays on disk showing the photograph that used to be p00001. Every check
+    # above still passes -- the file is present, sized right and metadata-free --
+    # and the wrong picture sits on the wrong point on the chart. So rebuild a
+    # few from the index we ship now and insist on the same bytes.
+    # placed records have had src stripped, so the archive and member come from
+    # the index -- which is the point: it is this index the derivatives must match.
+    stale, rebuilt = [], 0
+    origins = [p for p in json.load(open(INDEX)) if p.get("src")]
+    for r in origins[::900][:3]:
+        archive = os.path.join(C.HERE, "photos",
+                               os.path.basename(D._archive_path(r)))
+        if not os.path.exists(archive):
+            continue        # no zips here; say so below rather than pass quietly
+        rebuilt += 1
+        with D._zip(archive).open(r["src"]["member"]) as fh:
+            im = Image.open(io.BytesIO(fh.read()))
+        im = D._to_srgb(ImageOps.exif_transpose(im))
+        if im.mode not in ("RGB", "L"):
+            im = im.convert("RGB")
+        for spec in (D.THUMB, D.VIEW):
+            copy = im.copy()
+            copy.thumbnail((spec["px"], spec["px"]), Image.LANCZOS)
+            buf = io.BytesIO()
+            copy.save(buf, "JPEG", quality=spec["quality"], optimize=True,
+                      progressive=spec["progressive"], subsampling="4:2:0")
+            path = os.path.join(media, spec["name"], f"{r['id']}.jpg")
+            if buf.getvalue() != open(path, "rb").read():
+                stale.append(f"{r['id']}/{spec['name']}")
+    if not rebuilt:
+        print("  SKIP  cannot re-derive: no zips in photos/")
+    else:
+        check("the derivatives on disk are the ones this index asks for", not stale,
+              f"{stale} differ from a fresh build" if stale
+              else f"rebuilt {rebuilt}, bytes match")
 
 
 def test_site_build():
