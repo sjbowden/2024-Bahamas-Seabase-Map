@@ -645,9 +645,22 @@ validate, and a test asserts it.
   lumpy. Averaging first removes the wobble itself.
 
   This is the operation that failed when it was tried on the 61 m raster, where it
-  dithered the bank into a mosaic, and the difference is that it now runs on 244 m
+  dithered the bank into a mosaic, and the difference is that it now runs on coarse
   blocks and anything smaller than one block is dropped, so a fraying edge cannot
-  survive as confetti. It also *shrinks* the file, to 956 KB, because there are far
+  survive as confetti.
+
+  It is set to about 2 km, which is where smoothing stops being free. Rendered
+  against the poster's own drawn shoal halo at four settings, the band areas hold at
+  roughly 1.0× the grid's figures up to here and then start losing shallow water:
+  0.91× of the under-2 m band at 2.9 km, 0.85× at 3.9 km. Under-reporting shallows
+  is the wrong direction for a chart about them.
+
+  And it will not reach the cleanliness of the halo it replaced — no smoothing
+  setting can. That halo left the water near-white with a thin rim, and **37.6% of
+  the water inside the poster's frame is under four metres**: it looked clean partly
+  by being wrong. What separates the two is tone, not geometry, so the lever would
+  be a paler ramp for the print, which was rendered, offered and declined. The map's
+  ramp is spaced by luminance for a reason and both editions keep it. It also *shrinks* the file, to 956 KB, because there are far
   fewer parts. 1.2 km was chosen by looking: at 730 m the bands were still visibly
   lumpy, and at 1.7 km the bank west of the cays flattens into one tone and real
   structure goes with it.
