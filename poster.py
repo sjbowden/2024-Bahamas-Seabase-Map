@@ -319,16 +319,19 @@ def draw_chart(ax, extent, land, days, tracks, *, detail=True, lw_scale=1.0,
 
     # anchorages
     for lon, lat, text, ha, va in ANCHORAGES:
-        # skip_labels drops the name and keeps the ring; skip_anchorages drops both,
-        # for a page where an unnamed ring would be a mark with nothing to say.
+        # skip_anchorages drops the whole thing, ring included, for a page where an
+        # unnamed ring would be a mark with nothing to say. skip_labels drops only
+        # the name — the ring is a measured position and a decision about type has no
+        # business removing it. The order matters and was wrong for four commits: the
+        # name-skip sat above the ring, so asking for Lynyard Cay's name in another
+        # font silently took its anchorage off the page.
         if text in set(skip_anchorages):
             continue
-        if text in skip:
-            continue
-        # The ring stays on the anchorage — that is a measured position, and moving
-        # it would say the boat lay somewhere it did not. Only the name shifts.
         ax.plot([lon], [lat], marker="o", ms=6 * lw_scale, mfc=C_PAPER,
                 mec=C_INK, mew=1.3 * lw_scale, zorder=8)
+        if text in skip:
+            continue
+        # Only the name shifts; the ring above stays where the boat lay.
         lon, lat = (lon + nudge.get(text, (0, 0))[0],
                     lat + nudge.get(text, (0, 0))[1])
         dx = {"left": 0.006, "right": -0.006}.get(ha, 0.0)
