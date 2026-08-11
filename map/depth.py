@@ -351,6 +351,10 @@ FLAT_DEPTH_M = 1.0
 # marsh. At 2 the mask is 30 m and 64 MB, which finds them; at 4 it would be a
 # gigabyte to resolve creeks narrower than the boats that used them.
 SUBCELL = 2
+# Fine cells to grow the water by before asking whether a block contains any. Two
+# is 60 m: one was not enough for the narrowest corner of a lagoon west of Great
+# Abaco, which still came out with no band over it.
+NARROW_GROW = 2
 # Coarse cells per side to average the depths over before banding them, and the
 # The smallest piece of a band worth drawing: 60,000 m2, four coarse cells.
 #
@@ -751,10 +755,23 @@ def band_polygons(grid, land):
     # either, and every one of them is inshore.
     fine = _land_mask(land, grid.ncols * SUBCELL, grid.nrows * SUBCELL,
                       x0, y0, x1, y1, lambda lat: lat)
+    # Grown by one 30 m cell first, because rasterising fills by pixel centre: a
+    # cell straddling a creek narrower than itself goes to land, and the creek
+    # vanishes. That is how a corner of a 150,000 m2 lagoon west of Great Abaco
+    # ended up with no band over it, showing the page background — the deepest
+    # colour on the chart — while the coastline drew water there. Growing the water
+    # instead of the land only ever adds cover, and the extra reaches under the
+    # coastline, where the land is drawn on top of it.
+    grown = ~fine
+    for _ in range(NARROW_GROW):
+        g = grown.copy()
+        g[1:] |= grown[:-1]; g[:-1] |= grown[1:]
+        g[:, 1:] |= grown[:, :-1]; g[:, :-1] |= grown[:, 1:]
+        grown = g
     step = k * SUBCELL
     nr2, nc2 = (grid.nrows // k) * step, (grid.ncols // k) * step
-    narrow = (~fine)[:nr2, :nc2].reshape(nr2 // step, step,
-                                        nc2 // step, step).any((1, 3))
+    narrow = grown[:nr2, :nc2].reshape(nr2 // step, step,
+                                       nc2 // step, step).any((1, 3))
     coarse = np.where(n > 0, dsum.sum((1, 3)) / np.maximum(n, 1),
                       np.where(narrow, FLAT_DEPTH_M, -1.0))
     # Any water in the block at all makes it water. Requiring most of the block to

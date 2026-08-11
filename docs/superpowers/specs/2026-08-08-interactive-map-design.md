@@ -659,8 +659,17 @@ validate, and a test asserts it.
   went with it; nothing averages any more, so nothing needs protecting from it.
 
   Where the boundary lands is still generous rather than mean: under-2 m covers
-  1.18× the area the grid gives it, over-20 m water painted as shallower is 0.08%,
-  and inshore water with no band at all is 0.00 km². 1.77 MB.
+  1.24× the area the grid gives it, over-20 m water painted as shallower is 0.08%,
+  and inshore water with no band at all is 0.000 km². 1.64 MB.
+
+  The fine water mask is grown by two of its own cells (60 m) before a block is
+  asked whether it contains any water, because rasterising fills by pixel centre: a
+  cell straddling a creek narrower than itself goes to land, and the creek vanishes
+  from the test meant to find it. That is how one corner of a 150,000 m² lagoon west
+  of Great Abaco kept its bare page background — the deepest colour on the chart —
+  while the coastline drew water there. Growing the *water* rather than the land only
+  ever adds cover, and the extra reaches under the coastline, where the land is
+  drawn over it.
 
   The speck filter that came in with the averaging keeps anything touching land,
   whatever its size. A small part is only a speck if it sits in open water: ponds,
@@ -974,6 +983,30 @@ poster's PNGs came out byte-identical.
 | Bogus GPS date stamp | One Samsung reports a date 54 years out; anything outside March–April 2024 is discarded, not fitted |
 | Timestamp outside receiver coverage | `unplaced` — no inReach fallback |
 | Interrupted build | Derivatives are idempotent; re-running resumes |
+
+## Verifying against a picture
+
+Six rounds of "there is still a pale patch here" cost more than everything else in
+this layer, and the pattern was always the same: a measurement said the chart was
+right, the screenshot said otherwise, and the measurement was answering a different
+question.
+
+- **"No deep pixels in the marsh"** was true of water whose neighbourhood is over a
+  quarter land, which excludes the larger pools *inside* the marsh — where the
+  patches were.
+- **A band comparison** put a drawn value of exactly 2.0 into the "2-4 m" bucket via
+  `np.digitize`, shifting every band by one and reporting the whole area mispainted.
+  It was not.
+- **Two guesses at where a screenshot was taken**, worked out by hand from a label's
+  pixel position, were 700 m out — so three probes in a row landed on healthy water
+  and pronounced the layer fine.
+
+What worked, every time, was refusing to convert coordinates by hand: render tiles
+with the same MapLibre the screenshot came from, find the offending pixels in the
+*rendered* image, and let the browser `unproject` them and say which layers it drew
+there. `queryRenderedFeatures` answering `NOTHING` is worth more than any amount of
+geometry insisting the polygon covers the point.
+
 
 ## Testing
 
