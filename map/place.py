@@ -136,16 +136,17 @@ def at(fixes, times, t):
             a[3] + (b[3] - a[3]) * f, a[4])
 
 
-def both_receivers():
+def both_receivers(handheld=None):
     """The handheld and the satellite communicator, one time-ordered stream.
 
     Deliberately separate from track(): interleaving the inReach's 10-minute
     reports into the stream the main pass uses would let one of them become the
     bracketing fix for a photograph the handheld already had to five seconds, and
     2,083 good positions would get quietly worse. This stream is only ever asked
-    about the moments the handheld missed.
+    about the moments the handheld missed. Pass the handheld's fixes if they are
+    already parsed; reading the seven logs again is the expensive half.
     """
-    fixes = [(f[0], f[1], f[2], "handheld") for f in track()]
+    fixes = [(f[0], f[1], f[2], "handheld") for f in (handheld or track())]
     fixes += [(t, lat, lon, "inreach") for t, lat, lon in read_inreach()]
     fixes.sort(key=lambda f: f[0])
     return fixes
@@ -210,8 +211,14 @@ def nearest_named(lat, lon, limit_m=4000.0):
 
 
 def place(photos, per_photo, cameras, fixes=None):
-    """Give every photograph a tier, a position where it has one, and a note."""
-    fixes = fixes or track()
+    """Give every photograph a tier, a position where it has one, and a note.
+
+    fixes= replaces the handheld's track for BOTH passes: supplied fixes are the
+    whole record, so the second pass brackets against them alone rather than
+    quietly reading the real logs and the inReach back in behind the caller.
+    """
+    supplied = fixes is not None
+    fixes = fixes if supplied else track()
     times = [f[0] for f in fixes]
 
     # Timing uncertainty per camera: half the fit's peak width, or a couple of
@@ -231,12 +238,21 @@ def place(photos, per_photo, cameras, fixes=None):
 
         # 0. a screenshot has no place on a chart of the Sea of Abaco. It was
         #    being counted as a photograph the pipeline had failed to place,
-        #    which flattered nothing and hid the real failures.
-        if p["ext"] == ".png" and p.get("px") and min(p["px"]) <= SCREEN_PX:
-            rec.update(tier="screenshot",
-                       note="a screenshot — a phone's screen, not a place")
-            out.append(_finish(rec, p))
-            continue
+        #    which flattered nothing and hid the real failures. Coordinates
+        #    outrank the guess: a photograph saved small as PNG can carry GPS
+        #    in its eXIf chunk, and a screen capture cannot.
+        if p["ext"] == ".png" and not p.get("gps"):
+            if not p.get("px"):
+                # An index from before px existed. Guessing "not a screenshot"
+                # here would quietly put all 28 back in the tray as failures.
+                raise SystemExit(f"{p['name']}: the index carries no pixel size, "
+                                 "so a screenshot cannot be told from a "
+                                 "photograph — rebuild it: python -m map.photo_index")
+            if min(p["px"]) <= SCREEN_PX:
+                rec.update(tier="screenshot",
+                           note="a screenshot — a phone's screen, not a place")
+                out.append(_finish(rec, p))
+                continue
 
         # 1. its own coordinates, which beat the track by definition
         if p.get("gps"):
@@ -257,8 +273,13 @@ def place(photos, per_photo, cameras, fixes=None):
             # does say which day, and the tray is grouped by day.
             m = WHATSAPP.match(p["name"])
             if m:
-                d = datetime(*(int(g) for g in m.groups())).date()
-                if DAY_BY_DATE.get(d):
+                try:
+                    d = datetime(*(int(g) for g in m.groups())).date()
+                except ValueError:
+                    # A filename can spell an impossible date; that loses one
+                    # day tag, not the whole placement pass.
+                    d = None
+                if d and DAY_BY_DATE.get(d):
                     rec["day"] = DAY_BY_DATE[d]
                     rec["day_provisional"] = True
                     rec["note"] = ("shared over WhatsApp, which kept the date "
@@ -288,7 +309,8 @@ def place(photos, per_photo, cameras, fixes=None):
     # gap, the photographs inside that gap are in that place too. This only ever
     # looks at records the first pass left unplaced, so nothing already positioned
     # can be moved by it.
-    both = both_receivers()
+    both = ([(f[0], f[1], f[2], "handheld") for f in fixes] if supplied
+            else both_receivers(fixes))
     bt = [f[0] for f in both]
     for rec in out:
         if rec["tier"] != "unplaced" or not rec["utc"]:
@@ -300,10 +322,13 @@ def place(photos, per_photo, cameras, fixes=None):
         lat, lon, moved, gap, who = got
         if not in_chart(lat, lon):
             continue
+        # The 35 m is the inReach's measured disagreement with the handheld, so
+        # it is owed only when an inReach report is one of the brackets. Two
+        # handheld fixes 4 m apart are a 4 m claim, and the note says exactly that.
         rec.update(lat=lat, lon=lon,
                    tier=("calibrated" if rec["time_method"] in ("gps_utc", "tz_tag")
                          else "inferred"),
-                   uncertainty_m=round(moved + INREACH_M),
+                   uncertainty_m=round(moved + (INREACH_M if "inreach" in who else 0.0)),
                    day=rec["day"] or day_for(t)[0])
         rec["note"] = _moored_note(t, lat, lon, moved, gap, who)
     return out

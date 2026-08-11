@@ -382,6 +382,8 @@ def test_export(placed):
           f"{len(bridges)} bridges for {len(order) - 1} handovers")
     worst = 0.0
     for prev, day in zip(order, order[1:]):
+        if day not in bridges:
+            continue        # already FAILed one check up; keep the suite running
         c = bridges[day]["geometry"]["coordinates"]
         worst = max(worst,
                     haversine(c[0][1], c[0][0], lasts[prev][1], lasts[prev][2]),
@@ -448,6 +450,9 @@ def test_gaps(photos, placed):
     # on the short edge -- photographs somebody saved as PNG -- and calling those
     # screenshots would silently take real pictures off the chart.
     shots = [r for r in placed if r["tier"] == "screenshot"]
+    # A count, not just properties: the tier turning itself off (px missing from
+    # the index, say) would otherwise pass every check below over empty lists.
+    check("the screenshots are all found", len(shots) > 20, f"{len(shots)}")
     wrong = [r["id"] for r in shots
              if byid[r["id"]]["ext"] != ".png"
              or min(byid[r["id"]]["px"]) > P.SCREEN_PX]
@@ -496,8 +501,7 @@ def test_nothing_published_carries_metadata(placed):
     if not os.path.isdir(thumbs):
         print("  SKIP  derivatives not generated (python -m map.derive)")
         return
-    import io
-    from PIL import Image, ImageOps
+    from PIL import Image
     from map import derive as D
 
     # Completeness first, over the whole set: the page asks for exactly the paths
@@ -558,19 +562,18 @@ def test_nothing_published_carries_metadata(placed):
         if not os.path.exists(archive):
             continue        # no zips here; say so below rather than pass quietly
         rebuilt += 1
+        # Through derive's own prepare/render, not a hand copy of its steps: a
+        # copy drifts, and a drifted copy flags every derivative stale -- or
+        # blesses ones a real run would no longer produce.
         with D._zip(archive).open(r["src"]["member"]) as fh:
-            im = Image.open(io.BytesIO(fh.read()))
-        im = D._to_srgb(ImageOps.exif_transpose(im))
-        if im.mode not in ("RGB", "L"):
-            im = im.convert("RGB")
+            im = D.prepare(fh.read())
         for spec in (D.THUMB, D.VIEW):
-            copy = im.copy()
-            copy.thumbnail((spec["px"], spec["px"]), Image.LANCZOS)
-            buf = io.BytesIO()
-            copy.save(buf, "JPEG", quality=spec["quality"], optimize=True,
-                      progressive=spec["progressive"], subsampling="4:2:0")
             path = os.path.join(media, spec["name"], f"{r['id']}.jpg")
-            if buf.getvalue() != open(path, "rb").read():
+            if not os.path.exists(path):
+                # The interrupted-run state this test exists for: report it,
+                # don't crash on it.
+                stale.append(f"{r['id']}/{spec['name']} (missing)")
+            elif D.render(im, spec) != open(path, "rb").read():
                 stale.append(f"{r['id']}/{spec['name']}")
     if not rebuilt:
         print("  SKIP  cannot re-derive: no zips in photos/")
@@ -621,12 +624,32 @@ def test_site_build():
     days_body = re.search(r"function applyDays\(\)\s*\{(.*?)\n\}", app, re.S)
     check("unticking a day refreshes the photographs too",
           bool(days_body) and "refreshPhotos()" in days_body.group(1))
+    # Scoped to refreshPhotos itself, not the whole file: getSource('photos')
+    # also appears in the cluster-expansion click, so a file-wide match would
+    # stay green through the exact regression this exists to catch.
+    photos_body = re.search(r"function refreshPhotos\(\)\s*\{(.*?)\n\}", app, re.S)
     check("and by reloading the source, not filtering the layer",
-          "getSource('photos')" in app and "setData(photoFC(" in app)
+          bool(photos_body) and "setData(photoFC(" in photos_body.group(1)
+          and "setFilter" not in photos_body.group(1))
 
     check("app.js draws every tier the build emits somewhere",
           emitted <= on_chart | in_tray,
           f"unreachable: {sorted(emitted - on_chart - in_tray)}")
+    # The day checkboxes are now the only way a chart photograph is shown, so a
+    # placed photograph whose day is missing or unlisted (place.py can emit
+    # day=None when day_for cannot name one) would be invisible everywhere with
+    # every box ticked and nothing on the page looking wrong.
+    day_labels = {d["label"] for d in meta["days"]}
+    unlisted = [r["id"] for r in pj
+                if r["tier"] in on_chart and r.get("lat") is not None
+                and r.get("day") not in day_labels]
+    check("every photograph on the chart names a day the panel lists",
+          not unlisted,
+          f"{len(unlisted)} no checkbox can show, e.g. {unlisted[:5]}")
+    # export.py ships day_provisional and test_gaps proves it; the flag is worth
+    # nothing unless the page reads it where a person sees the day claimed.
+    check("the viewer hedges a day guessed from a filename",
+          "day_provisional" in app)
     check("and the tray explains each tier it lists",
           all(f"{t}:" in app for t in in_tray & emitted),
           f"no note for {[t for t in in_tray & emitted if f'{t}:' not in app]}")
