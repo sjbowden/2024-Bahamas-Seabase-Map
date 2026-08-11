@@ -649,6 +649,14 @@ validate, and a test asserts it.
   blocks and anything smaller than one block is dropped, so a fraying edge cannot
   survive as confetti.
 
+  The speck filter that came in with the averaging keeps anything touching land,
+  whatever its size. A small part is only a speck if it sits in open water: ponds,
+  creeks and narrow inlets are small *and* real, and dropping them took them out of
+  every band at once, so the page background showed through as pale dots against the
+  shallows — the deepest colour on the chart, in the shallowest places on it.
+  Uncovered water within four cells of shore goes from 0.40 km² to **0.00**, and
+  none at all remains inside the poster's chart frame.
+
   It is set to about 2 km, which is where smoothing stops being free. Rendered
   against the poster's own drawn shoal halo at four settings, the band areas hold at
   roughly 1.0× the grid's figures up to here and then start losing shallow water:
