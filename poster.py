@@ -248,7 +248,8 @@ def depth_bands(land):
 
 def draw_chart(ax, extent, land, days, tracks, *, detail=True, lw_scale=1.0,
                show_airport=False, spread=False, depth=None,
-               skip_labels=(), label_nudge=None, vessel=None):
+               skip_labels=(), label_nudge=None, vessel=None,
+               airport_text=None):
     w, e, s, n = extent
     ax.set_xlim(w, e)
     ax.set_ylim(s, n)
@@ -308,7 +309,7 @@ def draw_chart(ax, extent, land, days, tracks, *, detail=True, lw_scale=1.0,
             draw_airport(ax, lw_scale, label=False)
         return
 
-    draw_airport(ax, lw_scale)
+    draw_airport(ax, lw_scale, text=airport_text)
 
     # Labels a caller may drop or shift. The two artefacts frame the same water at
     # different shapes and scales, so a name that sits clear on the sheet can land
@@ -454,12 +455,12 @@ def draw_vessel(ax, lon, lat, width_deg, alpha=1.0, zorder=4):
               aspect="auto", zorder=zorder, alpha=alpha, interpolation="bilinear")
 
 
-def draw_airport(ax, lw_scale=1.0, label=True):
+def draw_airport(ax, lw_scale=1.0, label=True, text=None):
     lon, lat, code, name = AIRPORT
     ax.plot([lon], [lat], marker=PLANE, ms=15 * lw_scale, mfc=C_INK,
             mec=C_PAPER, mew=0.9 * lw_scale, zorder=10, clip_on=True,
             linestyle="none")
-    text = f"{code}  {name}" if label else code
+    text = text or (f"{code}  {name}" if label else code)
     ax.text(lon, lat - 0.0075 * lw_scale, text, fontproperties=SANS,
             fontsize=8.5 * lw_scale, color=C_INK, ha="center", va="top",
             zorder=10, clip_on=True,      # text is unclipped by default and
@@ -685,7 +686,8 @@ def draw_fleur(ax, cx, cy, height, color, lw_scale=1.0, zorder=13):
             zorder=zorder + 3, solid_capstyle="round")
 
 
-def compass_rose(ax, lon, lat, R, lw_scale=1.0):
+def compass_rose(ax, lon, lat, R, lw_scale=1.0, *, magnetic=True,
+                 numerals=True, ring=1.00):
     """An engraved chart rose.
 
     Star, rhumb fan and cardinal spears follow the hand-drawn roses of period
@@ -712,7 +714,7 @@ def compass_rose(ax, lon, lat, R, lw_scale=1.0):
                                 facecolor=face, edgecolor=edge,
                                 lw=lw * lw_scale, zorder=z, joinstyle="miter"))
 
-    def ring(radius, rot, every, med, long_, numerals, color, fs, skip=()):
+    def graduated(radius, rot, every, med, long_, every_num, color, fs, skip=()):
         a = np.linspace(0.0, 2.0 * math.pi, 721)
         for rr, wdt in ((radius, 0.9), (radius * 0.885, 0.6)):
             ax.plot(lon + rr * R * ASPECT * np.sin(a), lat + rr * R * np.cos(a),
@@ -728,7 +730,7 @@ def compass_rose(ax, lon, lat, R, lw_scale=1.0):
             p, q = XY(*(al * inner)), XY(*(al * radius))
             ax.plot([p[0], q[0]], [p[1], q[1]], color=color, lw=wdt * lw_scale,
                     zorder=11, solid_capstyle="butt")
-        for deg in range(0, 360, numerals):
+        for deg in ([] if not every_num else range(0, 360, every_num)):
             if deg in skip:
                 continue
             al, _ = axes_for(deg + rot)
@@ -738,9 +740,14 @@ def compass_rose(ax, lon, lat, R, lw_scale=1.0):
                     va="center", zorder=12, rotation=-(deg + rot),
                     rotation_mode="anchor")
 
-    ring(1.00, 0.0, 1, 5, 10, 30, C_ROSE, 6.0, skip=(0, 90, 180, 270))
-    ring(0.79, VARIATION_DEG, 5, 15, 30, 30, C_ROSE_MAG, 5.4,
-         skip=(0, 90, 180, 270))
+    # The graduated rings are the informative part, and a small rose cannot carry
+    # them: at photobook size the two rings and two sets of numerals became a grey
+    # smudge, so the caller can ask for the true ring alone, tighter and unnumbered.
+    graduated(ring, 0.0, 1, 5, 10, 30 if numerals else 0, C_ROSE, 6.0,
+              skip=(0, 90, 180, 270))
+    if magnetic:
+        graduated(0.79, VARIATION_DEG, 5, 15, 30, 30 if numerals else 0,
+                  C_ROSE_MAG, 5.4, skip=(0, 90, 180, 270))
 
     # The star. A cardinal point and its spear are one continuous shape, not a
     # bar laid over the star — drawing them separately reads as a heavy cross
@@ -1084,26 +1091,39 @@ def photobook(dpi, out_png, depth=False, title=True):
     # sits between it and Sunday's, which is the water it names — and west as well,
     # because dropping it to that latitude ran its letter-spaced type into
     # Man-O-War Cay. Lynyard Cay's label lay along the track, so it steps east onto
-    # open water, leaving its anchorage ring where the boat actually lay. Lubbers Quarters is
+    # open water and up, leaving its anchorage ring where the boat actually lay.
+    # Man-O-War Cay's name moves to the north end of the island it names. Lubbers Quarters is
     # dropped: the square page carries the same names at half the scale, and that one
     # had nowhere to go that was not a track or another label.
     draw_chart(ax, extent, land, DAYS, tracks, detail=True, lw_scale=0.80,
                spread=True, depth=bands,
                skip_labels=("Lubbers\nQuarters",),
                label_nudge={"S E A   O F   A B A C O": (-0.0300, -0.0380),
-                            "Lynyard Cay": (0.0175, -0.0020),
+                            "Lynyard Cay": (0.0255, 0.0060),
+                            "Man-O-War Cay": (0.0, 0.0204),
                             "Tilloo Cay": (0.0035, 0.0)},
+               # The full name, over two lines, since a photobook page is read
+               # closer than a wall.
+               airport_text="Leonard M. Thompson\nInternational Airport (MHH)",
                # Lower and a shade smaller: on a square page the sheet's position
                # ran the topmast through the neatline.
-               vessel=(-76.9250, 26.6180, 0.0505))
-    # Saturday's badge sat 189 m from where Sunday's and Wednesday's tracks cross.
-    # This is the clearest point on Saturday's own track — 451 m from anything else.
+               vessel=(-76.8950, 26.6180, 0.0505))
+    # Saturday's badge kept landing on the junction where its track meets Sunday's,
+    # which is the part worth seeing. Searching for the point "clearest of
+    # everything" put it 465 m away and still on top of the junction, because that
+    # measure counts distance to five tracks equally and the junction is only one of
+    # them. Measuring distance from the junction itself, subject to staying 130 m off
+    # the other tracks and labels, moves it to the marina end of Saturday's own leg,
+    # 3.3 km away.
     badges = badge_positions(DAYS, tracks)
-    badges[[d for d in DAYS if d.get("n") == 1][0]["file"]] = (-77.0867, 26.5575)
+    badges[[d for d in DAYS if d.get("n") == 1][0]["file"]] = (-77.0517, 26.5469)
     draw_badges(ax, DAYS, badges, lw_scale=0.80)
     # Bigger than the sheet's rose in map degrees, because this frame is half the
-    # scale: at 0.0135 the cardinals and the fleur were on top of each other.
-    compass_rose(ax, -76.8850, 26.3700, 0.0235)
+    # scale: at 0.0135 the cardinals and the fleur were on top of each other. The
+    # magnetic ring and both sets of numerals come off — at this size they read as a
+    # grey smudge rather than as information — and the true ring draws tighter.
+    compass_rose(ax, -76.8850, 26.3700, 0.0235,
+                 magnetic=False, numerals=False, ring=0.72)
     scale_bar(ax, extent, y_frac=0.062, x_frac=0.055, nm_len=5, lw_scale=0.80)
     chart_neatline(ax, extent, fig, lw_scale=0.80, label_every=5)
 
