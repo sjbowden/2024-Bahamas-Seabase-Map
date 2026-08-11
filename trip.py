@@ -105,6 +105,49 @@ PLACES = [
     (-76.9400, 26.4780, "A T L A N T I C\nO C E A N", "water", "center", "center"),
 ]
 
+# Cays the map names and the printed sheet does not. The poster is one fixed
+# frame at one scale and its labels are placed by hand against the whole
+# composition; the map can afford more names because they only appear once
+# somebody has zoomed in, and it costs nothing to hold a name in reserve. So this
+# list is deliberately *not* imported by poster.py, and the sheet is unchanged.
+#
+# Every coordinate here is the centroid of the island as the coastline draws it,
+# read off the geometry rather than estimated, so a label sits on its own cay.
+# The names are the identifications I could defend; the smaller cays between
+# Marsh Harbour and Little Harbour are left unnamed rather than guessed at.
+# (lon, lat, text, minzoom). The zoom is per-cay because these labels have no
+# collision detection — they are HTML markers, not a symbol layer — and Dickie's
+# Cay sits 500 m from Man-O-War Cay's label, so it has to wait until the two are
+# far enough apart on screen to read as two names.
+MAP_CAYS = [
+    (-77.07431, 26.64559, "Scotland Cay", 11.0),
+    (-77.02866, 26.55015, "Matt Lowe's Cay", 11.0),
+    (-77.00851, 26.59472, "Dickie's Cay", 13.5),
+]
+# Each coordinate is `representative_point()` of the island, which is guaranteed to
+# fall inside it. Centroids were tried first and two of the four landed in open
+# water, because the centroid of a crescent is not on the crescent.
+#
+# Two names came out again rather than be got wrong. Lynyard Cay is already named by
+# ANCHORAGES, and adding it here put the same words on the chart twice four hundred
+# metres apart. Pelican Cays is a group rather than one island, and the nearest
+# thing to my guessed position was a rock of a fifth of a hectare — a group label
+# wants someone who knows which cays it covers.
+
+# Islands the coastline draws in the trip area that nothing names yet, largest
+# first, with the size and length the geometry gives them. Left here because naming
+# them is local knowledge rather than something to infer from a polygon:
+#
+#   26.50003 -76.99741  143 ha  2.7 km   (south of White Sound — Elbow Cay?)
+#   26.43754 -77.05112   73 ha  2.6 km   (Lubbers Quarters Cay?)
+#   26.40549 -77.04310   40 ha  1.5 km
+#   26.29510 -77.05458   41 ha  1.1 km   (off Little Harbour)
+#   26.42328 -77.04093   19 ha  1.7 km
+#   26.35872 -77.02272   22 ha  0.9 km
+#   26.33446 -77.02760   20 ha  1.5 km
+#   26.56368 -77.01499   20 ha  1.0 km
+#   26.41405 -76.99644   10 ha  0.9 km
+
 AIRPORT = (-77.0782, 26.5135, "MHH", "Leonard M. Thompson Intl")
 # hotel fixed from the EXIF of IMG_0496.JPG (14:43 EDT, 22 Mar, ±4.6 m); the
 # marina is where Saturday's walk ends and the boat then sits for 90 minutes

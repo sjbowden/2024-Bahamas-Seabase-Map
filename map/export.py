@@ -28,8 +28,8 @@ from shapely import set_precision
 from shapely.geometry import shape
 
 from abaco_geo import COASTLINE_MAP, land_polygons
-from trip import (AIRPORT, ANCHORAGES, DAYS, EXTENT, HOTEL, MAP_LAND_BBOX,
-                  shoal,
+from trip import (AIRPORT, ANCHORAGES, DAYS, EXTENT, HOTEL, MAP_CAYS,
+                  MAP_LAND_BBOX, shoal,
                   MARINA, PLACES, VIEW_BOUNDS, load_day, transfer_route)
 from map import clock_fit as C
 from map import depth as DEPTH
@@ -206,6 +206,15 @@ def places_layer():
         feats.append(dict(type="Feature",
                           properties=dict(label=text, kind=kind,
                                           minzoom=zoom.get(kind, 11)),
+                          geometry=dict(type="Point",
+                                        coordinates=[round(lon, PRECISION),
+                                                     round(lat, PRECISION)])))
+    # Cays the sheet does not name. Held back to z11 so the opening view keeps the
+    # poster's own spare set of labels and these arrive only once someone is
+    # looking closely enough to want them.
+    for lon, lat, text, minzoom in MAP_CAYS:
+        feats.append(dict(type="Feature",
+                          properties=dict(label=text, kind="cay", minzoom=minzoom),
                           geometry=dict(type="Point",
                                         coordinates=[round(lon, PRECISION),
                                                      round(lat, PRECISION)])))
