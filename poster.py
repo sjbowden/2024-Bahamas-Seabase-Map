@@ -1134,7 +1134,8 @@ def photobook(dpi, out_png, depth=False, title=True):
                # somewhere the boat lay. Its anchorage ring stays regardless.
                skip_labels=("Lubbers\nQuarters", "Lynyard Cay"),
                label_nudge={"S E A   O F   A B A C O": (-0.0300, -0.0245),
-                            "Great Guana Cay": (0.0265, 0.0),
+                            "Great Guana Cay": (0.0330, 0.0),
+                            "G R E A T   A B A C O": (0.0230, 0.0),
                             "Man-O-War Cay": (-0.0140, 0.0204),
                             "Elbow Cay": (-0.0095, 0.0),
                             "Tilloo Cay": (0.0035, 0.0)},
@@ -1144,7 +1145,7 @@ def photobook(dpi, out_png, depth=False, title=True):
                airport_text="Leonard M. Thompson\nInternational Airport (MHH)",
                # Lower and a shade smaller: on a square page the sheet's position
                # ran the topmast through the neatline.
-               vessel=(-76.8950, 26.6180, 0.0505))
+               vessel=(-76.8950, 26.6100, 0.0620))
     # Saturday's badge kept landing on the junction where its track meets Sunday's,
     # which is the part worth seeing. Searching for the point "clearest of
     # everything" put it 465 m away and still on top of the junction, because that
@@ -1170,7 +1171,7 @@ def photobook(dpi, out_png, depth=False, title=True):
                  letter_r=1.40, fleur_r=1.98)
     # Over Great Abaco rather than out in the water: ink on the land tone reads
     # better than ink on pale blue, and that corner of the island is empty.
-    scale_bar(ax, extent, y_frac=0.072, x_frac=0.185, nm_len=5, lw_scale=0.80,
+    scale_bar(ax, extent, y_frac=0.052, x_frac=0.185, nm_len=5, lw_scale=0.80,
               caption_top=True)
     chart_neatline(ax, extent, fig, lw_scale=0.80, label_every=5,
                    corner_clip=True)
