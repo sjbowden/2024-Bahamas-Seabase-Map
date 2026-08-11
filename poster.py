@@ -1150,9 +1150,14 @@ def photobook(dpi, out_png, depth=False, title=True):
                skip_labels=("Lubbers\nQuarters", "Lynyard Cay"),
                label_nudge={"S E A   O F   A B A C O": (-0.0300, -0.0245),
                             "Great Guana Cay": (0.0330, 0.0),
-                            # The island allows up to about +0.048 before the
-                            # letter-spaced type runs off the coast into the water.
-                            "G R E A T   A B A C O": (0.0345, 0.0),
+                            # East is limited to about +0.048 before the letter-
+                            # spaced type runs off the coast; the drop puts the whole
+                            # line 545 m inside the coastline. Sampling the label as
+                            # a box on a 15 x 5 grid rather than along its centreline
+                            # matters here: a coarser sample called -0.004 clear when
+                            # it is not.
+                            "G R E A T   A B A C O": (0.0345, -0.0180),
+                            "A T L A N T I C\nO C E A N": (0.0300, 0.0),
                             "MARSH HARBOUR": (0.0, 0.0058),
                             "Man-O-War Cay": (-0.0140, 0.0204),
                             "Elbow Cay": (-0.0095, 0.0),
