@@ -229,6 +229,17 @@ html, body {
   color: #8A7F6A;
 }
 
+/* A popup is the thing the reader just asked for, so it goes above the chart's own
+   furniture. It needs saying because MapLibre gives popups no z-index at all: they
+   sit inside #map, which is positioned but creates no stacking context, so they
+   painted at the root alongside everything else and lost to #clusters — the cluster
+   counts are DOM labels in a sibling layer at z-index 1, and a count landed on top
+   of the popup whenever a track was clicked near one. Below #tray and #viewer,
+   which are modal and should cover this. */
+.maplibregl-popup {
+  z-index: 4;
+}
+
 .maplibregl-popup-content {
   font-family: var(--sans);
   font-size: .82rem;
