@@ -984,6 +984,24 @@ poster's PNGs came out byte-identical.
 | Timestamp outside receiver coverage | `unplaced` — no inReach fallback |
 | Interrupted build | Derivatives are idempotent; re-running resumes |
 
+### Labels the sheet does not carry
+
+The map names three cays the poster leaves anonymous — Scotland Cay, Matt Lowe's
+Cay and Dickie's Cay — held back to z11, and Dickie's to z13.5 because it sits
+400 m from Man-O-War Cay's label and these are HTML markers with no collision
+detection. `MAP_CAYS` lives in `trip.py` beside `PLACES` but is deliberately not
+imported by `poster.py`: the sheet is one frame at one scale with hand-placed
+labels, while the map can hold names in reserve until somebody zooms in.
+
+Each coordinate is the island's `representative_point()`, which is guaranteed to
+lie inside it. Centroids were tried first and two of four landed in open water,
+because the centroid of a crescent is not on the crescent. Two names were then
+withdrawn rather than got wrong: Lynyard Cay, which `ANCHORAGES` already names —
+adding it put the same words on the chart twice, 400 m apart — and Pelican Cays,
+a group whose label wants someone who knows which cays it covers. The remaining
+unnamed islands are listed in `trip.py` with their coordinates and sizes, because
+naming them is local knowledge and not something to infer from a polygon.
+
 ## Verifying against a picture
 
 Six rounds of "there is still a pale patch here" cost more than everything else in
