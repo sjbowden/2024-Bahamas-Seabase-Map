@@ -614,6 +614,16 @@ def test_site_build():
                               re.search(r"ON_CHART\s*=\s*\[([^\]]*)\]", app).group(1)))
     in_tray = set(re.findall(r"'([a-z]+)'",
                              re.search(r"for \(const tier of \[([^\]]*)\]", app).group(1)))
+    # Unticking a day takes its photographs with it, and that has to happen by
+    # giving the clustered source less data. A layer filter would hide the dots
+    # and leave the cluster still reporting how many it had, so a day switched
+    # off would leave "610" floating over empty water.
+    days_body = re.search(r"function applyDays\(\)\s*\{(.*?)\n\}", app, re.S)
+    check("unticking a day refreshes the photographs too",
+          bool(days_body) and "refreshPhotos()" in days_body.group(1))
+    check("and by reloading the source, not filtering the layer",
+          "getSource('photos')" in app and "setData(photoFC(" in app)
+
     check("app.js draws every tier the build emits somewhere",
           emitted <= on_chart | in_tray,
           f"unreachable: {sorted(emitted - on_chart - in_tray)}")
