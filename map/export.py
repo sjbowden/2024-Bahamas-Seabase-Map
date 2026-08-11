@@ -29,6 +29,7 @@ from shapely.geometry import shape
 
 from abaco_geo import COASTLINE_MAP, land_polygons
 from trip import (AIRPORT, ANCHORAGES, DAYS, EXTENT, HOTEL, MAP_LAND_BBOX,
+                  shoal,
                   MARINA, PLACES, VIEW_BOUNDS, load_day, transfer_route)
 from map import clock_fit as C
 from map import depth as DEPTH
@@ -122,14 +123,28 @@ def mask_land(land):
     return out
 
 
-def chart_layers(land):
-    """The coastline, one file per zoom band.
+def shoal_layers(land):
+    """The drawn shoal halo — the same two buffers the printed sheet uses.
 
-    The shoal halo that used to accompany it is gone: it was two buffers around
-    the land, coloured to suggest shallows and knowing nothing about the seabed,
-    and depth.png now says the same thing from measurement. Keeping a drawn
-    shallows band beside a measured one was only ever a way to compare them.
+    Two rings around the land, coloured to *suggest* shallows and knowing nothing
+    about the seabed. It left the map once, when measured depths replaced it, and is
+    back for one reason: unticking Depth should show the chart the poster shows,
+    rather than bare water. Having both a metre away from each other is also the
+    only way to see what the measurement changed.
+
+    Simplified at the medium band's tolerance. It is decorative, so it does not earn
+    the fine band's vertices.
     """
+    band = BANDS[1]
+    feats = []
+    for order, (buf, colour) in enumerate(((0.0060, "#CDE3EE"), (0.0026, "#B2D3E6"))):
+        rings = _rings(shoal(land, buf), band["tol"], band["min_area_m2"])
+        feats.append(_poly(rings, dict(kind="shoal", colour=colour, order=order)))
+    return {"shoals.geojson": _fc(feats)}
+
+
+def chart_layers(land):
+    """The coastline, one file per zoom band."""
     files = {}
     for band in BANDS:
         rings = _rings(land, band["tol"], band["min_area_m2"])
@@ -281,6 +296,7 @@ def export(dest, placed):
     # use, and both were tried. Nested: each band's polygon is everything shallower
     # than its upper edge, so the browser draws them deepest first and the
     # shallowest ends up on top.
+    files.update(shoal_layers(land))
     bands = DEPTH.band_polygons(grid, mask_land(land))
     files["depth.geojson"] = _fc([
         dict(type="Feature", properties=dict(hi=hi),

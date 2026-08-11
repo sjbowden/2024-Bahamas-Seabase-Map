@@ -155,7 +155,25 @@ function addDepth(meta) {
   }
 }
 
+function addShoals() {
+  // The drawn halo the printed sheet has always used: two buffers around the land,
+  // coloured to suggest shallows and knowing nothing about the seabed. Hidden while
+  // the measured depths are on, and shown in their place when Depth is unticked —
+  // bare water was the wrong thing to fall back to, and seeing the two swap is the
+  // only way to judge what the measurement changed.
+  map.addSource('shoals', { type: 'geojson', data: 'data/shoals.geojson' });
+  for (const order of [0, 1]) {          // outer ring first, inner over it
+    map.addLayer({
+      id: `shoal-${order}`, type: 'fill', source: 'shoals',
+      filter: ['==', ['get', 'order'], order],
+      layout: { visibility: 'none' },
+      paint: { 'fill-color': ['get', 'colour'], 'fill-antialias': true },
+    });
+  }
+}
+
 function addChart(meta) {
+  addShoals();
   addDepth(meta);
   for (const b of BANDS) {
     map.addSource(`coast-${b.name}`, { type: 'geojson', data: `data/coast.${b.name}.geojson` });
@@ -323,6 +341,7 @@ function wirePanel() {
       if (key === 'depth') {
         for (const b of ((state.meta && state.meta.depth_bands) || []))
           if (b.hi != null) setVisible(`depth-${b.hi}`, cb.checked);
+        for (const o of [0, 1]) setVisible(`shoal-${o}`, !cb.checked);
       } else if (key === 'places') {
         state.refreshPlaces && state.refreshPlaces();
       } else if (key === 'photos') {
