@@ -249,7 +249,7 @@ def depth_bands(land):
 def draw_chart(ax, extent, land, days, tracks, *, detail=True, lw_scale=1.0,
                show_airport=False, spread=False, depth=None,
                skip_labels=(), label_nudge=None, vessel=None,
-               airport_text=None):
+               airport_text=None, airport_nudge=(0.0, 0.0)):
     w, e, s, n = extent
     ax.set_xlim(w, e)
     ax.set_ylim(s, n)
@@ -309,7 +309,7 @@ def draw_chart(ax, extent, land, days, tracks, *, detail=True, lw_scale=1.0,
             draw_airport(ax, lw_scale, label=False)
         return
 
-    draw_airport(ax, lw_scale, text=airport_text)
+    draw_airport(ax, lw_scale, text=airport_text, nudge=airport_nudge)
 
     # Labels a caller may drop or shift. The two artefacts frame the same water at
     # different shapes and scales, so a name that sits clear on the sheet can land
@@ -455,12 +455,14 @@ def draw_vessel(ax, lon, lat, width_deg, alpha=1.0, zorder=4):
               aspect="auto", zorder=zorder, alpha=alpha, interpolation="bilinear")
 
 
-def draw_airport(ax, lw_scale=1.0, label=True, text=None):
+def draw_airport(ax, lw_scale=1.0, label=True, text=None, nudge=(0.0, 0.0)):
     lon, lat, code, name = AIRPORT
     ax.plot([lon], [lat], marker=PLANE, ms=15 * lw_scale, mfc=C_INK,
             mec=C_PAPER, mew=0.9 * lw_scale, zorder=10, clip_on=True,
             linestyle="none")
     text = text or (f"{code}  {name}" if label else code)
+    # The marker stays on the runway; only the name may move.
+    lon, lat = lon + nudge[0], lat + nudge[1]
     ax.text(lon, lat - 0.0075 * lw_scale, text, fontproperties=SANS,
             fontsize=8.5 * lw_scale, color=C_INK, ha="center", va="top",
             zorder=10, clip_on=True,      # text is unclipped by default and
@@ -715,7 +717,8 @@ def draw_fleur(ax, cx, cy, height, color, lw_scale=1.0, zorder=13):
 
 
 def compass_rose(ax, lon, lat, R, lw_scale=1.0, *, magnetic=True,
-                 numerals=True, ring=1.00, eyelets=True):
+                 numerals=True, ring=1.00, eyelets=True, letter_r=1.26,
+                 fleur_r=1.68):
     """An engraved chart rose.
 
     Star, rhumb fan and cardinal spears follow the hand-drawn roses of period
@@ -809,13 +812,13 @@ def compass_rose(ax, lon, lat, R, lw_scale=1.0, *, magnetic=True,
 
     for b, ch in ((0, "N"), (90, "E"), (180, "S"), (270, "W")):
         al, _ = axes_for(b)
-        x, y = XY(*(al * 1.26))
+        x, y = XY(*(al * letter_r))
         ax.text(x, y, ch, fontproperties=SERIF_I, fontsize=12 * lw_scale,
                 color=C_ROSE, ha="center", va="center", zorder=13,
                 path_effects=_halo(3.0 * lw_scale))
 
     # fleur-de-lis riding above the north spear
-    draw_fleur(ax, lon, lat + R * 1.68, R * 0.42, C_ROSE, lw_scale, zorder=13)
+    draw_fleur(ax, lon, lat + R * fleur_r, R * 0.42, C_ROSE, lw_scale, zorder=13)
 
 
 def text_width(fig, txt, fp, size):
@@ -1130,11 +1133,12 @@ def photobook(dpi, out_png, depth=False, title=True):
                # cays' own serif, because it is a cay on this page and not only
                # somewhere the boat lay. Its anchorage ring stays regardless.
                skip_labels=("Lubbers\nQuarters", "Lynyard Cay"),
-               label_nudge={"S E A   O F   A B A C O": (-0.0300, -0.0380),
-                            "Great Guana Cay": (0.0180, 0.0),
-                            "Man-O-War Cay": (-0.0225, 0.0204),
-                            "Elbow Cay": (-0.0165, 0.0),
+               label_nudge={"S E A   O F   A B A C O": (-0.0300, -0.0245),
+                            "Great Guana Cay": (0.0265, 0.0),
+                            "Man-O-War Cay": (-0.0140, 0.0204),
+                            "Elbow Cay": (-0.0095, 0.0),
                             "Tilloo Cay": (0.0035, 0.0)},
+               airport_nudge=(-0.0115, 0.0),
                # The full name, over two lines, since a photobook page is read
                # closer than a wall.
                airport_text="Leonard M. Thompson\nInternational Airport (MHH)",
@@ -1156,16 +1160,23 @@ def photobook(dpi, out_png, depth=False, title=True):
     # magnetic ring and both sets of numerals come off — at this size they read as a
     # grey smudge rather than as information — and the true ring draws tighter.
     compass_rose(ax, -76.8850, 26.3700, 0.0235,
-                 magnetic=False, numerals=False, ring=0.72, eyelets=False)
+                 magnetic=False, numerals=False, ring=0.72, eyelets=False,
+                 # The cardinals break out to 1.055 and the letters sat at 1.26,
+                 # close enough that S touched the south spear once the ring was
+                 # drawn tighter and stopped separating them.
+                 # Pushing the letters out to clear the spears walked N into the
+                 # fleur, which sits at 1.68 and is 0.42 tall, so the fleur goes up
+                 # with them. One overlap traded for another otherwise.
+                 letter_r=1.40, fleur_r=1.98)
     # Over Great Abaco rather than out in the water: ink on the land tone reads
     # better than ink on pale blue, and that corner of the island is empty.
-    scale_bar(ax, extent, y_frac=0.115, x_frac=0.185, nm_len=5, lw_scale=0.80,
+    scale_bar(ax, extent, y_frac=0.072, x_frac=0.185, nm_len=5, lw_scale=0.80,
               caption_top=True)
     chart_neatline(ax, extent, fig, lw_scale=0.80, label_every=5,
                    corner_clip=True)
 
     # Lynyard Cay, in the same serif as Tilloo and Elbow, north of its anchorage.
-    ax.text(-76.9700, 26.3720, "Lynyard Cay", fontproperties=SERIF,
+    ax.text(-76.9775, 26.3720, "Lynyard Cay", fontproperties=SERIF,
             fontsize=9.5 * 0.80, color=C_INK, ha="left", va="center", zorder=9,
             path_effects=_halo(3.0 * 0.80))
 
