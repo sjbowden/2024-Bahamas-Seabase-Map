@@ -215,6 +215,13 @@ html, body {
 /* The cays the sheet leaves unnamed: same voice as the isles it does name, a shade
    smaller, because they arrive later and there are more of them. */
 .place-cay { font-size: .74rem; font-style: italic; color: var(--ink-soft); }
+/* Settlements, points and bays — not islands, so upright rather than italic, which
+   is the usual way a chart separates a place from a piece of land. */
+.place-spot {
+  font-family: var(--sans);
+  font-size: .66rem; letter-spacing: .06em; color: var(--ink-soft);
+}
+
 /* A region, in the poster's voice for water legends — which the map otherwise hides,
    since those are spaced for one printed frame. */
 .place-region {

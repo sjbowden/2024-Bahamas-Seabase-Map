@@ -29,7 +29,8 @@ from shapely.geometry import shape
 
 from abaco_geo import COASTLINE_MAP, land_polygons
 from trip import (AIRPORT, ANCHORAGES, DAYS, EXTENT, HOTEL, MAP_CAYS,
-                  MAP_LAND_BBOX, MAP_REGIONS, shoal,
+                  MAP_LAND_BBOX, MAP_REGIONS,
+                  MAP_SPOTS, shoal,
                   MARINA, PLACES, VIEW_BOUNDS, load_day, transfer_route)
 from map import clock_fit as C
 from map import depth as DEPTH
@@ -215,6 +216,12 @@ def places_layer():
     for lon, lat, text, minzoom in MAP_CAYS:
         feats.append(dict(type="Feature",
                           properties=dict(label=text, kind="cay", minzoom=minzoom),
+                          geometry=dict(type="Point",
+                                        coordinates=[round(lon, PRECISION),
+                                                     round(lat, PRECISION)])))
+    for lon, lat, text, minzoom in MAP_SPOTS:
+        feats.append(dict(type="Feature",
+                          properties=dict(label=text, kind="spot", minzoom=minzoom),
                           geometry=dict(type="Point",
                                         coordinates=[round(lon, PRECISION),
                                                      round(lat, PRECISION)])))
