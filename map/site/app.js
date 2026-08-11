@@ -270,7 +270,12 @@ async function addTracks(meta) {
 
 function applyDays() {
   const keep = [...state.days];
-  const f = keep.length ? ['in', ['get', 'day'], ['literal', keep]] : ['==', ['get', 'day'], ' '];
+  // No days ticked means show nothing. Say that with a filter that cannot
+  // match, rather than comparing day against a sentinel: the sentinel here
+  // used to be a literal NUL byte, which made this file read as binary --
+  // grep over the whole site silently returned nothing, for every pattern.
+  const f = keep.length ? ['in', ['get', 'day'], ['literal', keep]]
+                        : ['==', ['literal', 0], ['literal', 1]];
   map.setFilter('track-casing', f);
   map.setFilter('track-afloat', ['all', f, ['==', ['get', 'mode'], 'afloat']]);
   map.setFilter('track-ashore', ['all', f, ['!=', ['get', 'mode'], 'afloat']]);
