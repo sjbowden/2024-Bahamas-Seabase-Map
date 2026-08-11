@@ -19,6 +19,7 @@ shipping positions nobody can otherwise check.
 import collections
 import json
 import os
+import re
 import sys
 from datetime import datetime, timedelta
 
@@ -275,7 +276,9 @@ def test_placement(photos, spans):
     placed = P.place(photos, per_photo, cameras)
     check("one record per photograph", len(placed) == len(photos))
     tiers = collections.Counter(r["tier"] for r in placed)
-    known = {"gps", "calibrated", "inferred", "travel", "unplaced"}
+    # "screenshot" joined the ladder when 28 phone screenshots stopped being
+    # counted as photographs the build had failed to place.
+    known = {"gps", "calibrated", "inferred", "travel", "unplaced", "screenshot"}
     check("no tier outside the design's ladder", set(tiers) <= known,
           str(set(tiers) - known))
     check("the tiers partition the set", sum(tiers.values()) == len(placed))
@@ -408,6 +411,69 @@ def test_export(placed):
           f"{len(places['features'])} places")
 
 
+def test_gaps(photos, placed):
+    """The three things that rescued 97 photographs, and the one that must not."""
+    section("what the gaps gave back")
+    byid = {p["id"]: p for p in photos}
+    moored = [r for r in placed
+              if (r.get("note") or "").startswith(("placed from the satellite",
+                                                   "placed at "))]
+    check("the second receiver places the evenings the handheld missed",
+          len(moored) > 50, f"{len(moored)} placed across a gap")
+
+    # Every one of them must be bounded by the rule that justified it: the fixes
+    # either side are close enough that the gap's length does not matter.
+    fixes = P.both_receivers()
+    ts = [f[0] for f in fixes]
+    loose, silent = [], []
+    for r in moored:
+        got = P.moored_at(fixes, ts, C._utc(r["utc"]))
+        if got is None:
+            silent.append(r["id"])
+            continue
+        if got[2] > P.MOORED_M:
+            loose.append((r["id"], round(got[2])))
+    check("each was moored, by the rule that allowed it", not loose and not silent,
+          f"{len(loose)} over {P.MOORED_M:.0f} m, {len(silent)} no longer bracketed")
+    worst = max((r["uncertainty_m"] for r in moored), default=0)
+    check("none claims to be tighter than the gap allows",
+          worst <= P.MOORED_M + P.INREACH_M,
+          f"worst {worst} m, ceiling {P.MOORED_M + P.INREACH_M:.0f} m")
+    # Friday's are at the hotel, before the crew had a boat. Saying "the boat
+    # moved" about those was wrong once and should not come back.
+    boats = [r["id"] for r in moored if "the boat" in r["note"]]
+    check("none of them talks about a boat", not boats, f"{len(boats)} do")
+
+    # A screenshot is the shape of a screen. Ten PNGs in this archive are 2250 px
+    # on the short edge -- photographs somebody saved as PNG -- and calling those
+    # screenshots would silently take real pictures off the chart.
+    shots = [r for r in placed if r["tier"] == "screenshot"]
+    wrong = [r["id"] for r in shots
+             if byid[r["id"]]["ext"] != ".png"
+             or min(byid[r["id"]]["px"]) > P.SCREEN_PX]
+    check("every screenshot is a PNG the size of a screen", not wrong, str(wrong[:4]))
+    big_png = [p for p in photos
+               if p["ext"] == ".png" and p.get("px") and min(p["px"]) > P.SCREEN_PX]
+    tiers = {r["id"]: r["tier"] for r in placed}
+    check("a photograph saved as PNG is not called a screenshot",
+          all(tiers[p["id"]] != "screenshot" for p in big_png),
+          f"{len(big_png)} such photographs")
+    check("no screenshot is given a position",
+          not [r for r in shots if r.get("lat") is not None])
+
+    # WhatsApp kept the date and dropped the time, so it may name a day and must
+    # never place anything.
+    wa = [r for r in placed if P.WHATSAPP.match(r["name"])]
+    check("the WhatsApp files are all found", len(wa) > 30, f"{len(wa)}")
+    check("each gets its day from the filename", all(r.get("day") for r in wa),
+          f"{sum(1 for r in wa if not r.get('day'))} without a day")
+    check("each says the day is a guess",
+          all(r.get("day_provisional") for r in wa))
+    check("none of them is given a position",
+          not [r for r in wa if r.get("lat") is not None],
+          "a date is not a time, and the boat moved during the day")
+
+
 def test_nothing_published_carries_metadata(placed):
     section("what reaches the public folder")
     pj = E.photos_json(placed)
@@ -538,6 +604,23 @@ def test_site_build():
         gone = os.path.join(out, "data", f"shoals.{band['name']}.geojson")
         check(f"the drawn shoal halo is gone ({band['name']})",
               not os.path.exists(gone), "depth.png says it from measurement now")
+    # Every tier the build emits has to be somewhere a viewer can reach. A tier
+    # that is neither on the chart nor in the tray's loop is counted in the tray's
+    # total and then never drawn -- which is what happened when screenshots were
+    # added, and no test noticed because nothing here read app.js's own lists.
+    pj = json.load(open(os.path.join(out, "data", "photos.json")))
+    emitted = {r["tier"] for r in pj}
+    on_chart = set(re.findall(r"'([a-z]+)'",
+                              re.search(r"ON_CHART\s*=\s*\[([^\]]*)\]", app).group(1)))
+    in_tray = set(re.findall(r"'([a-z]+)'",
+                             re.search(r"for \(const tier of \[([^\]]*)\]", app).group(1)))
+    check("app.js draws every tier the build emits somewhere",
+          emitted <= on_chart | in_tray,
+          f"unreachable: {sorted(emitted - on_chart - in_tray)}")
+    check("and the tray explains each tier it lists",
+          all(f"{t}:" in app for t in in_tray & emitted),
+          f"no note for {[t for t in in_tray & emitted if f'{t}:' not in app]}")
+
     html = open(os.path.join(out, "index.html")).read()
     check("the page tells robots to stay away", "noindex" in html)
     check("and so does the header file",
@@ -564,6 +647,7 @@ def main():
         test_uncertainty()
         placed = test_placement(photos, spans)
         test_export(placed)
+        test_gaps(photos, placed)
         test_nothing_published_carries_metadata(placed)
     test_site_build()
 

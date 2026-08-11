@@ -108,10 +108,15 @@ def _dms(v, ref):
 def read_tags(data):
     """The fields we care about, or {'error': ...}. Never raises."""
     try:
-        ex = Image.open(io.BytesIO(data)).getexif()
+        im = Image.open(io.BytesIO(data))
+        ex = im.getexif()
     except Exception as e:                      # noqa: BLE001 - any decoder fault
         return {"error": f"{type(e).__name__}: {e}"[:80]}
     out = {}
+    # How many pixels, which is how a screenshot gives itself away: it is the
+    # shape of a screen, not of a sensor. Recorded here because this is the only
+    # stage that opens the file, and a screenshot carries no EXIF to ask.
+    out["px"] = list(im.size)
     if not ex:
         return out
     out["make"] = _clean(ex.get(_MAKE))
@@ -240,6 +245,7 @@ def _merge(name, cam, group, stats, suffix=False):
                  size=src["size"], crc=src["crc"]),
         copies=[dict(archive=c["archive"], size=c["size"], crc=c["crc"])
                 for c in group],
+        px=src["tags"].get("px"),
         time_local=src["tags"].get("time_local"),
         tz_offset=src["tags"].get("tz_offset"),
         subsec=src["tags"].get("subsec"),
