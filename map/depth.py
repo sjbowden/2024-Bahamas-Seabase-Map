@@ -348,13 +348,20 @@ FLAT_DEPTH_M = 1.0
 # smallest piece of a band worth drawing. 10 cells is about 1.2 km, and 60,000 m2
 # is four coarse cells.
 #
-# 1.2 km was chosen by looking at the Atlantic shore of Elbow Cay, where the bottom
-# shelves steadily and the bands should read as roughly parallel to the beach. At
-# 730 m they were still visibly lumpy; at 1.7 km they are smoother still but the
-# bank west of the cays flattens into one tone and real structure goes with it. The
-# per-day figures are unaffected either way — those come from the 61 m grid, not
-# from this.
-COARSE_SMOOTH = 10
+# About 2 km, which is where smoothing stops being free. Rendered against the
+# poster's drawn shoal halo at four settings, the band areas hold at roughly 1.0x
+# the grid's own figures up to here and then start losing shallow water: 0.91x of
+# the under-2 m band at 2.9 km and 0.85x at 3.9 km. Under-reporting shallows is the
+# wrong direction for a chart about them, so this is the last setting that is only
+# a cosmetic change.
+#
+# It will not reach the cleanliness of the halo it replaced, and no smoothing
+# setting can. That halo left the water near-white with a thin rim, and 37.6% of
+# the water inside the poster's frame is under four metres — it looked clean partly
+# by being wrong. What remains between the two is tone, not geometry.
+#
+# The per-day figures are unaffected by any of this — they come from the 61 m grid.
+COARSE_SMOOTH = 16
 MIN_PART_M2 = 60000.0
 # Depths are clipped to this before they are averaged. Nothing below the deepest
 # band edge changes which band a cell is in, and without the clip the averaging
@@ -374,9 +381,9 @@ BAND_CLAMP_M = 22.0
 # The exemption matters more than the vote: a majority filter erodes thin ribbons,
 # and the bands *are* thin ribbons along the shore. Eroding those is how the chart
 # ended up with a strip of bare background against every beach once before.
-MASK_MAJORITY = 5
+MASK_MAJORITY = 7
 MASK_SHORE_EXEMPT = 2
-CHAIKIN_PASSES = 3
+CHAIKIN_PASSES = 4
 GRIP_M = 60.0
 # How much of the smoothed outline to keep. This is what governs how smooth the
 # bands actually look, more than the number of corner-cutting passes: at 45 m the
