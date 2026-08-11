@@ -10,6 +10,14 @@ out/IMG_0496.JPG
 # working renders (compare_offset.png is kept — it documents the offset)
 out/proof.png
 out/proof_true.png
+out/proof_depth.png
+
+# The depth-band edition of the sheet, 3.7 MB of PNG and 13.8 MB of PDF. Kept out
+# because re-committing rendered output is what took this history to 510 MB once
+# already, and the drawn-halo edition above is already carrying a tracked pair.
+# Delete these two lines if the depth edition should be the one in the repo.
+out/abaco_poster_depth_18x24_300dpi.png
+out/abaco_poster_depth_18x24.pdf
 out/proof_offset.png
 
 # derived caches — regenerated from the committed geo/*.json, and pickles are

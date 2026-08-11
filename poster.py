@@ -222,8 +222,32 @@ def _trim_loops(run, window=80, tol=None, active=None):
     return [tuple(v) for v in out]
 
 
+def depth_bands(land):
+    """Measured depth bands for the sheet, from GMRT, as (colour, geometry).
+
+    The shoal halo this replaces was cartography: two buffers around the land,
+    coloured to *suggest* shallows and knowing nothing about the seabed. The map's
+    depth layer says the same thing from measurement, and the poster's own water
+    colours are the top of that ramp — the two darker steps were added below them —
+    so it drops onto the sheet without a new colour idea.
+
+    Masked with the poster's *own* coastline, at full resolution, rather than the
+    map's simplified one: the bands then stop exactly where this sheet draws the
+    shore, and the land is filled over them afterwards, so any overrun is covered.
+    """
+    from map import depth as D
+
+    grid = D.merged()
+    bands = D.band_polygons(grid, land)
+    # Deepest first. Each band is everything shallower than its upper edge, so they
+    # nest, and in the order they arrive — shallowest first — every band buries the
+    # one before it and the whole sheet comes out the colour of the deepest.
+    return [(colour, geom)
+            for hi, colour, _, geom in sorted(bands, key=lambda b: -b[0])]
+
+
 def draw_chart(ax, extent, land, days, tracks, *, detail=True, lw_scale=1.0,
-               show_airport=False, spread=False):
+               show_airport=False, spread=False, depth=None):
     w, e, s, n = extent
     ax.set_xlim(w, e)
     ax.set_ylim(s, n)
@@ -235,9 +259,14 @@ def draw_chart(ax, extent, land, days, tracks, *, detail=True, lw_scale=1.0,
     ax.set_xticks([])
     ax.set_yticks([])
 
-    # shoal halo around the land, then land itself
-    for buf, col in ((0.0060, C_SHOAL_1), (0.0026, C_SHOAL_2)):
-        _fill(ax, shoal(land, buf), col, None, 0)
+    # measured depths if they were passed in, otherwise the drawn shoal halo;
+    # then the land itself over the top of either
+    if depth:
+        for colour, geom in depth:          # deepest first, shallowest on top
+            _fill(ax, geom, colour, None, 0)
+    else:
+        for buf, col in ((0.0060, C_SHOAL_1), (0.0026, C_SHOAL_2)):
+            _fill(ax, shoal(land, buf), col, None, 0)
     _fill(ax, land, C_LAND, C_LAND_EDGE, 0.5 * lw_scale)
 
     if detail:                       # the vessel belongs on the hero chart only
@@ -760,7 +789,7 @@ def fit_fontsize(fig, txt, fp, size, avail, floor=8.5, step=0.25, pad=0.006):
     return size
 
 
-def build(dpi, out_png, out_pdf=None, spread=True):
+def build(dpi, out_png, out_pdf=None, spread=True, depth=False):
     tracks = {d["file"]: load_day(d["file"], walk_split=d.get("walk_split"),
                                   road_split=d.get("road_split"))
               for d in DAYS}
@@ -773,6 +802,9 @@ def build(dpi, out_png, out_pdf=None, spread=True):
 
     extent = EXTENT
     land = land_polygons(LAND_BBOX)
+    # Worked out once and handed to both charts on the sheet; it takes about half a
+    # minute and neither of them should pay for it twice.
+    bands = depth_bands(land) if depth else None
 
     fig = plt.figure(figsize=(18, 24), dpi=dpi)
     fig.patch.set_facecolor(C_PAPER)
@@ -791,7 +823,8 @@ def build(dpi, out_png, out_pdf=None, spread=True):
 
     # ---- hero map
     ax = fig.add_axes([0.065, 0.225, 0.545, 0.685])
-    draw_chart(ax, extent, land, DAYS, tracks, lw_scale=1.0, spread=spread)
+    draw_chart(ax, extent, land, DAYS, tracks, lw_scale=1.0, spread=spread,
+               depth=bands)
     draw_badges(ax, DAYS, badge_positions(DAYS, tracks))
     compass_rose(ax, -76.9450, 26.3520, 0.0160)
     scale_bar(ax, extent)
@@ -918,6 +951,7 @@ def build(dpi, out_png, out_pdf=None, spread=True):
         shown = [d] + [dict(o, ashore=True)
                        for o in DAYS if d.get("ashore") and o.get("walk_split")]
         draw_chart(axd, sub, land, shown, tracks, detail=False, lw_scale=0.62,
+                   depth=bands,
                    show_airport=bool(d.get("transfer") or d.get("airport")))
         # the arrival panel doubles as the Marsh Harbour detail inset; the
         # departure panel needs the marina too, since that's where it starts
@@ -957,9 +991,15 @@ def build(dpi, out_png, out_pdf=None, spread=True):
 
     # This hangs on a wall, so the footer is a credit line, not a methods
     # section — the data caveats all live in the README instead.
-    fig.text(0.5, 0.016,
-             "Recorded on a handheld GPS receiver  ·  Dotted lines are ashore"
-             "  ·  Coastline © OpenStreetMap contributors",
+    # The depth sheet says where its water came from. It is a measurement now, and
+    # an unattributed one on a wall is worse than a drawn halo that claims nothing.
+    credit = ("Recorded on a handheld GPS receiver  ·  Dotted lines are ashore"
+              "  ·  Coastline © OpenStreetMap contributors")
+    if depth:
+        credit = ("Recorded on a handheld GPS receiver  ·  Dotted lines are ashore"
+                  "  ·  Coastline © OpenStreetMap contributors"
+                  "  ·  Depths GMRT — not for navigation")
+    fig.text(0.5, 0.016, credit,
              fontproperties=SANS, fontsize=9, color=C_INK_SOFT, ha="center", va="bottom")
 
     fig.savefig(out_png, dpi=dpi, facecolor=C_PAPER)
@@ -1010,12 +1050,17 @@ if __name__ == "__main__":
     ap.add_argument("--final", action="store_true", help="300 dpi PNG + PDF")
     ap.add_argument("--compare", action="store_true",
                     help="proofs with and without the lateral offset")
+    ap.add_argument("--depth", action="store_true",
+                    help="measured GMRT depth bands instead of the drawn shoal halo")
     a = ap.parse_args()
     os.makedirs(os.path.join(HERE, "out"), exist_ok=True)
+    suffix = "_depth" if a.depth else ""
     if a.compare:
         compare()
     elif a.final:
-        build(300, os.path.join(HERE, "out", "abaco_poster_18x24_300dpi.png"),
-              os.path.join(HERE, "out", "abaco_poster_18x24.pdf"))
+        build(300, os.path.join(HERE, "out",
+                                f"abaco_poster{suffix}_18x24_300dpi.png"),
+              os.path.join(HERE, "out", f"abaco_poster{suffix}_18x24.pdf"),
+              depth=a.depth)
     else:
-        build(100, os.path.join(HERE, "out", "proof.png"))
+        build(100, os.path.join(HERE, "out", f"proof{suffix}.png"), depth=a.depth)
