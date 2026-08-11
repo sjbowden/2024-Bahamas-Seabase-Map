@@ -352,8 +352,17 @@ FLAT_DEPTH_M = 1.0
 # gigabyte to resolve creeks narrower than the boats that used them.
 SUBCELL = 2
 # Coarse cells per side to average the depths over before banding them, and the
-# smallest piece of a band worth drawing. 10 cells is about 1.2 km, and 60,000 m2
-# is four coarse cells.
+# The smallest piece of a band worth drawing: 60,000 m2, four coarse cells.
+#
+# The depths used to be averaged over about 2 km before banding, to straighten the
+# contours on the open slope. That is gone. Turning each stage off in turn showed it
+# was the averaging, and only the averaging, that painted **18.5% of the under-2 m
+# water in a paler band** — against 4.5% without it — because that band is largely a
+# thin fringe along the shores and averaging pushes a fringe out of its own class.
+# Making it fall away near land helped (13.0%) but not enough. A wider neighbourhood
+# vote on the masks turns out to produce the same clean contours for 7.9%, since it
+# moves boundaries rather than depths. The clamp that stopped the averaging dragging
+# the 400 m abyss into twelve-metre water went with it: nothing averages any more.
 #
 # About 2 km, which is where smoothing stops being free. Rendered against the
 # poster's drawn shoal halo at four settings, the band areas hold at roughly 1.0x
@@ -368,14 +377,7 @@ SUBCELL = 2
 # by being wrong. What remains between the two is tone, not geometry.
 #
 # The per-day figures are unaffected by any of this — they come from the 61 m grid.
-COARSE_SMOOTH = 16
 MIN_PART_M2 = 60000.0
-# Depths are clipped to this before they are averaged. Nothing below the deepest
-# band edge changes which band a cell is in, and without the clip the averaging
-# reached across the shelf edge and mixed the grid's 400 m values into water of
-# twelve to sixteen metres — which pushed 120 km2 of it out of the "under 20 m"
-# band altogether, so the page background showed through as the deepest colour.
-BAND_CLAMP_M = 22.0
 # Coarse cells per side for the majority vote that cleans up each band's mask, and
 # how close to land a cell must be to be exempt from it.
 #
@@ -388,7 +390,7 @@ BAND_CLAMP_M = 22.0
 # The exemption matters more than the vote: a majority filter erodes thin ribbons,
 # and the bands *are* thin ribbons along the shore. Eroding those is how the chart
 # ended up with a strip of bare background against every beach once before.
-MASK_MAJORITY = 7
+MASK_MAJORITY = 13
 MASK_SHORE_EXEMPT = 2
 CHAIKIN_PASSES = 4
 GRIP_M = 60.0
@@ -761,26 +763,13 @@ def band_polygons(grid, land):
     # shore now reach a little way over it, which nobody sees: the land is drawn on
     # top, and erring that way is what keeps the bands against the beach.
     cwet = (n > 0) | narrow
-    # Average the coarse depths a little before sorting them into bands. Where the
-    # bottom shelves steadily — the Atlantic side of the cays — the contours really
-    # are close to parallel with the shore, and without this each band's edge
-    # wobbled by a cell or so on its own, so corner cutting rounded the wobble off
-    # rather than removing it and the bands came out lumpy instead of running
-    # together.
-    #
-    # This is the operation that failed at 61 m per-pixel, where it dithered the
-    # bank into a mosaic. It is safe here because it runs on 244 m blocks and
-    # _despeckle drops anything smaller than one of them, so a fraying edge cannot
-    # survive as confetti.
-    if COARSE_SMOOTH > 1:
-        clamped = np.minimum(coarse, BAND_CLAMP_M)
-        num = _box_mean(np.where(cwet, clamped, 0.0).astype(np.float32), COARSE_SMOOTH)
-        den = _box_mean(cwet.astype(np.float32), COARSE_SMOOTH)
-        coarse = np.where(cwet, num / np.maximum(den, 1e-6), coarse)
-
-    # Blocks close to the shore keep their own value through the vote below.
-    cshore = _cells_from(~cwet, MASK_SHORE_EXEMPT)
-    near_shore = cwet & np.isfinite(cshore)
+    # Blocks close to the shore keep their own mask through the vote below, measured
+    # from the *land* rather than from "blocks that are not water": once the
+    # coastline started filling the creeks almost every block in the marsh became
+    # water, and an exemption measured that way would collapse with it.
+    ashore = fine[:nr2, :nc2].reshape(nr2 // step, step,
+                                      nc2 // step, step).any((1, 3))
+    near_shore = cwet & np.isfinite(_cells_from(ashore, MASK_SHORE_EXEMPT))
 
     cell = grid.cell * k
     top = y0 + grid.nrows * grid.cell
