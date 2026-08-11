@@ -502,7 +502,8 @@ def _dm(value, pos, neg):
     return f"{d}°{m:02d}′{hemi}"
 
 
-def chart_neatline(ax, extent, fig, lw_scale=1.0, label_every=5):
+def chart_neatline(ax, extent, fig, lw_scale=1.0, label_every=5,
+                   corner_clip=False):
     """The graduated border of a paper chart: a band ticked off in whole
     minutes of arc, alternating light and dark, labelled every 5'."""
     w, e, s, n = extent
@@ -520,9 +521,11 @@ def chart_neatline(ax, extent, fig, lw_scale=1.0, label_every=5):
     ax.add_patch(PathPatch(Path(outer + inner, codes), facecolor=C_PAPER,
                            edgecolor="none", zorder=14))
 
-    def bands(lo, hi, horizontal):
+    def bands(lo, hi, horizontal, clip=None):
         for m in range(math.floor(lo * 60), math.ceil(hi * 60)):
             a, b = max(m / 60.0, lo), min((m + 1) / 60.0, hi)
+            if clip is not None:
+                a, b = max(a, clip[0]), min(b, clip[1])
             if b <= a or m % 2:
                 continue
             if horizontal:
@@ -536,8 +539,17 @@ def chart_neatline(ax, extent, fig, lw_scale=1.0, label_every=5):
                                                facecolor=C_INK, edgecolor="none",
                                                zorder=15))
 
-    bands(w, e, True)
-    bands(s, n, False)
+    # The top and bottom bands are graduated in longitude and the sides in latitude,
+    # and drawn corner to corner they overlap in the corners — where a dark cell of
+    # one runs into a light cell of the other, so the top edge's rhythm appeared to
+    # break. Clipping each edge to the span between the other two keeps every edge
+    # graduated in its own units, and leaves the four corners as plain squares.
+    if corner_clip:
+        bands(w, e, True, clip=(w + tx, e - tx))
+        bands(s, n, False, clip=(s + ty, n - ty))
+    else:
+        bands(w, e, True)
+        bands(s, n, False)
 
     for rect in ((w, s, e - w, n - s), (w + tx, s + ty, e - w - 2 * tx, n - s - 2 * ty)):
         ax.add_patch(plt.Rectangle(rect[:2], rect[2], rect[3], fill=False,
@@ -560,7 +572,14 @@ def chart_neatline(ax, extent, fig, lw_scale=1.0, label_every=5):
                 rotation=90, zorder=16, clip_on=False)
 
 
-def scale_bar(ax, extent, y_frac=0.045, x_frac=0.06, nm_len=5, lw_scale=1.0):
+def scale_bar(ax, extent, y_frac=0.045, x_frac=0.06, nm_len=5, lw_scale=1.0,
+              caption_top=False):
+    """A graduated scale bar.
+
+    `caption_top` follows the usual convention for a map legend — the units named
+    above the bar and the numbers beneath its ends — rather than the sheet's, which
+    hangs "0" and "5 nautical miles" together under the two ends.
+    """
     w, e, s, n = extent
     dlon = nm_len * NM / (111320.0 * math.cos(math.radians(LAT0)))
     x0 = w + (e - w) * x_frac
@@ -570,11 +589,20 @@ def scale_bar(ax, extent, y_frac=0.045, x_frac=0.06, nm_len=5, lw_scale=1.0):
         ax.add_patch(plt.Rectangle((x0 + i * dlon / nm_len, y0), dlon / nm_len, h,
                                    facecolor=C_INK if i % 2 == 0 else C_PAPER,
                                    edgecolor=C_INK, lw=0.8 * lw_scale, zorder=10))
-    ax.text(x0, y0 - h * 2.2, "0", fontproperties=SANS, fontsize=8 * lw_scale,
-            ha="center", va="top", color=C_INK, zorder=10)
-    ax.text(x0 + dlon, y0 - h * 2.2, f"{nm_len} nautical miles",
-            fontproperties=SANS, fontsize=8 * lw_scale, ha="center", va="top",
-            color=C_INK, zorder=10)
+    if caption_top:
+        ax.text(x0 + dlon / 2, y0 + h * 2.4, "nautical miles", fontproperties=SANS,
+                fontsize=8 * lw_scale, ha="center", va="bottom", color=C_INK,
+                zorder=10)
+        for i in (0, nm_len):
+            ax.text(x0 + i * dlon / nm_len, y0 - h * 1.2, f"{i:d}",
+                    fontproperties=SANS, fontsize=8 * lw_scale, ha="center",
+                    va="top", color=C_INK, zorder=10)
+    else:
+        ax.text(x0, y0 - h * 2.2, "0", fontproperties=SANS, fontsize=8 * lw_scale,
+                ha="center", va="top", color=C_INK, zorder=10)
+        ax.text(x0 + dlon, y0 - h * 2.2, f"{nm_len} nautical miles",
+                fontproperties=SANS, fontsize=8 * lw_scale, ha="center", va="top",
+                color=C_INK, zorder=10)
 
 
 # magnetic variation at 26°30'N 77°03'W for March 2024, from the WMM 2020
@@ -687,7 +715,7 @@ def draw_fleur(ax, cx, cy, height, color, lw_scale=1.0, zorder=13):
 
 
 def compass_rose(ax, lon, lat, R, lw_scale=1.0, *, magnetic=True,
-                 numerals=True, ring=1.00):
+                 numerals=True, ring=1.00, eyelets=True):
     """An engraved chart rose.
 
     Star, rhumb fan and cardinal spears follow the hand-drawn roses of period
@@ -774,9 +802,10 @@ def compass_rose(ax, lon, lat, R, lw_scale=1.0, *, magnetic=True,
         upoly([tuple(al * CARDINAL), tuple(al * 1.055 + ac * 0.050),
                tuple(al * 1.015), tuple(al * 1.055 - ac * 0.050)],
               C_ROSE, C_ROSE, 0.4, z=13)
-        cx, cy = XY(*(al * 0.985))
-        ax.plot([cx], [cy], marker="o", ms=3.6 * lw_scale, mfc=C_PAPER,
-                mec=C_ROSE, mew=0.8 * lw_scale, zorder=13)
+        if eyelets:
+            cx, cy = XY(*(al * 0.985))
+            ax.plot([cx], [cy], marker="o", ms=3.6 * lw_scale, mfc=C_PAPER,
+                    mec=C_ROSE, mew=0.8 * lw_scale, zorder=13)
 
     for b, ch in ((0, "N"), (90, "E"), (180, "S"), (270, "W")):
         al, _ = axes_for(b)
@@ -1097,10 +1126,14 @@ def photobook(dpi, out_png, depth=False, title=True):
     # had nowhere to go that was not a track or another label.
     draw_chart(ax, extent, land, DAYS, tracks, detail=True, lw_scale=0.80,
                spread=True, depth=bands,
-               skip_labels=("Lubbers\nQuarters",),
+               # Lynyard Cay's name is dropped here and redrawn below in the
+               # cays' own serif, because it is a cay on this page and not only
+               # somewhere the boat lay. Its anchorage ring stays regardless.
+               skip_labels=("Lubbers\nQuarters", "Lynyard Cay"),
                label_nudge={"S E A   O F   A B A C O": (-0.0300, -0.0380),
-                            "Lynyard Cay": (0.0255, 0.0060),
-                            "Man-O-War Cay": (0.0, 0.0204),
+                            "Great Guana Cay": (0.0180, 0.0),
+                            "Man-O-War Cay": (-0.0225, 0.0204),
+                            "Elbow Cay": (-0.0165, 0.0),
                             "Tilloo Cay": (0.0035, 0.0)},
                # The full name, over two lines, since a photobook page is read
                # closer than a wall.
@@ -1123,9 +1156,18 @@ def photobook(dpi, out_png, depth=False, title=True):
     # magnetic ring and both sets of numerals come off — at this size they read as a
     # grey smudge rather than as information — and the true ring draws tighter.
     compass_rose(ax, -76.8850, 26.3700, 0.0235,
-                 magnetic=False, numerals=False, ring=0.72)
-    scale_bar(ax, extent, y_frac=0.062, x_frac=0.055, nm_len=5, lw_scale=0.80)
-    chart_neatline(ax, extent, fig, lw_scale=0.80, label_every=5)
+                 magnetic=False, numerals=False, ring=0.72, eyelets=False)
+    # Over Great Abaco rather than out in the water: ink on the land tone reads
+    # better than ink on pale blue, and that corner of the island is empty.
+    scale_bar(ax, extent, y_frac=0.115, x_frac=0.185, nm_len=5, lw_scale=0.80,
+              caption_top=True)
+    chart_neatline(ax, extent, fig, lw_scale=0.80, label_every=5,
+                   corner_clip=True)
+
+    # Lynyard Cay, in the same serif as Tilloo and Elbow, north of its anchorage.
+    ax.text(-76.9700, 26.3720, "Lynyard Cay", fontproperties=SERIF,
+            fontsize=9.5 * 0.80, color=C_INK, ha="left", va="center", zorder=9,
+            path_effects=_halo(3.0 * 0.80))
 
     if title:
         fig.text(0.5, 0.952, "SEA BASE 1830", fontproperties=SERIF, fontsize=25,
