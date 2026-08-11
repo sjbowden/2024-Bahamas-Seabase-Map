@@ -630,31 +630,50 @@ def _chaikin(pts, passes):
     return np.vstack([p, p[:1]])
 
 
-def _despeckle(geom, min_deg2):
-    """Drop parts and holes below one coarse cell, so smoothing cannot fray.
+def _despeckle(geom, min_deg2, land=None):
+    """Drop specks, but never a whole body of water.
 
     Smoothing the depths puts a wide area of the bank close to a band edge, and
     without this the edge frays into specks there instead of running as a line —
     which is how averaging depths failed the first time it was tried.
+
+    A small part is only a speck if it sits in open water, though. Ponds, creeks and
+    narrow inlets are small *and* real, and dropping them took them out of every
+    band at once, so the page background showed through as pale dots against the
+    shallows — the deepest colour on the chart, in the shallowest places on it.
+    Anything touching land is therefore kept whatever its size: fraying at a band
+    edge in open water is the only thing this is meant to remove.
     """
     from shapely.geometry import Polygon
+    from shapely.strtree import STRtree
     from shapely import unary_union
 
+    parts = [g for g in (list(geom.geoms) if hasattr(geom, "geoms") else [geom])
+             if not g.is_empty and hasattr(g, "exterior")]
+    ashore = set()
+    if land is not None:
+        pieces = list(getattr(land, "geoms", [land]))
+        tree = STRtree(pieces)
+        for i, g in enumerate(parts):
+            if g.area >= min_deg2:
+                continue                      # big enough to keep regardless
+            if any(pieces[j].intersects(g) for j in tree.query(g)):
+                ashore.add(i)
     keep = []
-    for g in (list(geom.geoms) if hasattr(geom, "geoms") else [geom]):
-        if g.is_empty or not hasattr(g, "exterior") or g.area < min_deg2:
+    for i, g in enumerate(parts):
+        if g.area < min_deg2 and i not in ashore:
             continue
         holes = [h for h in g.interiors if Polygon(h).area >= min_deg2]
         keep.append(Polygon(g.exterior.coords, [h.coords for h in holes]))
     return unary_union(keep) if keep else geom
 
 
-def _rounded(geom):
+def _rounded(geom, land=None):
     """The staircase of coarse cells, smoothed, and never pulled off the shore."""
     from shapely.geometry import Polygon
     from shapely import make_valid, unary_union
 
-    geom = _despeckle(geom, MIN_PART_M2 / (111320.0 * 99500.0))
+    geom = _despeckle(geom, MIN_PART_M2 / (111320.0 * 99500.0), land)
     parts = []
     for g in (list(geom.geoms) if hasattr(geom, "geoms") else [geom]):
         if g.is_empty or not hasattr(g, "exterior"):
@@ -765,7 +784,7 @@ def band_polygons(grid, land):
             hi_lat, lo_lat = top - r * cell, top - (r + 1) * cell
             boxes += [box(x0 + a * cell, lo_lat, x0 + b * cell, hi_lat)
                       for a, b in zip(edges[0::2], edges[1::2])]
-        g = _rounded(unary_union(boxes))
+        g = _rounded(unary_union(boxes), land)
         out.append((hi, colour, label, g))
     return out
 
