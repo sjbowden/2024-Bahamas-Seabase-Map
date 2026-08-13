@@ -423,6 +423,13 @@ Man-O-War — see [Three independent records](#three-independent-records).
 An interactive version of this map (zoomable, day toggles, time scrubber) is
 planned — `tracks/*.csv` and `geo/` are the inputs it should reuse.
 
+**Before the interactive chart is published anywhere:** the cay names and
+label positions need a manual review. `MAP_CAYS` in `trip.py` was identified
+against reference maps by size and position rather than confirmed locally —
+the file records which identifications were guesses and which islands were
+left unnamed rather than guessed at — and nothing has checked those names on
+the water.
+
 Coastline data © OpenStreetMap contributors (ODbL).
 
 Depths from GMRT, the Global Multi-Resolution Topography synthesis, drawn by the
