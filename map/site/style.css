@@ -204,7 +204,17 @@ html, body {
   text-align: center;
   pointer-events: none;
   user-select: none;
-  text-shadow: 0 0 3px var(--water), 0 0 5px var(--water), 0 0 8px var(--water);
+  /* A real halo, not a hint. The label is sized in screen pixels, so how much
+     ground it covers depends on the window and the zoom — at some of each it
+     lands on the marsh mosaic or a depth band, where a soft glow loses the
+     letters. The printed sheet survives the same ground with a fat
+     paper-coloured stroke around every label; this is that stroke. */
+  text-shadow:
+    -1px -1px 0 var(--paper), 1px -1px 0 var(--paper),
+    -1px  1px 0 var(--paper), 1px  1px 0 var(--paper),
+    -1px  0   0 var(--paper), 1px  0   0 var(--paper),
+     0   -1px 0 var(--paper), 0    1px 0 var(--paper),
+     0 0 4px var(--paper), 0 0 8px var(--paper);
 }
 .place-town {
   font-family: var(--sans);
@@ -280,15 +290,23 @@ html, body {
 }
 .cluster-count {
   position: absolute; top: 0; left: 0;
+  /* The whole bubble, not just its number. Drawn in the DOM rather than on the
+     canvas so it stacks above the place names -- HTML always paints over the
+     map, so a canvas bubble had the names showing straight through it. The
+     names stay put and the bubble simply covers what it covers, as on paper.
+     app.js sizes each one to match the transparent canvas circle that still
+     takes the clicks. */
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(251, 246, 234, .94);   /* the paper tone at the old opacity */
+  border: 1.2px solid var(--ink);
+  border-radius: 50%;
+  box-sizing: border-box;
   font-family: var(--sans);
   font-size: .72rem; font-weight: 700;
   font-variant-numeric: tabular-nums;
   letter-spacing: .02em;
   color: var(--ink);
   will-change: transform;
-  /* Dense clusters sit close enough that their counts touch; a paper halo keeps
-     both readable instead of one number smearing into the next. */
-  text-shadow: 0 0 3px var(--paper), 0 0 3px var(--paper), 0 0 5px var(--paper);
 }
 
 #tierkey { list-style: none; margin: 0; padding: 0; }

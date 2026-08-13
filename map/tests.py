@@ -650,6 +650,13 @@ def test_site_build():
     # nothing unless the page reads it where a person sees the day claimed.
     check("the viewer hedges a day guessed from a filename",
           "day_provisional" in app)
+    # Place names are HTML and always paint above the canvas, so the bubble is
+    # HTML too: drawn in #clusters, which stacks above the names, it covers what
+    # it covers -- names never hide, and never show through a bubble either.
+    # (An earlier fix hid any name a bubble touched, which cost the opening
+    # view HOPE TOWN entirely; covering beats vanishing.)
+    check("the cluster bubble is HTML above the names, not canvas below them",
+          "'circle-opacity': 0" in app and "occludePlaces" not in app)
     check("and the tray explains each tier it lists",
           all(f"{t}:" in app for t in in_tray & emitted),
           f"no note for {[t for t in in_tray & emitted if f'{t}:' not in app]}")

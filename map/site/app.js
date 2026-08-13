@@ -28,7 +28,12 @@ const $ = (s) => document.querySelector(s);
 const state = { days: new Set(), meta: null };
 
 async function json(path) {
-  const r = await fetch(path);
+  // no-cache: always ask the server before trusting a stored copy. These
+  // fetches run after the page has loaded, which puts them outside a hard
+  // reload's cache bypass -- a browser once held a heuristically-"fresh"
+  // places.geojson through four refreshes, drawing week-old label positions
+  // under brand-new code.
+  const r = await fetch(path, { cache: 'no-cache' });
   if (!r.ok) throw new Error(`${path}: ${r.status}`);
   return r.json();
 }
@@ -506,14 +511,17 @@ async function addPhotos() {
 
   map.addSource('selected', { type: 'geojson', data: emptyFC() });
 
+  // Invisible, but still the click target and the hit test. The visible bubble
+  // is the HTML .cluster-count, which stacks above the place names -- drawn
+  // here on the canvas it sat *under* them, and HOPE TOWN painted straight
+  // through the 390 photographs moored on top of it.
   map.addLayer({
     id: 'clusters', type: 'circle', source: 'photos',
     filter: ['has', 'point_count'],
     paint: {
       'circle-color': '#FBF6EA',
-      'circle-opacity': 0.94,
-      'circle-stroke-color': '#2E3A42',
-      'circle-stroke-width': 1.2,
+      'circle-opacity': 0,
+      'circle-stroke-width': 0,
       'circle-radius': ['interpolate', ['linear'], ['get', 'point_count'],
                         2, 11, 20, 15, 100, 20, 500, 26],
     },
@@ -582,7 +590,12 @@ let countEls = [];
 function drawClusterCounts() {
   const host = $('#clusters');
   if (!host) return;
-  if (!state.layers || state.layers.photos === false) { host.innerHTML = ''; return; }
+  if (!state.layers || state.layers.photos === false) {
+    host.innerHTML = '';
+    countEls = [];            // those nodes are gone; forgetting that kept the
+                              // counts invisible after the layer came back on
+    return;
+  }
   const feats = map.queryRenderedFeatures({ layers: ['clusters'] });
   // Reuse the DOM nodes: this runs on every frame of a pan.
   while (countEls.length < feats.length) {
@@ -595,15 +608,32 @@ function drawClusterCounts() {
   let used = 0;
   for (const f of feats) {
     const pt = map.project(f.geometry.coordinates);
-    // A cluster whose circle overlaps the edge is rendered even though its centre
-    // is outside, and positioning a label out there is what grew the document.
-    if (pt.x < 0 || pt.y < 0 || pt.x > w || pt.y > h) continue;
+    // Bubbles straddling the edge still draw (the host clips them); only one
+    // whose whole circle is off screen is skipped. 26 is the largest radius.
+    if (pt.x < -26 || pt.y < -26 || pt.x > w + 26 || pt.y > h + 26) continue;
     const el = countEls[used++];
+    const r = clusterPx(f.properties.point_count);
     el.textContent = f.properties.point_count_abbreviated;
+    el.style.width = `${2 * r}px`;
+    el.style.height = `${2 * r}px`;
     el.style.transform = `translate(-50%, -50%) translate3d(${pt.x}px, ${pt.y}px, 0)`;
     el.style.display = '';
   }
   for (let i = used; i < countEls.length; i++) countEls[i].style.display = 'none';
+}
+
+// The transparent canvas layer's circle-radius stops, so the drawn bubble and
+// the click target agree about how big a cluster is.
+function clusterPx(n) {
+  const stops = [[2, 11], [20, 15], [100, 20], [500, 26]];
+  if (n <= stops[0][0]) return stops[0][1];
+  for (let i = 1; i < stops.length; i++) {
+    if (n <= stops[i][0]) {
+      const [n0, r0] = stops[i - 1], [n1, r1] = stops[i];
+      return r0 + (r1 - r0) * (n - n0) / (n1 - n0);
+    }
+  }
+  return stops[stops.length - 1][1];
 }
 
 /* ---------------------------------------------------------------- viewer --- */
