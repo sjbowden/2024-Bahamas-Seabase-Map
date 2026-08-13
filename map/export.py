@@ -220,12 +220,15 @@ def places_layer():
     zoom = dict(big=8.5, water=8.5, town=9, isle=9.6)
     feats = []
     for lon, lat, text, kind, *_ in PLACES:
+        # The sheet's labels, shifted on the map only where MAP_LABEL_NUDGE says
+        # so — the printed frame keeps its own composition.
+        dlon, dlat = MAP_LABEL_NUDGE.get(text, (0.0, 0.0))
         feats.append(dict(type="Feature",
                           properties=dict(label=text, kind=kind,
                                           minzoom=zoom.get(kind, 11)),
                           geometry=dict(type="Point",
-                                        coordinates=[round(lon, PRECISION),
-                                                     round(lat, PRECISION)])))
+                                        coordinates=[round(lon + dlon, PRECISION),
+                                                     round(lat + dlat, PRECISION)])))
     # Cays the sheet does not name. Held back to z11 so the opening view keeps the
     # poster's own spare set of labels and these arrive only once someone is
     # looking closely enough to want them.

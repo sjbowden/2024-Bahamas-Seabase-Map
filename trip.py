@@ -95,13 +95,26 @@ PLACES = [
     (-77.0640, 26.5310, "MARSH HARBOUR", "town", "right", "center"),
     (-76.9594, 26.5407, "HOPE TOWN", "town", "left", "center"),
     (-77.0002, 26.3242, "LITTLE HARBOUR", "town", "left", "center"),
-    (-77.1310, 26.6790, "Great Guana Cay", "isle", "center", "bottom"),
-    (-77.0030, 26.5930, "Man-O-War Cay", "isle", "left", "center"),
-    (-76.9700, 26.4950, "Elbow Cay", "isle", "left", "center"),
+    # The cay names sit where the square page put them — just off their island,
+    # over open water, where italic serif reads better than across the land's
+    # own clutter. All three artefacts agree, with two exceptions: Lubbers
+    # Quarters has no square-page position (that page skips it), and Tilloo Cay
+    # keeps its own spot because the square page's position for it is inside
+    # the gap left by dropping Tilloo Pond — which the sheet and the map still
+    # draw, so the two names would land on each other here.
+    (-77.0980, 26.6790, "Great Guana Cay", "isle", "center", "bottom"),
+    (-77.0170, 26.6134, "Man-O-War Cay", "isle", "left", "center"),
+    (-76.9795, 26.4950, "Elbow Cay", "isle", "left", "center"),
     (-77.0270, 26.4700, "Lubbers\nQuarters", "isle", "right", "center"),
     (-76.9830, 26.4400, "Tilloo Cay", "isle", "left", "center"),
-    (-77.1550, 26.4300, "G R E A T   A B A C O", "big", "center", "center"),
-    (-77.0450, 26.6300, "S E A   O F   A B A C O", "water", "center", "center"),
+    # The two wide legends sit where the square page put them, so the 18x24
+    # sheet, the 8x8 page and the interactive map agree. Great Abaco's spot
+    # keeps the letter-spaced line on the solid land tone — clear of the
+    # sheet's west edge and off The Marls' land-and-water mosaic, where it
+    # could not be read. (The figure came from sampling the label as a box on
+    # a 15 x 5 grid; its centreline alone called positions clear that were not.)
+    (-77.1205, 26.4120, "G R E A T   A B A C O", "big", "center", "center"),
+    (-77.0750, 26.6055, "S E A   O F   A B A C O", "water", "center", "center"),
     (-76.9400, 26.4780, "A T L A N T I C\nO C E A N", "water", "center", "center"),
 ]
 

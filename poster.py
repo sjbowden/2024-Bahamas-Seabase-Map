@@ -1155,23 +1155,16 @@ def photobook(dpi, out_png, depth=False, title=True):
                # so the style marked a category of one — and with the name gone the
                # ring would mark a spot with nothing to say about it.
                skip_anchorages=("Tilloo Pond",),
-               label_nudge={"S E A   O F   A B A C O": (-0.0300, -0.0245),
-                            "Great Guana Cay": (0.0330, 0.0),
-                            # East is limited to about +0.048 before the letter-
-                            # spaced type runs off the coast; the drop puts the whole
-                            # line 545 m inside the coastline. Sampling the label as
-                            # a box on a 15 x 5 grid rather than along its centreline
-                            # matters here: a coarser sample called -0.004 clear when
-                            # it is not.
-                            "G R E A T   A B A C O": (0.0345, -0.0180),
-                            "A T L A N T I C\nO C E A N": (0.0300, 0.0),
+               # The wide legends and most cay names need no nudge here any
+               # more: trip.py's PLACES holds the positions this page worked
+               # out for them, and the 18x24 sheet and the interactive map
+               # follow the same figures. Tilloo Cay stays page-local: it moves
+               # up into the space Tilloo Pond's name leaves on THIS page only
+               # (the tracks run through the pond itself, so the old spot is
+               # 26 m off them and this one is 522 m) — everywhere Tilloo Pond
+               # is drawn, that spot is taken.
+               label_nudge={"A T L A N T I C\nO C E A N": (0.0300, 0.0),
                             "MARSH HARBOUR": (0.0, 0.0058),
-                            "Man-O-War Cay": (-0.0140, 0.0204),
-                            "Elbow Cay": (-0.0095, 0.0),
-                            # Up into the space Tilloo Pond's name has left, at
-                            # the same latitude but east of it: the tracks run
-                            # through the pond itself, so the old spot is 26 m off
-                            # them and this one is 522 m.
                             "Tilloo Cay": (-0.0020, 0.0088)},
                airport_nudge=(-0.0115, 0.0),
                # The full name, over two lines, since a photobook page is read
