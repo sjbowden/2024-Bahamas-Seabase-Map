@@ -50,3 +50,17 @@ out/placed.json
 # site free of any CDN); node_modules is only ever a screenshot harness
 node_modules/
 package-lock.json
+
+# reference material parked in out/ while labels were checked: the hand-drawn
+# map of the Abacos the cay names were read from, a drone frame (EXIF and all),
+# and an AI mock-up. Things to check against, not outputs to ship.
+out/LOCALABACOMAP.jpg
+out/DJI_0177 - cropped.JPG
+out/Gemini_Generated_Image_*.png
+
+# a review pair of the sheet, rendered to look at rather than to keep — the
+# tracked pair above is the one the README points people to
+out/review_poster_*
+
+# the NTFS "downloaded from the internet" stream, which WSL shows as a file
+*:Zone.Identifier
