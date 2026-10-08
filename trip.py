@@ -105,7 +105,10 @@ PLACES = [
     (-77.0980, 26.6790, "Great Guana Cay", "isle", "center", "bottom"),
     (-77.0170, 26.6134, "Man-O-War Cay", "isle", "left", "center"),
     (-76.9795, 26.4950, "Elbow Cay", "isle", "left", "center"),
-    (-77.0270, 26.4700, "Lubbers\nQuarters", "isle", "right", "center"),
+    # Lubbers Quarters is the island beside Elbow Cay, per Explorer Chart AB 22.
+    # Its name stood 4.4 km to the south-west until the labels were checked
+    # against the charts; it now sits just off the island's west shore.
+    (-77.0070, 26.5030, "Lubbers\nQuarters", "isle", "right", "center"),
     (-76.9830, 26.4400, "Tilloo Cay", "isle", "left", "center"),
     # The two wide legends sit where the square page put them, so the 18x24
     # sheet, the 8x8 page and the interactive map agree. Great Abaco's spot
@@ -160,26 +163,89 @@ MAP_CAYS = [
     # The group, not an island: the four islets strung along the barrier between
     # Tilloo Cay and Sandy Cay, 26.399 to 26.426 N. The crew landed on the
     # northernmost on Tuesday afternoon and the captain called it Pelican Cay, but
-    # nothing found names the islets singly, so the label sits in the water at the
-    # middle of the chain, 460 m from the nearest of them, and names them all. Held
-    # to z13 because Channel Cay's label is 1.6 km due west.
-    (-76.98050, 26.41250, "Pelican Cays", 13.0),
+    # no chart names the islets singly, so the label names them all. It sits where
+    # Explorer Chart AB 23 letters the name: on the ocean side, off the two northern
+    # islets, 330 m from the nearest shore. Held to z13 because Channel Cay's label
+    # is 2 km to the west.
+    (-76.97650, 26.41900, "Pelican Cays", 13.0),
     (-77.37152, 26.83119, "Manjack Cay", 11.0),   # OSM spells it Nunjack Cay
     (-77.47842, 26.90338, "Powell Cay", 11.0),
     (-77.53761, 26.94675, "Spanish Cay", 11.0),
     (-77.64000, 26.88000, "Little Abaco Island", 10.0),
+    # Every other cay the Explorer charts (AB 11 to AB 24) letter and the coastline
+    # draws, each on its own island's interior point. Read off the charts one island
+    # at a time; docs/map-labels.md records what the chart prints for each, and the
+    # three that are OpenStreetMap's name alone. Two take the chart's name over
+    # OpenStreetMap's: Spoil Cay (Spoil Bank Cay) and Mangrove Cay (Cormorant Cay,
+    # in Cherokee Sound). Held to z12.5 and beyond, the smaller and closer-packed
+    # the later, because these labels have no collision detection.
+    (-77.46652, 26.90410, "Soldier Cay", 14.0),
+    (-77.46136, 26.89778, "High Cay", 14.0),
+    (-77.45089, 26.89087, "Bonefish Cay", 14.0),
+    (-77.43201, 26.87861, "Little Ambergris Cay", 14.0),
+    (-77.42692, 26.87033, "Ambergris Cay", 13.0),
+    (-77.50948, 26.81957, "Bamboo Cay", 12.5),
+    (-77.35982, 26.81432, "Crab Cay", 13.0),
+    (-77.34578, 26.80567, "Fiddle Cay", 13.5),
+    (-77.50465, 26.80357, "Basin Harbour Cay", 12.5),
+    (-77.30520, 26.76088, "Pelican Cay", 13.5),
+    (-77.29646, 26.74718, "No Name Cay", 12.5),
+    (-77.26179, 26.69330, "Sand Bank Cays", 13.5),
+    (-77.17650, 26.70037, "Gumelemi Cay", 13.5),
+    (-77.17501, 26.68285, "Spoil Cay", 13.5),
+    (-77.11805, 26.66535, "Delia's Cay", 14.0),
+    (-77.11324, 26.64531, "Foots Cay", 13.0),
+    (-77.15567, 26.63761, "Fish Cays", 13.0),
+    (-77.05142, 26.63475, "Fowl Cay", 13.0),
+    (-77.01171, 26.58632, "Garden Cay", 14.0),
+    (-77.00761, 26.58352, "Sandy Cay", 14.0),
+    (-76.97259, 26.56802, "Johnny's Cay", 13.0),
+    (-77.06565, 26.55528, "Outer Point Cay", 13.0),
+    (-77.18057, 26.55368, "Dry Cay", 12.5),
+    (-76.97794, 26.53958, "Parrot Cays", 13.0),
+    (-77.05039, 26.46375, "Cormorant Cay", 13.0),
+    (-77.05019, 26.43816, "Deep Sea Cay", 12.5),
+    (-77.04568, 26.43464, "Mocking Bird Cay", 13.5),
+    (-77.04139, 26.42317, "Iron Cay", 13.0),
+    (-77.00273, 26.40767, "Gaulding Cay", 13.5),
+    (-76.99270, 26.39916, "Sandy Cay", 13.0),
+    (-77.00678, 26.39758, "Cornish Cay", 13.0),
+    (-77.00092, 26.35121, "Bridges Cay", 13.0),
+    (-77.02289, 26.34202, "Riding Cays", 13.5),
+    (-77.06623, 26.29829, "Mangrove Cay", 13.5),
+    (-77.05570, 26.29462, "Noah Bethel Cays", 13.0),
+    (-77.07685, 26.27619, "Duck Cay", 12.5),
+    # A second pass, sweeping the sheets tile by tile for names OpenStreetMap does
+    # not carry at all.
+    (-77.55566, 26.95721, "Squashes Cay", 13.5),
+    (-77.60765, 26.95063, "Prince Cay", 13.5),
+    (-77.59526, 26.94983, "Hog Cays", 13.5),
+    (-77.61914, 26.94845, "Alec Cays", 13.5),
+    (-77.51750, 26.93480, "Goat Cay", 14.0),
+    (-77.59888, 26.92447, "Crab Cay", 13.0),
+    (-77.36325, 26.82063, "Rat Cay", 14.0),
+    (-77.42715, 26.67707, "Theresa Cay", 13.0),
+    (-77.42629, 26.66608, "Snapper Cay", 13.0),
+    (-77.35004, 26.66613, "Goliath Cay", 13.0),
+    (-77.15672, 26.55016, "Green Cay", 13.0),
+    (-77.14158, 26.53543, "Big Potato Cay", 13.0),
+    (-76.99564, 26.47856, "Tavern Cay", 14.0),
+    (-77.04969, 26.47228, "Guano Cay", 14.0),
+    (-77.01628, 26.29195, "Sugar Cay", 13.5),
 ]
 
 # Settlements, points and bays: named places that are not islands, so they get their
-# own kind rather than a cay's italic. Coordinates as supplied, except Winding Bay:
-# the point given was 400 m inland, and the bay is on the Atlantic side, so the label
-# sits in the water on that coast rather than in the sound behind it.
+# own kind rather than a cay's italic. Treasure Cay is as supplied. The other four
+# sit where the Explorer charts letter the name: Baker's Bay over the water west of
+# the marina, Winding Bay in the bay rather than on Ocean Point, Cherokee Sound in
+# the sound rather than on the settlement. Casuarina Point waits for z13 because
+# the chart puts it 900 m from Cherokee Sound's name.
 MAP_SPOTS = [
     (-77.28580, 26.67690, "Treasure Cay", 11.0),
-    (-77.14800, 26.68600, "Baker's Bay", 12.0),
-    (-77.01000, 26.29000, "Winding Bay", 11.0),
-    (-77.05000, 26.28000, "Cherokee Sound", 11.0),
-    (-77.09105, 26.29370, "Casuarina Point", 11.0),
+    (-77.16200, 26.68500, "Baker's Bay", 12.0),
+    (-77.02390, 26.29350, "Winding Bay", 11.0),
+    (-77.07120, 26.29460, "Cherokee Sound", 11.0),
+    (-77.08050, 26.29320, "Casuarina Point", 13.0),
 ]
 
 # Regions rather than islands. The map hides the poster's own big and water
@@ -204,19 +270,16 @@ MAP_REGIONS = [
 # right. Each was then matched to a real island by size and position and given that
 # island's own interior point.
 #
-# Islands the coastline draws in the trip area that nothing names yet, largest
-# first, with the size and length the geometry gives them. Left here because naming
-# them is local knowledge rather than something to infer from a polygon:
+# Islands the coastline draws in the trip area that are still unnamed here, with
+# the size and length the geometry gives them. The Explorer charts settled the rest
+# of this list: the 143 ha island beside Elbow Cay is Lubbers Quarters itself, and
+# the others became Deep Sea, Iron, Noah Bethel, Matt Lowe's and Channel Cays. These
+# the charts draw without a name, or letter a name beside them that could belong to
+# a neighbour (ARMSTRONG CAY runs along the strip east of the first):
 #
-#   26.50003 -76.99741  143 ha  2.7 km   (south of White Sound — Elbow Cay?)
-#   26.43754 -77.05112   73 ha  2.6 km   (Lubbers Quarters Cay?)
 #   26.40549 -77.04310   40 ha  1.5 km
-#   26.29510 -77.05458   41 ha  1.1 km   (off Little Harbour)
-#   26.42328 -77.04093   19 ha  1.7 km
 #   26.35872 -77.02272   22 ha  0.9 km
 #   26.33446 -77.02760   20 ha  1.5 km
-#   26.56368 -77.01499   20 ha  1.0 km
-#   26.41405 -76.99644   10 ha  0.9 km
 
 # Nudges applied to shared labels on the map only, in degrees (lon, lat). The
 # poster draws ANCHORAGES too — and uses their positions to decide where its day
@@ -230,7 +293,7 @@ MAP_LABEL_NUDGE = {"Lynyard Cay": (0.0020, 0.0080)}
 # The island labels that belong in water. Water Cay's coordinate is its anchorage,
 # and the islet is small enough that moving the label onto it crossed a headland
 # and put the name on the wrong side of the point. Pelican Cays names a chain of
-# four islets, so it sits between them rather than on any one.
+# four islets, so it sits off them rather than on any one.
 MAP_CAYS_AFLOAT = {"Water Cay", "Pelican Cays"}
 
 AIRPORT = (-77.0782, 26.5135, "MHH", "Leonard M. Thompson Intl")
