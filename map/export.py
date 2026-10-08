@@ -36,6 +36,7 @@ from trip import (AIRPORT, ANCHORAGES, DAYS, EXTENT, HOTEL, MAP_CAYS,
 from map import clock_fit as C
 from map import depth as DEPTH
 from map import place as P
+from map.stories import STORIES
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -269,6 +270,23 @@ def places_layer():
     return _fc(feats)
 
 
+def stories_layer():
+    """The journal's stories as points, numbered in trip order.
+
+    Each carries its day's colour so the page can draw the marker as part of that
+    day without looking anything up, and its day's label so that unticking the
+    day takes the story with it.
+    """
+    colour = {d["label"]: d["color"] for d in DAYS}
+    return _fc([
+        dict(type="Feature",
+             properties=dict(n=i, day=s["day"], time=s["time"], color=colour[s["day"]],
+                             title=s["title"], text=s["text"]),
+             geometry=dict(type="Point", coordinates=[round(s["lon"], PRECISION),
+                                                      round(s["lat"], PRECISION)]))
+        for i, s in enumerate(STORIES, 1)])
+
+
 def public_camera(cam):
     """The camera as the site is allowed to name it.
 
@@ -323,6 +341,7 @@ def export(dest, placed):
     depth_days = DEPTH.day_summary(grid)
     files["tracks.geojson"] = track_layer(depth_days)
     files["places.geojson"] = places_layer()
+    files["stories.geojson"] = stories_layer()
     files["photos.json"] = photos_json(placed)
     files["meta.json"] = dict(
         extent=list(EXTENT), view_bounds=list(VIEW_BOUNDS),

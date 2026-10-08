@@ -26,7 +26,7 @@ from datetime import datetime, timedelta
 from shapely.validation import explain_validity
 
 from abaco_geo import land_polygons
-from trip import MAP_LAND_BBOX, haversine, in_chart
+from trip import DAYS, MAP_LAND_BBOX, haversine, in_chart, read_fixes
 from map import clock_fit as C
 from map import export as E
 from map import place as P
@@ -583,6 +583,60 @@ def test_nothing_published_carries_metadata(placed):
               else f"rebuilt {rebuilt}, bytes match")
 
 
+# ---------------------------------------------------------------- stories ---
+def test_stories():
+    """The journal's stories, as the chart places them.
+
+    These are typed by hand, coordinates included, so the checks are the ones a
+    typo would trip: a day the trip did not have, a time that is not a time, and
+    above all a position on the wrong island. A story may be ashore -- the
+    lighthouse is 700 m from where the boat lay -- but none is further from its
+    own day's track than a crew could walk or row from it.
+    """
+    section("stories")
+    from map.stories import STORIES
+    check("there are stories to tell", len(STORIES) > 0, f"{len(STORIES)}")
+    by_label = {d["label"]: d for d in DAYS}
+    order = [d["label"] for d in DAYS]
+    bad_day = [s["title"] for s in STORIES if s["day"] not in by_label]
+    check("every story names a day of the trip", not bad_day, str(bad_day))
+    blank = [s.get("title") for s in STORIES
+             if not s.get("title", "").strip() or not s.get("text", "").strip()]
+    check("every story has a title and something to say", not blank, str(blank))
+    bad_time = [s["title"] for s in STORIES
+                if s.get("time") is not None
+                and not re.fullmatch(r"([01]\d|2[0-3]):[0-5]\d", s["time"])]
+    check("a time, where given, is HH:MM", not bad_time, str(bad_time))
+    keys = [(order.index(s["day"]), s.get("time") or "99:99")
+            for s in STORIES if s["day"] in by_label]
+    check("the stories run in the order the trip did", keys == sorted(keys))
+    long = [(s["title"], len(s["text"])) for s in STORIES if len(s["text"]) > 700]
+    check("each fits a bubble", not long, str(long))
+
+    fixes = {}
+    far = []
+    for s in STORIES:
+        if s["day"] not in by_label:
+            continue
+        stem = by_label[s["day"]]["file"]
+        if stem not in fixes:
+            fixes[stem] = read_fixes(stem)[0][::6]
+        d = min(haversine(s["lat"], s["lon"], f[1], f[2]) for f in fixes[stem])
+        if d > 1500:
+            far.append((s["title"], round(d)))
+        if not in_chart(s["lat"], s["lon"]):
+            far.append((s["title"], "off the chart"))
+    check("every story is within 1.5 km of its own day's track", not far, str(far))
+
+    fc = E.stories_layer()
+    check("the export carries every story", len(fc["features"]) == len(STORIES))
+    ns = [f["properties"]["n"] for f in fc["features"]]
+    check("numbered 1..n in trip order", ns == list(range(1, len(STORIES) + 1)))
+    wrong = [f["properties"]["title"] for f in fc["features"]
+             if f["properties"]["color"] != by_label[f["properties"]["day"]]["color"]]
+    check("each in its own day's colour", not wrong, str(wrong))
+
+
 def test_site_build():
     section("the built folder")
     out = os.path.join(C.HERE, "site_build")
@@ -593,7 +647,7 @@ def test_site_build():
             "data/depth.geojson", "data/shoals.geojson",
             "vendor/maplibre-gl.js", "vendor/maplibre-gl.css",
             "data/meta.json", "data/photos.json", "data/tracks.geojson",
-            "data/places.geojson"]
+            "data/places.geojson", "data/stories.geojson"]
     missing = [n for n in need if not os.path.exists(os.path.join(out, n))]
     check("every file the page asks for is present", not missing, str(missing))
 
@@ -662,6 +716,12 @@ def test_site_build():
           f"no note for {[t for t in in_tray & emitted if f'{t}:' not in app]}")
 
     html = open(os.path.join(out, "index.html")).read()
+    # Stories are HTML markers, so nothing but the page's own code hides them:
+    # the panel needs a box for them, and a day switched off has to take its
+    # stories with it the way it takes its photographs.
+    check("the panel has a box for the stories", 'data-layer="stories"' in html)
+    check("unticking a day hides its stories too",
+          bool(days_body) and "refreshStories" in days_body.group(1))
     check("the page tells robots to stay away", "noindex" in html)
     check("and so does the header file",
           "noindex" in open(os.path.join(out, "_headers")).read())
@@ -674,6 +734,7 @@ def test_site_build():
 def main():
     test_units()
     spans = test_coverage()
+    test_stories()
     if not os.path.exists(INDEX):
         print(f"\nSKIP  the archive-backed tests: no {INDEX}")
         print("      run: python -m map.photo_index")

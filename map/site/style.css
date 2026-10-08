@@ -278,6 +278,55 @@ html, body {
 .maplibregl-popup-tip { border-top-color: var(--rule) !important; }
 .popup-route { color: var(--ink-soft); font-size: .74rem; }
 
+/* ---------------------------------------------------------------- stories --- */
+/* A numbered dot in its day's colour, so a story reads as part of that day's
+   track. A real button: it is the only thing on the chart that opens text, and
+   it should be reachable from a keyboard. */
+.story {
+  width: 1.3rem; height: 1.3rem;
+  padding: 0;
+  border: 1.5px solid var(--paper);
+  border-radius: 50%;
+  color: #fff;
+  font: 700 .68rem/1 var(--sans);
+  cursor: pointer;
+  box-shadow: 0 0 0 1px rgba(46, 58, 66, .35);
+}
+/* No transform here: MapLibre positions a marker by transforming this very
+   element, so scaling it on hover would throw it across the chart. */
+.story:hover, .story:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--ink);
+}
+
+.story-popup .maplibregl-popup-content {
+  max-height: 60vh;
+  overflow-y: auto;
+  padding-right: 1.6rem;
+}
+.story-text + .story-text {
+  margin-top: .7rem;
+  padding-top: .6rem;
+  border-top: 1px solid var(--rule);
+}
+.story-text h3 {
+  margin: 0;
+  font: 600 .95rem/1.25 var(--serif);
+  color: var(--ink);
+}
+.story-n {
+  display: inline-block;
+  min-width: 1.15rem;
+  margin-right: .4rem;
+  padding: .1rem 0;
+  border-radius: 50%;
+  color: #fff;
+  font: 700 .66rem/1 var(--sans);
+  text-align: center;
+  vertical-align: .1em;
+}
+.story-text p { margin: .25rem 0 0; line-height: 1.4; }
+
 /* ------------------------------------------------------------ photographs --- */
 /* Cluster counts are DOM because there is no glyph server; they are positioned
    from the map on every frame, so they must be cheap to move and never intercept
