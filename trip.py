@@ -36,12 +36,12 @@ DAYS = [
     dict(file="GPS_20240322_163426", label="Fri 22 Mar", n=None, color="#8A8073",
          sail=False, ashore=True, transfer=True, title="Arrival",
          route="Flew in · airport → hotel by road"),
-    # the shakedown never leaves the harbour, so its badge has to be placed by
-    # hand — every point on it is close to the marina
+    # the shakedown is one short hop out of the harbour, so its badge has to be
+    # placed by hand — every point on it is close to the marina
     dict(file="GPS_20240323_144533", label="Sat 23 Mar", n=1, color="#0B6E4F",
          sail=True, title="Shakedown", badge_at=(-77.0836, 26.5585), offset=0.0,
          walk_split="2024-03-23T14:57:23Z",
-         route="Walked to the marina, then out into the harbour"),
+         route="Walked to the marina, then anchored off Outer Point Cay"),
     dict(file="GPS_20240324_105625", label="Sun 24 Mar", n=2, color="#C1272D", offset=-0.0015,
          sail=True, title="Man-O-War & Tahiti Beach",
          route="Marsh Harbour → Man-O-War Cay → Tahiti Beach → Tilloo Pond"),
@@ -50,10 +50,10 @@ DAYS = [
          route="Tilloo Pond → Hope Town Harbour → Lynyard Cay"),
     dict(file="GPS_20240326_114752", label="Tue 26 Mar", n=4, color="#1D4E89", offset=0.0005,
          sail=True, title="Little Harbour",
-         route="Lynyard Cay → Little Harbour → north to Tilloo"),
+         route="Lynyard Cay → Little Harbour → Sandy Cay → Hope Town"),
     dict(file="GPS_20240327_122052", label="Wed 27 Mar", n=5, color="#8E2E8E", offset=0.0015,
          sail=True, title="Great Guana Cay",
-         route="Tilloo → Great Guana Cay → Marsh Harbour"),
+         route="Hope Town → Great Guana Cay → Marsh Harbour"),
     # afloat until 09:52:40 EDT, when the van left for the airport
     dict(file="GPS_20240328_111720", label="Thu 28 Mar", n=None, color="#8A8073",
          sail=False, airport=True, title="Departure", sail_color="#35708E",
@@ -157,6 +157,13 @@ MAP_CAYS = [
     # instead. Spanish Cay came with two figures and this is the one that agrees
     # with the reference map; the other, 26.56 / -77.31, is down by Marsh Harbour.
     (-77.18448, 26.60567, "Water Cay", 13.0),
+    # The group, not an island: the four islets strung along the barrier between
+    # Tilloo Cay and Sandy Cay, 26.399 to 26.426 N. The crew landed on the
+    # northernmost on Tuesday afternoon and the captain called it Pelican Cay, but
+    # nothing found names the islets singly, so the label sits in the water at the
+    # middle of the chain, 460 m from the nearest of them, and names them all. Held
+    # to z13 because Channel Cay's label is 1.6 km due west.
+    (-76.98050, 26.41250, "Pelican Cays", 13.0),
     (-77.37152, 26.83119, "Manjack Cay", 11.0),   # OSM spells it Nunjack Cay
     (-77.47842, 26.90338, "Powell Cay", 11.0),
     (-77.53761, 26.94675, "Spanish Cay", 11.0),
@@ -188,8 +195,8 @@ MAP_REGIONS = [
 # Two names came out again rather than be got wrong. Lynyard Cay is already named by
 # ANCHORAGES, and adding it here put the same words on the chart twice four hundred
 # metres apart. Pelican Cays is a group rather than one island, and the nearest
-# thing to my guessed position was a rock of a fifth of a hectare — a group label
-# wants someone who knows which cays it covers.
+# thing to my guessed position was a rock of a fifth of a hectare — so it is in
+# MAP_CAYS as a group label over the water, not here on one island.
 
 # Named against a hand-drawn map of the Abacos, which settled Pelican Cays (between
 # Tilloo and Lynyard), Whale Cay and Green Turtle Cay, and gave The Marls its name —
@@ -220,10 +227,11 @@ MAP_REGIONS = [
 # moves 0.9 km north and 0.2 km east, to the middle of the cay it names.
 MAP_LABEL_NUDGE = {"Lynyard Cay": (0.0020, 0.0080)}
 
-# The one island label that belongs in water: Water Cay's coordinate is its
-# anchorage, and the islet is small enough that moving the label onto it crossed a
-# headland and put the name on the wrong side of the point.
-MAP_CAYS_AFLOAT = {"Water Cay"}
+# The island labels that belong in water. Water Cay's coordinate is its anchorage,
+# and the islet is small enough that moving the label onto it crossed a headland
+# and put the name on the wrong side of the point. Pelican Cays names a chain of
+# four islets, so it sits between them rather than on any one.
+MAP_CAYS_AFLOAT = {"Water Cay", "Pelican Cays"}
 
 AIRPORT = (-77.0782, 26.5135, "MHH", "Leonard M. Thompson Intl")
 # hotel fixed from the EXIF of IMG_0496.JPG (14:43 EDT, 22 Mar, ±4.6 m); the
