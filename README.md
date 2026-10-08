@@ -20,7 +20,7 @@ GPSFILES/*.log        raw NMEA 0183 straight off the handheld receiver
 ```
 
 ```bash
-python3 -m venv .venv && .venv/bin/pip install shapely matplotlib numpy
+python3 -m venv .venv && .venv/bin/pip install shapely matplotlib numpy pillow pillow_heif
 .venv/bin/python parse_nmea.py
 .venv/bin/python fetch_coastline.py     # network; results cached in geo/
 .venv/bin/python poster.py              # 100 dpi proof → out/proof.png
@@ -28,7 +28,12 @@ python3 -m venv .venv && .venv/bin/pip install shapely matplotlib numpy
 .venv/bin/python poster.py --compare    # offset vs true, see below
 .venv/bin/python poster.py --photobook  # one square 8x8 in page, 2400 px
 .venv/bin/python poster.py --photobook --depth --dpi 600   # measured depths, 4800 px
+.venv/bin/python -m map.build           # the interactive chart → site_build/
+.venv/bin/python -m map.serve           # preview it, http://127.0.0.1:8123
 ```
+
+(pillow and pillow_heif are for the interactive chart's photo pipeline — the
+poster runs without them.)
 
 Outputs, all under `out/`:
 
