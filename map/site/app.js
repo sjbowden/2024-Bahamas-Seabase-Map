@@ -112,6 +112,7 @@ async function start() {
   await addTracks(meta);
   await addPhotos();
   await addPlaces();
+  await addStories();
   buildPanel(meta);
   wirePanel();
   scaleBar();
@@ -285,6 +286,7 @@ function applyDays() {
   map.setFilter('track-afloat', ['all', f, ['==', ['get', 'mode'], 'afloat']]);
   map.setFilter('track-ashore', ['all', f, ['!=', ['get', 'mode'], 'afloat']]);
   refreshPhotos();
+  refreshStories();
 }
 
 /* Hiding a day hides its photographs with it.
@@ -363,6 +365,70 @@ async function addPlaces() {
   tick();
 }
 
+/* ---------------------------------------------------------------- stories --- */
+// What happened where, in the journal's own words. HTML markers for the same
+// reason the place names are: no glyph server, and a marker that carries a number
+// needs text. There are a couple of dozen, so the cost is nothing.
+const STORY_NEAR_PX = 16;
+
+async function addStories() {
+  const fc = await json('data/stories.geojson');
+  state.stories = fc.features.map((f) => {
+    const p = f.properties;
+    const el = document.createElement('button');
+    el.type = 'button';
+    el.className = 'story';
+    el.textContent = p.n;
+    el.style.background = p.color;
+    el.setAttribute('aria-label', `Story ${p.n}: ${p.title}`);
+    const s = { p, lngLat: f.geometry.coordinates, el };
+    // A marker swallows the click, so the map never hears it: open from here.
+    el.addEventListener('click', (e) => { e.stopPropagation(); openStory(s); });
+    new maplibregl.Marker({ element: el, anchor: 'center' })
+      .setLngLat(s.lngLat).addTo(map);
+    return s;
+  });
+  refreshStories();
+}
+
+// A story shows when its box is ticked and its day is. The first call comes from
+// applyDays before the stories have loaded, hence the guard.
+function refreshStories() {
+  if (!state.stories) return;
+  const on = state.layers ? state.layers.stories : true;
+  for (const s of state.stories) {
+    s.el.style.display = (on && state.days.has(s.p.day)) ? '' : 'none';
+  }
+  if (state.storyPopup && !on) state.storyPopup.remove();
+}
+
+/* Several things happened at the same anchorage, and their markers sit on top of
+ * one another until the chart is zoomed well in. So a tap opens every visible
+ * story under it, in the order they happened, rather than whichever marker the
+ * browser happened to stack last. */
+function openStory(s) {
+  const at = map.project(s.lngLat);
+  const here = state.stories.filter((o) => {
+    if (o.el.style.display === 'none') return false;
+    const q = map.project(o.lngLat);
+    return Math.hypot(q.x - at.x, q.y - at.y) <= STORY_NEAR_PX;
+  }).sort((a, b) => a.p.n - b.p.n);
+  const html = here.map((o) =>
+    `<article class="story-text"><h3><span class="story-n" style="background:${esc(o.p.color)}">` +
+    `${esc(o.p.n)}</span>${esc(o.p.title)}</h3>` +
+    `<p class="popup-route">${esc(storyWhen(o.p))}</p><p>${esc(o.p.text)}</p></article>`).join('');
+  if (state.storyPopup) state.storyPopup.remove();
+  state.storyPopup = new maplibregl.Popup({ offset: 14, maxWidth: '21rem', className: 'story-popup' })
+    .setLngLat(s.lngLat).setHTML(html).addTo(map);
+}
+
+function storyWhen(p) {
+  if (!p.time) return p.day;
+  const [h, m] = p.time.split(':').map(Number);
+  const h12 = ((h + 11) % 12) + 1;
+  return `${p.day} · about ${h12}:${String(m).padStart(2, '0')} ${h < 12 ? 'am' : 'pm'}`;
+}
+
 /* ------------------------------------------------------------------ panel --- */
 function buildPanel(meta) {
   const ul = $('#days');
@@ -387,7 +453,7 @@ function buildPanel(meta) {
 }
 
 function wirePanel() {
-  state.layers = { photos: true, depth: true, places: true };
+  state.layers = { photos: true, depth: true, places: true, stories: true };
   const panel = $('#panel'), toggle = $('#panel-toggle');
   const setOpen = (open) => {
     panel.hidden = !open;
@@ -406,6 +472,8 @@ function wirePanel() {
         for (const o of [0, 1]) setVisible(`shoal-${o}`, !cb.checked);
       } else if (key === 'places') {
         state.refreshPlaces && state.refreshPlaces();
+      } else if (key === 'stories') {
+        refreshStories();
       } else if (key === 'photos') {
         for (const id of ['clusters', 'photo-points', 'uncertainty',
                           'uncertainty-edge', 'selected']) {
