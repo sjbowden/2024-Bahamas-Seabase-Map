@@ -232,6 +232,19 @@ MAP_CAYS = [
     (-76.99564, 26.47856, "Tavern Cay", 14.0),
     (-77.04969, 26.47228, "Guano Cay", 14.0),
     (-77.01628, 26.29195, "Sugar Cay", 13.5),
+    # A third pass at closer zoom, for names the sweep could read but not pin to one
+    # island. Angel Cays is a group, lettered offshore, so it sits in the water.
+    (-76.98535, 26.49702, "Cooper Jacks Cay", 14.0),
+    (-76.98544, 26.34431, "Goole Cay", 14.0),
+    (-77.05107, 26.51127, "Dinner Cay", 14.0),
+    (-77.04786, 26.50800, "Pepper Cay", 14.0),
+    (-77.44009, 26.64462, "Little Joe Downer Cay", 12.5),
+    (-77.42498, 26.61364, "Big Joe Downer Cay", 12.5),
+    (-77.40957, 26.61811, "Levi Cay", 13.0),
+    (-77.41222, 26.59854, "Big Pigeon Cay", 13.0),
+    (-77.42244, 26.59777, "Ballast Cay", 14.0),
+    (-77.23547, 26.58113, "Wills Cay", 13.0),
+    (-77.04430, 26.45940, "Angel Cays", 13.0),
 ]
 
 # Settlements, points and bays: named places that are not islands, so they get their
@@ -294,7 +307,7 @@ MAP_LABEL_NUDGE = {"Lynyard Cay": (0.0020, 0.0080)}
 # and the islet is small enough that moving the label onto it crossed a headland
 # and put the name on the wrong side of the point. Pelican Cays names a chain of
 # four islets, so it sits off them rather than on any one.
-MAP_CAYS_AFLOAT = {"Water Cay", "Pelican Cays"}
+MAP_CAYS_AFLOAT = {"Water Cay", "Pelican Cays", "Angel Cays"}
 
 AIRPORT = (-77.0782, 26.5135, "MHH", "Leonard M. Thompson Intl")
 # hotel fixed from the EXIF of IMG_0496.JPG (14:43 EDT, 22 Mar, ±4.6 m); the

@@ -1,6 +1,6 @@
 # Labels on the chart
 
-All 86 labels the interactive chart draws, north to south. Generated
+All 97 labels the interactive chart draws, north to south. Generated
 from `site_build/data/places.geojson`, so this is what actually ships.
 
 - **Source** — `poster + map` labels are shared with the printed sheet, so moving
@@ -54,14 +54,20 @@ from `site_build/data/places.geojson`, so this is what actually ships.
 | ☑ | **Delia's Cay** | cay | 26.66535 | -77.11805 | 26° 39.921′ N | 77° 07.083′ W | land | 14 | yes | map only | DELIAS CAY |
 | ☑ | **Scotland Cay** | cay | 26.64559 | -77.07431 | 26° 38.735′ N | 77° 04.459′ W | land | 11 | yes | map only | SCOTLAND CAY |
 | ☑ | **Foots Cay** | cay | 26.64531 | -77.11324 | 26° 38.719′ N | 77° 06.794′ W | land | 13 | yes | map only | FOOTS CAY |
+| ☑ | **Little Joe Downer Cay** | cay | 26.64462 | -77.44009 | 26° 38.677′ N | 77° 26.405′ W | land | 12.5 | — | map only | LITTLE JOE DOWNER CAY |
 | ☑ | **Fish Cays** | cay | 26.63761 | -77.15567 | 26° 38.257′ N | 77° 09.340′ W | land | 13 | yes | map only | FISH CAYS |
 | ☑ | **Fowl Cay** | cay | 26.63475 | -77.05142 | 26° 38.085′ N | 77° 03.085′ W | land | 13 | yes | map only | FOWL CAY |
+| ☑ | **Levi Cay** | cay | 26.61811 | -77.40957 | 26° 37.087′ N | 77° 24.574′ W | land | 13 | — | map only | LEVI CAY |
+| ☑ | **Big Joe Downer Cay** | cay | 26.61364 | -77.42498 | 26° 36.818′ N | 77° 25.499′ W | land | 12.5 | — | map only | BIG JOE DOWNER CAY |
 | ☑ | **Man-O-War Cay** | isle | 26.61340 | -77.01700 | 26° 36.804′ N | 77° 01.020′ W | water | 9.6 | yes | poster + map | MAN-O-WAR CAY |
 | ☑ | **Water Cay** | cay | 26.60567 | -77.18448 | 26° 36.340′ N | 77° 11.069′ W | water | 13 | yes | map only | WATER CAY, lettered 500 m north-east; the point is the charted anchorage |
 | ☑ | **S E A   O F   A B A C O** | water | 26.60550 | -77.07500 | 26° 36.330′ N | 77° 04.500′ W | water | 8.5 | yes | poster + map | SEA OF ABACO |
+| ☑ | **Big Pigeon Cay** | cay | 26.59854 | -77.41222 | 26° 35.912′ N | 77° 24.733′ W | land | 13 | — | map only | BIG PIGEON CAY |
+| ☑ | **Ballast Cay** | cay | 26.59777 | -77.42244 | 26° 35.866′ N | 77° 25.346′ W | land | 14 | — | map only | BALLAST CAY |
 | ☑ | **Dickie's Cay** | cay | 26.59472 | -77.00851 | 26° 35.683′ N | 77° 00.511′ W | land | 13.5 | yes | map only | DICKIES CAY |
 | ☑ | **Garden Cay** | cay | 26.58632 | -77.01171 | 26° 35.179′ N | 77° 00.703′ W | land | 14 | yes | map only | GARDEN CAY |
 | ☑ | **Sandy Cay** | cay | 26.58352 | -77.00761 | 26° 35.011′ N | 77° 00.457′ W | land | 14 | yes | map only | SANDY CAY (the one off Man-O-War) |
+| ☑ | **Wills Cay** | cay | 26.58113 | -77.23547 | 26° 34.868′ N | 77° 14.128′ W | land | 13 | — | map only | WILLS CAY |
 | ☑ | **Johnny's Cay** | cay | 26.56802 | -76.97259 | 26° 34.081′ N | 76° 58.355′ W | land | 13 | yes | map only | JOHNNYS CAY |
 | ☑ | **Matt Lowe's Cay** | cay | 26.56386 | -77.01460 | 26° 33.832′ N | 77° 00.876′ W | land | 11 | yes | map only | MATT LOWES CAY (Private) |
 | ☐ | **Outer Point Cay** | cay | 26.55528 | -77.06565 | 26° 33.317′ N | 77° 03.939′ W | land | 13 | yes | map only | OpenStreetMap name; the chart draws the islet unnamed |
@@ -75,12 +81,16 @@ from `site_build/data/places.geojson`, so this is what actually ships.
 | ☑ | **Big Potato Cay** | cay | 26.53543 | -77.14158 | 26° 32.126′ N | 77° 08.495′ W | land | 13 | yes | map only | BIG POTATO CAY |
 | ☑ | **MARSH HARBOUR** | town | 26.53100 | -77.06400 | 26° 31.860′ N | 77° 03.840′ W | land | 9 | yes | poster + map | MARSH HARBOUR |
 | — | **Leonard M. Thompson Intl** | airport | 26.51350 | -77.07820 | 26° 30.810′ N | 77° 04.692′ W | land | 12 | yes | poster + map | inland, outside the chart's detail |
+| ☑ | **Dinner Cay** | cay | 26.51127 | -77.05107 | 26° 30.676′ N | 77° 03.064′ W | land | 14 | yes | map only | DINNER CAY |
+| ☑ | **Pepper Cay** | cay | 26.50800 | -77.04786 | 26° 30.480′ N | 77° 02.872′ W | land | 14 | yes | map only | PEPPER CAY |
 | ☑ | **Lubbers Quarters** | isle | 26.50300 | -77.00700 | 26° 30.180′ N | 77° 00.420′ W | water | 9.6 | yes | poster + map | LUBBERS QUARTER, just off the island's west shore |
+| ☑ | **Cooper Jacks Cay** | cay | 26.49702 | -76.98535 | 26° 29.821′ N | 76° 59.121′ W | land | 14 | yes | map only | COOPER JACKS CAY |
 | ☑ | **Elbow Cay** | isle | 26.49500 | -76.97950 | 26° 29.700′ N | 76° 58.770′ W | water | 9.6 | yes | poster + map | ELBOW CAY |
 | ☑ | **Tavern Cay** | cay | 26.47856 | -76.99564 | 26° 28.714′ N | 76° 59.738′ W | land | 14 | yes | map only | TAVERN CAY |
 | ☑ | **A T L A N T I C O C E A N** | water | 26.47800 | -76.94000 | 26° 28.680′ N | 76° 56.400′ W | water | 8.5 | yes | poster + map | ATLANTIC OCEAN |
 | ☑ | **Guano Cay** | cay | 26.47228 | -77.04969 | 26° 28.337′ N | 77° 02.981′ W | land | 14 | yes | map only | GUANO CAY |
 | ☑ | **Cormorant Cay** | cay | 26.46375 | -77.05039 | 26° 27.825′ N | 77° 03.023′ W | land | 13 | yes | map only | CORMORANT CAY |
+| ☑ | **Angel Cays** | cay | 26.45940 | -77.04430 | 26° 27.564′ N | 77° 02.658′ W | water | 13 | yes | map only | ANGEL CAYS, lettered offshore along the chain from Cormorant Cay to Snake Cay |
 | ☑ | **T H E   M A R L S** | region | 26.45000 | -77.32000 | 26° 27.000′ N | 77° 19.200′ W | water | 10 | — | map only | base chart: THE MARLS |
 | ☑ | **Tilloo Pond** | anchorage | 26.44880 | -76.99070 | 26° 26.928′ N | 76° 59.442′ W | water | 11.5 | yes | poster + map | TILLOO POND |
 | ☑ | **Tilloo Cay** | isle | 26.44000 | -76.98300 | 26° 26.400′ N | 76° 58.980′ W | water | 9.6 | yes | poster + map | TILLOO CAY |
@@ -95,6 +105,7 @@ from `site_build/data/places.geojson`, so this is what actually ships.
 | ☑ | **Cornish Cay** | cay | 26.39758 | -77.00678 | 26° 23.855′ N | 77° 00.407′ W | land | 13 | yes | map only | CORNISH CAY |
 | ☑ | **Lynyard Cay** | anchorage | 26.36480 | -76.98290 | 26° 21.888′ N | 76° 58.974′ W | land | 11.5 | yes | poster + map | LYNYARD CAY |
 | ☑ | **Bridges Cay** | cay | 26.35121 | -77.00092 | 26° 21.073′ N | 77° 00.055′ W | land | 13 | yes | map only | BRIDGES CAY |
+| ☑ | **Goole Cay** | cay | 26.34431 | -76.98544 | 26° 20.659′ N | 76° 59.126′ W | land | 14 | yes | map only | GOOLE CAY |
 | ☑ | **Riding Cays** | cay | 26.34202 | -77.02289 | 26° 20.521′ N | 77° 01.373′ W | land | 13.5 | yes | map only | RIDING CAYS |
 | ☑ | **LITTLE HARBOUR** | town | 26.32420 | -77.00020 | 26° 19.452′ N | 77° 00.012′ W | land | 9 | yes | poster + map | LITTLE HARBOUR |
 | ☑ | **Mangrove Cay** | cay | 26.29829 | -77.06623 | 26° 17.897′ N | 77° 03.974′ W | land | 13.5 | yes | map only | MANGROVE CAY (OpenStreetMap: Cormorant Cay) |
