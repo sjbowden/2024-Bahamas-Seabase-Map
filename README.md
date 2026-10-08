@@ -423,12 +423,13 @@ Man-O-War — see [Three independent records](#three-independent-records).
 An interactive version of this map (zoomable, day toggles, time scrubber) is
 planned — `tracks/*.csv` and `geo/` are the inputs it should reuse.
 
-**Before the interactive chart is published anywhere:** the cay names and
-label positions need a manual review. `MAP_CAYS` in `trip.py` was identified
-against reference maps by size and position rather than confirmed locally —
-the file records which identifications were guesses and which islands were
-left unnamed rather than guessed at — and nothing has checked those names on
-the water.
+**Cay names.** Every label the interactive chart draws was checked against the
+Explorer chartbook sheets for Abaco (AB 11 to AB 24) in October 2026, and the cays
+those charts letter were added to `MAP_CAYS` in `trip.py`, most held back until the
+chart is zoomed in. `docs/map-labels.md` lists all of them with what the chart
+prints for each. Lubbers Quarters and four `MAP_SPOTS` moved to the charts' positions in the
+same pass. Still open there: three small cays carry OpenStreetMap's name alone.
+Nothing has checked the names on the water.
 
 Coastline data © OpenStreetMap contributors (ODbL).
 
