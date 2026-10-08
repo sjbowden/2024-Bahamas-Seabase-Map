@@ -146,12 +146,12 @@ MAP_CAYS = [
     # Channel Cay. This was labelled Pelican Cays for a build, which is the name of
     # the whole group of cays here rather than of this one island, so the group name
     # is dropped and the island gets its own.
-    # Water Cay, on the southern side of the Sea of Abaco off Great Abaco, at the
-    # coordinate given: N 26 36.340' W 077 11.069'. This label was moved 616 m onto
-    # the nearest islet for a build, on the principle that a cay's name belongs on a
-    # cay — and that move crossed a headland, putting the name on the wrong side of
-    # the point. The coordinate given was already right. So this one is water rather
-    # than land, deliberately, and the on-land check below knows it.
+    # Water Cay, on the southern side of the Sea of Abaco off Great Abaco: the 2.3 ha
+    # islet at the tip of the point north of Archers Cay, which is where the Explorer
+    # chart letters it. The coordinate first given, N 26 36.340' W 077 11.069',
+    # is the anchorage 1.2 km to its west. An earlier build moved the label 616 m
+    # onto the *nearest* islet, which crossed a headland and named the wrong one, so
+    # it went back to the anchorage until the chart said which islet was meant.
     # The chain north of Green Turtle, each landed on its own island. Manjack is the
     # 3.9 km one: north of Green Turtle comes little Crab Cay and then Manjack, and
     # the two candidates there are 1.8 km and 3.9 km long. The decimal figure I was
@@ -159,7 +159,7 @@ MAP_CAYS = [
     # Cay, so the description — "just north of Green Turtle Cay" — was followed
     # instead. Spanish Cay came with two figures and this is the one that agrees
     # with the reference map; the other, 26.56 / -77.31, is down by Marsh Harbour.
-    (-77.18448, 26.60567, "Water Cay", 13.0),
+    (-77.17260, 26.60658, "Water Cay", 13.0),
     # The group, not an island: the four islets strung along the barrier between
     # Tilloo Cay and Sandy Cay, 26.399 to 26.426 N. The crew landed on the
     # northernmost on Tuesday afternoon and the captain called it Pelican Cay, but
@@ -303,11 +303,10 @@ MAP_REGIONS = [
 # moves 0.9 km north and 0.2 km east, to the middle of the cay it names.
 MAP_LABEL_NUDGE = {"Lynyard Cay": (0.0020, 0.0080)}
 
-# The island labels that belong in water. Water Cay's coordinate is its anchorage,
-# and the islet is small enough that moving the label onto it crossed a headland
-# and put the name on the wrong side of the point. Pelican Cays names a chain of
-# four islets, so it sits off them rather than on any one.
-MAP_CAYS_AFLOAT = {"Water Cay", "Pelican Cays", "Angel Cays"}
+# The cay labels that belong in water, both of them groups. Pelican Cays names a
+# chain of four islets, so it sits off them rather than on any one, and Angel Cays
+# is lettered offshore along its chain.
+MAP_CAYS_AFLOAT = {"Pelican Cays", "Angel Cays"}
 
 AIRPORT = (-77.0782, 26.5135, "MHH", "Leonard M. Thompson Intl")
 # hotel fixed from the EXIF of IMG_0496.JPG (14:43 EDT, 22 Mar, ±4.6 m); the
