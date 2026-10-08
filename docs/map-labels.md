@@ -49,7 +49,7 @@ from `site_build/data/places.geojson`, so this is what actually ships.
 | ☑ | **Great Guana Cay** | isle | 26.67900 | -77.09800 | 26° 40.740′ N | 77° 05.880′ W | water | 9.6 | yes | poster + map | GREAT GUANA CAY |
 | ☑ | **Theresa Cay** | cay | 26.67707 | -77.42715 | 26° 40.624′ N | 77° 25.629′ W | land | 13 | — | map only | THERESA CAY |
 | ☑ | **Treasure Cay** | spot | 26.67690 | -77.28580 | 26° 40.614′ N | 77° 17.148′ W | land | 11 | — | map only | TREASURE CAY MARINA |
-| ☑ | **Goliath Cay** | cay | 26.66613 | -77.35004 | 26° 39.968′ N | 77° 21.002′ W | land | 13 | — | map only | GOLIATH CAY |
+| ☐ | **Goliath Cay** | cay | 26.66613 | -77.35004 | 26° 39.968′ N | 77° 21.002′ W | land | 13 | — | map only | GOLIATH CAY, but less certain: two sheets join here and the lettering straddles the flats between this island and the shore to its east |
 | ☑ | **Snapper Cay** | cay | 26.66608 | -77.42629 | 26° 39.965′ N | 77° 25.577′ W | land | 13 | — | map only | SNAPPER CAY |
 | ☑ | **Delia's Cay** | cay | 26.66535 | -77.11805 | 26° 39.921′ N | 77° 07.083′ W | land | 14 | yes | map only | DELIAS CAY |
 | ☑ | **Scotland Cay** | cay | 26.64559 | -77.07431 | 26° 38.735′ N | 77° 04.459′ W | land | 11 | yes | map only | SCOTLAND CAY |
@@ -60,7 +60,7 @@ from `site_build/data/places.geojson`, so this is what actually ships.
 | ☑ | **Levi Cay** | cay | 26.61811 | -77.40957 | 26° 37.087′ N | 77° 24.574′ W | land | 13 | — | map only | LEVI CAY |
 | ☑ | **Big Joe Downer Cay** | cay | 26.61364 | -77.42498 | 26° 36.818′ N | 77° 25.499′ W | land | 12.5 | — | map only | BIG JOE DOWNER CAY |
 | ☑ | **Man-O-War Cay** | isle | 26.61340 | -77.01700 | 26° 36.804′ N | 77° 01.020′ W | water | 9.6 | yes | poster + map | MAN-O-WAR CAY |
-| ☑ | **Water Cay** | cay | 26.60567 | -77.18448 | 26° 36.340′ N | 77° 11.069′ W | water | 13 | yes | map only | WATER CAY, lettered 500 m north-east; the point is the charted anchorage |
+| ☑ | **Water Cay** | cay | 26.60658 | -77.17260 | 26° 36.395′ N | 77° 10.356′ W | land | 13 | yes | map only | WATER CAY, on the islet the chart names |
 | ☑ | **S E A   O F   A B A C O** | water | 26.60550 | -77.07500 | 26° 36.330′ N | 77° 04.500′ W | water | 8.5 | yes | poster + map | SEA OF ABACO |
 | ☑ | **Big Pigeon Cay** | cay | 26.59854 | -77.41222 | 26° 35.912′ N | 77° 24.733′ W | land | 13 | — | map only | BIG PIGEON CAY |
 | ☑ | **Ballast Cay** | cay | 26.59777 | -77.42244 | 26° 35.866′ N | 77° 25.346′ W | land | 14 | — | map only | BALLAST CAY |
@@ -127,7 +127,9 @@ interior point from a coordinate you supplied.
 
 **Baker's Bay** — Moved 1.4 km west off the marina, to the water where the chart places the name.
 
-**Water Cay** — Your anchorage coordinate, used exactly as given. It is water rather than land on purpose: moving it 616 m onto the nearest islet crossed a headland and put the name on the wrong side of the point.
+**Water Cay** — On the islet the Explorer chart names, at the tip of the point north of Archers Cay. It stood at the anchorage coordinate 1.2 km west until the chart showed which islet was meant; an earlier move onto the nearest islet had picked the wrong one.
+
+**Goliath Cay** — Placed on the separate 160 ha island, on the view that a cay's name belongs to the island rather than to a lobe of the Great Abaco shore. The chart's lettering is centred about 600 m east of it, across a seam between two sheets, so this is the one new name that wants local confirmation.
 
 **Dickie's Cay** — Held to z13.5: it sits 400 m from Man-O-War Cay's label, and these labels are HTML markers with no collision detection.
 

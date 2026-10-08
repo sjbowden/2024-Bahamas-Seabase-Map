@@ -428,7 +428,8 @@ Explorer chartbook sheets for Abaco (AB 11 to AB 24) in October 2026, and the ca
 those charts letter were added to `MAP_CAYS` in `trip.py`, most held back until the
 chart is zoomed in. `docs/map-labels.md` lists all of them with what the chart
 prints for each. Lubbers Quarters and four `MAP_SPOTS` moved to the charts' positions in the
-same pass. Still open there: three small cays carry OpenStreetMap's name alone.
+same pass. Still open there: three small cays carry OpenStreetMap's name alone, and
+Goliath Cay's island is a judgement the chart does not settle.
 Nothing has checked the names on the water.
 
 Coastline data © OpenStreetMap contributors (ODbL).
