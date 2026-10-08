@@ -1,6 +1,6 @@
 # Labels on the chart
 
-All 34 labels the interactive chart draws, north to south. Generated
+All 35 labels the interactive chart draws, north to south. Generated
 from `site_build/data/places.geojson`, so this is what actually ships.
 
 - **Source** — `poster + map` labels are shared with the printed sheet, so moving
@@ -42,6 +42,7 @@ from `site_build/data/places.geojson`, so this is what actually ships.
 | ☐ | **Tilloo Cay** | isle | 26.44000 | -76.98300 | 26° 26.400′ N | 76° 58.980′ W | water | 9.6 | yes | poster + map |
 | ☐ | **G R E A T   A B A C O** | big | 26.43000 | -77.15500 | 26° 25.800′ N | 77° 09.300′ W | land | 8.5 | yes | poster + map |
 | ☐ | **Channel Cay** | cay | 26.41404 | -76.99656 | 26° 24.842′ N | 76° 59.794′ W | land | 11 | yes | map only |
+| ☐ | **Pelican Cays** | cay | 26.41250 | -76.98050 | 26° 24.750′ N | 76° 58.830′ W | water | 13 | yes | map only |
 | ☐ | **Lynyard Cay** | anchorage | 26.36480 | -76.98290 | 26° 21.888′ N | 76° 58.974′ W | land | 11.5 | yes | poster + map |
 | ☐ | **LITTLE HARBOUR** | town | 26.32420 | -77.00020 | 26° 19.452′ N | 77° 00.012′ W | land | 9 | yes | poster + map |
 | ☐ | **Casuarina Point** | spot | 26.29370 | -77.09105 | 26° 17.622′ N | 77° 05.463′ W | land | 11 | — | map only |
@@ -70,6 +71,8 @@ interior point from a coordinate you supplied.
 **T H E   M A R L S** — A region rather than an island, so in water by intent. Named from the reference maps.
 
 **Channel Cay** — Labelled Pelican Cays for one build. That is the name of the whole group of cays here, so the island got its own name instead.
+
+**Pelican Cays** — A group label for the four islets between Tilloo Cay and Sandy Cay, set in the water at the middle of the chain rather than on any one of them. The crew landed on the northernmost on Tuesday 26 March.
 
 **Lynyard Cay** — Nudged 0.9 km north and 0.2 km east on the map only, to the middle of the 4.3 km cay. The poster draws this label too and places its day badges around it, so the shared coordinate is untouched.
 

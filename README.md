@@ -406,11 +406,11 @@ than that and is left alone rather than quietly straightened out.
 | Local day | Route | On the water |
 |---|---|---|
 | Fri 22 Mar | Arrival — MHH → hotel by road (reconstructed, 3.2 nm) | — |
-| Sat 23 Mar | Walk to the marina (0.4 nm), then out into the harbour | 3.6 nm |
+| Sat 23 Mar | Walk to the marina (0.4 nm), then out to anchor off Outer Point Cay | 3.6 nm |
 | Sun 24 Mar | Marsh Hbr → Man-O-War → Tahiti Beach → Tilloo Pond | 24.0 nm |
 | Mon 25 Mar | Tilloo Pond → Hope Town Harbour → Lynyard Cay | 20.5 nm |
-| Tue 26 Mar | Lynyard Cay → Little Harbour → north to Tilloo | 19.0 nm |
-| Wed 27 Mar | Tilloo → Great Guana Cay → Marsh Harbour | 22.0 nm |
+| Tue 26 Mar | Lynyard Cay → Little Harbour → Sandy Cay → Hope Town | 19.0 nm |
+| Wed 27 Mar | Hope Town → Great Guana Cay → Marsh Harbour | 22.0 nm |
 | Thu 28 Mar | Off the mooring to the dock, then MHH by road (2.7 nm) | 0.6 nm |
 
 **89 nm under sail** over five sailing days; best speed 8.3 kn. The 235-minute
