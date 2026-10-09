@@ -1,31 +1,23 @@
 # Open items
 
-What is left to do on the chart, the poster and the journal, as of 8 October 2026.
-Everything built so far is committed and pushed; these are loose ends and one
-decision.
+What is left to do on the chart, the poster and the journal, as of 9 October 2026.
+Everything built so far is committed; these are loose ends and one decision.
 
-## Worth doing soon
+## Needs a person
 
 - [ ] **Look over the interactive chart on a real screen.** Run
-  `python -m map.serve` and open http://127.0.0.1:8123/. The 97 place labels and
-  21 story dots have only been checked in headless screenshots, which did not
-  draw the chart reliably. The labels have no collision detection, so expect a
-  few to crowd each other; the fix is each label's zoom threshold in `trip.py`
-  (`MAP_CAYS`, `MAP_SPOTS`).
-- [ ] **Regenerate `out/compare_offset.png`** with `python poster.py --compare`.
-  It is tracked, covers the Lubbers Quarters area, and still shows that label in
-  its old position.
-- [ ] **Update `locations.md`** in the journal folder. Its "what doesn't line up"
-  section lists discrepancies that have since been fixed (Tuesday night at Hope
-  Town, Sandy Cay on the route line, Saturday's anchorage), and it still shows
-  the Pelican Cay stop as open.
-
-## A decision
-
-- [ ] **Who gets the link when the chart is published.** The site is built but
-  not hosted. The stories carry the crew's first names, alongside their
-  photographs. The site tells search engines not to index it (`robots.txt`,
-  `_headers`, the page's own meta tag), but anyone with the link can read it.
+  `python -m map.build` then `python -m map.serve` and open
+  http://127.0.0.1:8123/. The labels have been checked for overlap by
+  calculation (see below) and the story dots in headless screenshots, but
+  nobody has yet judged how the chart looks.
+- [ ] **Decide who gets the link when the chart is published.** The site is built
+  but not hosted. The stories carry the crew's first names, alongside their
+  photographs; two of the sixteen scouts were 18 and the rest were minors. The
+  site tells search engines not to index it (`robots.txt`, `_headers`, the page's
+  own meta tag), but anyone with the link can read it.
+- [ ] **Names wanting local confirmation:** Goliath Cay, and the three that carry
+  only OpenStreetMap's name — Outer Point Cay, Gumelemi Cay and Little Ambergris
+  Cay. `docs/map-labels.md` marks all four.
 
 ## The journal
 
@@ -45,6 +37,20 @@ The journal is kept outside this repository. These need the notebook to hand.
 - [ ] **Story 8, Vernon's.** The marker is an estimate of where the settlement
   is, not the grocery's surveyed position.
 
+## Label overlaps
+
+Each label's box was estimated from its text and type size, and every pair
+checked at the lowest zoom where both show. Two overlaps were fixed on 9 October:
+Lubbers Quarters ran into Elbow Cay's name until z10.5, and Hotel into Marina
+until z12.8. Two remain, both below the zoom the chart opens at (z9.9 on a
+phone, z10.4 on a desktop), so they are seen only after zooming out:
+
+- MARSH HARBOUR and HOPE TOWN, z9 to z9.4;
+- Elbow Cay and Lubbers Quarters, z9.6 to z9.8.
+
+The estimate does not cover the story dots or the photograph cluster counts,
+which can still sit on a name.
+
 ## Optional
 
 - [ ] **Cays the charts name that are not on the chart.** Each was read on the
@@ -57,12 +63,15 @@ The journal is kept outside this repository. These need the notebook to hand.
     Pigeon and Big Lake Cays.
 - [ ] **Three chart tiles not read**, over the Marls and inland Great Abaco,
   which the Explorer sheets barely cover.
-- [ ] **Names wanting local confirmation:** Goliath Cay, and the three that carry
-  only OpenStreetMap's name — Outer Point Cay, Gumelemi Cay and Little Ambergris
-  Cay. `docs/map-labels.md` marks all four.
 - [ ] **Three unnamed mangrove islands** on the Great Abaco shore, listed in a
   comment in `trip.py`.
 - [ ] **A second copy of `bahamas-pre-rewrite.bundle`**, the only copy of the
   history from before the rewrite. It is on one machine only.
 - [ ] **The hand-drawn Abaco map** (`out/LOCALABACOMAP.jpg`, gitignored), if a
   second reference for the cay names is wanted on this machine.
+
+## Done since this list was first written
+
+- `out/compare_offset.png` regenerated, so it shows Lubbers Quarters where it now is.
+- The journal's `locations.md` brought up to date.
+- The full site build runs on this machine, thumbnails included.

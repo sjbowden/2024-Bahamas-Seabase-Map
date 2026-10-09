@@ -75,7 +75,7 @@ from `site_build/data/places.geojson`, so this is what actually ships.
 | ☑ | **Green Cay** | cay | 26.55016 | -77.15672 | 26° 33.010′ N | 77° 09.403′ W | land | 13 | yes | map only | GREEN CAY |
 | ☑ | **Sugar Loaf Cay** | cay | 26.55015 | -77.02866 | 26° 33.009′ N | 77° 01.720′ W | land | 11 | yes | map only | SUGAR LOAF CAY |
 | — | **Marina** | marina | 26.54688 | -77.05192 | 26° 32.813′ N | 77° 03.115′ W | land | 12 | yes | poster + map | not a chart name; from the track |
-| — | **Hotel** | hotel | 26.54522 | -77.04891 | 26° 32.713′ N | 77° 02.935′ W | land | 12 | yes | poster + map | not a chart name; from a photograph's EXIF |
+| — | **Hotel** | hotel | 26.54522 | -77.04891 | 26° 32.713′ N | 77° 02.935′ W | land | 13 | yes | poster + map | not a chart name; from a photograph's EXIF |
 | ☑ | **HOPE TOWN** | town | 26.54070 | -76.95940 | 26° 32.442′ N | 76° 57.564′ W | land | 9 | yes | poster + map | HOPE TOWN |
 | ☑ | **Parrot Cays** | cay | 26.53958 | -76.97794 | 26° 32.375′ N | 76° 58.676′ W | land | 13 | yes | map only | PARROT CAYS |
 | ☑ | **Big Potato Cay** | cay | 26.53543 | -77.14158 | 26° 32.126′ N | 77° 08.495′ W | land | 13 | yes | map only | BIG POTATO CAY |
@@ -83,7 +83,7 @@ from `site_build/data/places.geojson`, so this is what actually ships.
 | — | **Leonard M. Thompson Intl** | airport | 26.51350 | -77.07820 | 26° 30.810′ N | 77° 04.692′ W | land | 12 | yes | poster + map | inland, outside the chart's detail |
 | ☑ | **Dinner Cay** | cay | 26.51127 | -77.05107 | 26° 30.676′ N | 77° 03.064′ W | land | 14 | yes | map only | DINNER CAY |
 | ☑ | **Pepper Cay** | cay | 26.50800 | -77.04786 | 26° 30.480′ N | 77° 02.872′ W | land | 14 | yes | map only | PEPPER CAY |
-| ☑ | **Lubbers Quarters** | isle | 26.50300 | -77.00700 | 26° 30.180′ N | 77° 00.420′ W | water | 9.6 | yes | poster + map | LUBBERS QUARTER, just off the island's west shore |
+| ☑ | **Lubbers Quarters** | isle | 26.50300 | -77.02400 | 26° 30.180′ N | 77° 01.440′ W | water | 9.6 | yes | poster + map | LUBBERS QUARTER; on the map the name sits 1.7 km west of the sheet's position, clear of Elbow Cay's |
 | ☑ | **Cooper Jacks Cay** | cay | 26.49702 | -76.98535 | 26° 29.821′ N | 76° 59.121′ W | land | 14 | yes | map only | COOPER JACKS CAY |
 | ☑ | **Elbow Cay** | isle | 26.49500 | -76.97950 | 26° 29.700′ N | 76° 58.770′ W | water | 9.6 | yes | poster + map | ELBOW CAY |
 | ☑ | **Tavern Cay** | cay | 26.47856 | -76.99564 | 26° 28.714′ N | 76° 59.738′ W | land | 14 | yes | map only | TAVERN CAY |

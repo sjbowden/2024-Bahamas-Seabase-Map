@@ -301,7 +301,12 @@ MAP_REGIONS = [
 #
 # Lynyard Cay sat low on a cay that runs 4.3 km north to south, so on the map it
 # moves 0.9 km north and 0.2 km east, to the middle of the cay it names.
-MAP_LABEL_NUDGE = {"Lynyard Cay": (0.0020, 0.0080)}
+#
+# Lubbers Quarters is set flush right on the sheet, ending just off the island's
+# west shore. The map centres every label on its point, which put the name across
+# the island and into Elbow Cay's until z10.5, so here it moves 1.7 km west.
+MAP_LABEL_NUDGE = {"Lynyard Cay": (0.0020, 0.0080),
+                   "Lubbers\nQuarters": (-0.0170, 0.0)}
 
 # The cay labels that belong in water, both of them groups. Pelican Cays names a
 # chain of four islets, so it sits off them rather than on any one, and Angel Cays
