@@ -35,6 +35,13 @@ STORIES = [
               "everyone found a place inside. It was pretty crowded."),
 
     # ------------------------------------------------------------ Sun 24 Mar
+    dict(day="Sun 24 Mar", time="08:00", lon=-77.08319, lat=26.55435,
+         title="Washing up in sea water",
+         text="We washed dishes by scrubbing them with a soap-filled scrubber sponge. "
+              "We sat on the back steps of the boat and used sea water. Then we would "
+              "rinse, also with sea water. Finally, we would barely spritz them with "
+              "fresh water from the fresh water tank, and laid them out to dry on the "
+              "outside covered table."),
     dict(day="Sun 24 Mar", time="10:15", lon=-76.98717, lat=26.60034,
          title="The outer reef",
          text="We sailed to the outer reef, got together with buddies and put on fins "
@@ -55,13 +62,6 @@ STORIES = [
          text="The wreck is some sort of a barge, only about 10 feet deep. The ship "
               "was covered in coral and there were fish everywhere. We snorkeled all "
               "around the ship. The water was very clear, and felt cool, but not cold."),
-    dict(day="Sun 24 Mar", time=None, lon=-76.99067, lat=26.44881,
-         title="Washing up in sea water",
-         text="We washed dishes by scrubbing them with a soap-filled scrubber sponge. "
-              "We sat on the back steps of the boat and used sea water. Then we would "
-              "rinse, also with sea water. Finally, we would barely spritz them with "
-              "fresh water from the fresh water tank, and laid them out to dry on the "
-              "outside covered table."),
 
     # ------------------------------------------------------------ Mon 25 Mar
     dict(day="Mon 25 Mar", time="10:30", lon=-76.96220, lat=26.53970,
