@@ -454,13 +454,27 @@ html, body {
   display: grid; gap: .35rem;
   grid-template-columns: repeat(auto-fill, minmax(5.2rem, 1fr));
 }
+#tray .grid .thumb {
+  display: block; padding: 0; border: 0; background: none; cursor: pointer;
+}
 #tray .grid img {
+  display: block;
   width: 100%; aspect-ratio: 1; object-fit: cover;
   background: var(--shoal-1);
   border: 1px solid var(--rule); border-radius: 2px;
-  cursor: pointer;
 }
-#tray .grid img:hover { border-color: var(--ink); }
+#tray .grid .thumb:hover img { border-color: var(--ink); }
+#tray .grid .thumb:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
+
+/* Something optional failed to load. Said once, out of the way, because the
+   chart that did load is still the point. */
+#notice {
+  position: fixed; left: 50%; bottom: 2.6rem; transform: translateX(-50%);
+  z-index: 5; max-width: 90vw;
+  padding: .45rem .8rem;
+  font: .78rem/1.3 var(--sans); color: var(--ink);
+  background: var(--paper); border: 1px solid var(--rule); border-radius: 3px;
+}
 
 body.viewing { overflow: hidden; }
 

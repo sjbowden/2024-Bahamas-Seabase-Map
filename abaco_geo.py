@@ -6,6 +6,8 @@ land lies to the LEFT of the way direction. We build the planar graph of
 (coastline + bbox edge), polygonize it into faces, then classify each face as
 land or water using that left-hand rule.
 """
+import glob
+import hashlib
 import json
 import math
 import os
@@ -24,6 +26,24 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 # reclassified faces and moved 17% of its pixels.
 COASTLINE = os.path.join(HERE, "geo", "coastline.json")
 COASTLINE_MAP = os.path.join(HERE, "geo", "coastline_map.json")
+
+
+# Bump when the polygonising below changes what comes out of the same coastline.
+GEOMETRY_VERSION = 1
+
+
+def _source_digest(path):
+    """A short fingerprint of a coastline file's contents and of this module.
+
+    The cache used to be keyed on the file's *name*, so `fetch_coastline.py
+    --force` replaced the coastline and every build after it went on drawing the
+    old land. Keyed on the contents, a refreshed source is a different key.
+    """
+    h = hashlib.sha1(b"geometry-%d:" % GEOMETRY_VERSION)
+    with open(path, "rb") as fh:
+        for chunk in iter(lambda: fh.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()[:10]
 
 
 def _load_ways(path):
@@ -45,7 +65,8 @@ def land_polygons(bbox, cache=True, source=None):
     """
     source = source or COASTLINE
     tag = "" if source == COASTLINE else "_" + os.path.basename(source).split(".")[0]
-    key = os.path.join(HERE, "geo", "land%s_%.4f_%.4f_%.4f_%.4f.pkl" % ((tag,) + bbox))
+    stem = os.path.join(HERE, "geo", "land%s_%.4f_%.4f_%.4f_%.4f" % ((tag,) + bbox))
+    key = "%s_%s.pkl" % (stem, _source_digest(source))
     if cache and os.path.exists(key):
         with open(key, "rb") as fh:
             return pickle.load(fh)
@@ -93,6 +114,11 @@ def land_polygons(bbox, cache=True, source=None):
     result = unary_union(land) if land else None
     if cache:
         os.makedirs(os.path.join(HERE, "geo"), exist_ok=True)
+        # The land this replaces, from an older source or from before the key
+        # carried a digest, is no use to anyone now.
+        for old in glob.glob(stem + "_*.pkl") + [stem + ".pkl"]:
+            if old != key and os.path.exists(old):
+                os.remove(old)
         with open(key, "wb") as fh:
             pickle.dump(result, fh)
     return result

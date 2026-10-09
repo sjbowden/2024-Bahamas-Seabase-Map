@@ -244,6 +244,30 @@ def _sweep(dest, keep):
     return gone
 
 
+def stale(photos, dest, manifest_path=None):
+    """Ids whose derivatives on disk are not known to be from this index.
+
+    None if there is no media folder to be wrong -- nothing has been rendered,
+    which is a build without pictures, not a build with the wrong ones. Cheap:
+    it reads the record and stats the files, and renders nothing.
+    """
+    if not any(_count(os.path.join(dest, s["name"])) for s in (THUMB, VIEW)):
+        return None
+    manifest = _load_manifest(manifest_path or MANIFEST, dest)
+    out = []
+    for p in photos:
+        if p.get("unreadable"):
+            continue
+        have = manifest.get(p["id"])
+        have = have if isinstance(have, dict) else {}
+        for spec in (THUMB, VIEW):
+            if (have.get(spec["name"]) != fingerprint(p, spec)
+                    or not _exists(os.path.join(dest, spec["name"], f"{p['id']}.jpg"))):
+                out.append(p["id"])
+                break
+    return out
+
+
 def fail_on_errors(result):
     """Stop with a failing exit status if any photograph could not be derived."""
     if result["errors"]:

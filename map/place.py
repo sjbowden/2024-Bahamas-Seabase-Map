@@ -127,6 +127,12 @@ def at(fixes, times, t):
         return None if t < times[0] else (fixes[0][1], fixes[0][2], fixes[0][3], fixes[0][4])
     if i >= len(times):
         return None
+    if times[i] == t:
+        # On a fix exactly: that is a recorded position, whatever came before
+        # it. Checked ahead of the gap rule, which would otherwise refuse the
+        # first fix after the receiver came back on.
+        b = fixes[i]
+        return (b[1], b[2], b[3], b[4])
     a, b = fixes[i - 1], fixes[i]
     span = (b[0] - a[0]).total_seconds()
     if span > MAX_GAP_S:

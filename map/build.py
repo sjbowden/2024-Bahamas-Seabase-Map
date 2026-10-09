@@ -84,6 +84,10 @@ def main():
         print(f"[index ] {len(photos)} photographs, {stats['unreadable']} unreadable "
               f"({time.time() - t0:.1f}s)")
 
+    photos, dropped = PI.readable(photos)
+    if dropped:
+        print(f"[index ] {dropped} could not be read and are left off the site")
+
     t = time.time()
     per_photo, cameras, _ = C.fit(photos)
     fitted = sum(1 for v in per_photo.values() if v["utc"])
@@ -115,7 +119,21 @@ def main():
         # Before "built": a site with thumbnails missing is not built.
         derive.fail_on_errors(made)
     else:
-        print("[derive] skipped — pass --media for the 920 MB step")
+        # Not rendering is fine; publishing pictures that no longer belong to
+        # their records is not. Ids are positions in the index, so if the index
+        # moved under an existing media folder, say so and stop.
+        from map import derive
+        media = os.path.join(a.out, "media")
+        stale = derive.stale(photos, media)
+        if stale is None:
+            print("[derive] skipped — pass --media for the 920 MB step")
+        elif stale:
+            raise SystemExit(
+                f"[derive] {len(stale)} photographs no longer match the media on "
+                f"disk (e.g. {', '.join(stale[:3])}) — run again with --media")
+        else:
+            print(f"[derive] skipped — the media on disk matches all "
+                  f"{len(photos)} photographs")
 
     print(f"\nbuilt {a.out} in {time.time() - t0:.0f}s")
     if a.serve:
