@@ -3,7 +3,8 @@
 GPS tracks from Boy Scout Sea Base crew 1830's sailing trek out of Marsh
 Harbour, Abaco, **22–28 March 2024**, rendered as a print-quality
 nautical-chart poster. (The logs also cover 21 March, the drive to Portland
-airport.)
+airport.) Sea Base registered the crew as **BT032324-A** — Bahamas Tall Ship,
+arriving 23 March 2024 — twenty people aboard the catamaran *Adonai*.
 
 ## Pipeline
 
