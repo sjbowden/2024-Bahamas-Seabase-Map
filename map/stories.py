@@ -71,9 +71,12 @@ STORIES = [
               "kerosene-powered lighthouse. We climbed up the narrow spiral stairs; "
               "there were beautiful views from the top. The sun was out and the water "
               "was clear."),
-    dict(day="Mon 25 Mar", time="14:00", lon=-76.95720, lat=26.53780,
+    # Vernon's Store, which the journal calls Vernon's Grocery, is at plus code
+    # G2RR+2FP on Queen's Highway, as the keeper of the journal looked it up; the
+    # marker was a guess at the settlement before that.
+    dict(day="Mon 25 Mar", time="14:00", lon=-76.95880, lat=26.54009,
          title="Vernon's famous pies",
-         text="We stopped at Vernon's Grocery and looked around. Vernon told us the "
+         text="We stopped at Vernon's Store and looked around. Vernon told us the "
               "famous pies wouldn't be available until 2–3 pm. At 2 pm the grocery "
               "opened after their lunch break. We asked about pie and found out they "
               "wouldn't be ready for at least an hour, so we gave up on that."),

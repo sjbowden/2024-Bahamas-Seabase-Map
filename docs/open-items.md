@@ -24,8 +24,7 @@ Everything built so far is committed; these are loose ends and one decision.
 The journal is kept outside this repository. The transcript is complete: every
 left-hand page has been checked against the notebook, and nothing follows p.43.
 
-- [ ] **Story 8, Vernon's.** The marker is an estimate of where the settlement
-  is, not the grocery's surveyed position.
+Nothing is open here.
 
 ## Label overlaps
 
@@ -71,5 +70,8 @@ which can still sit on a name.
   ends at p.43.
 - The two jottings settled: the p.5 one expanded from memory, and the p.17 one
   found to be an outline whose every item the entry already tells.
+- Vernon's Store placed from its plus code, G2RR+2FP on Queen's Highway, 300 m
+  from the earlier guess. Hope Town's name moved 700 m east on the map to stay
+  clear of the story dots.
 - The washing-up story moved to the first anchorage on Sunday morning, where the
   journal has it. It is now story 3.

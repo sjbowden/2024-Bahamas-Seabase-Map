@@ -76,7 +76,7 @@ from `site_build/data/places.geojson`, so this is what actually ships.
 | ☑ | **Sugar Loaf Cay** | cay | 26.55015 | -77.02866 | 26° 33.009′ N | 77° 01.720′ W | land | 11 | yes | map only | SUGAR LOAF CAY |
 | — | **Marina** | marina | 26.54688 | -77.05192 | 26° 32.813′ N | 77° 03.115′ W | land | 12 | yes | poster + map | not a chart name; from the track |
 | — | **Hotel** | hotel | 26.54522 | -77.04891 | 26° 32.713′ N | 77° 02.935′ W | land | 13 | yes | poster + map | not a chart name; from a photograph's EXIF |
-| ☑ | **HOPE TOWN** | town | 26.54070 | -76.95940 | 26° 32.442′ N | 76° 57.564′ W | land | 9 | yes | poster + map | HOPE TOWN |
+| ☑ | **HOPE TOWN** | town | 26.54070 | -76.95240 | 26° 32.442′ N | 76° 57.144′ W | water | 9 | yes | poster + map | HOPE TOWN; on the map the name sits 700 m east of the sheet's position, clear of the story dots |
 | ☑ | **Parrot Cays** | cay | 26.53958 | -76.97794 | 26° 32.375′ N | 76° 58.676′ W | land | 13 | yes | map only | PARROT CAYS |
 | ☑ | **Big Potato Cay** | cay | 26.53543 | -77.14158 | 26° 32.126′ N | 77° 08.495′ W | land | 13 | yes | map only | BIG POTATO CAY |
 | ☑ | **MARSH HARBOUR** | town | 26.53100 | -77.06400 | 26° 31.860′ N | 77° 03.840′ W | land | 9 | yes | poster + map | MARSH HARBOUR |
