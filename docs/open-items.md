@@ -21,11 +21,9 @@ Everything built so far is committed; these are loose ends and one decision.
 
 ## The journal
 
-The journal is kept outside this repository. These need the notebook to hand.
+The journal is kept outside this repository. The transcript is complete: every
+left-hand page has been checked against the notebook, and nothing follows p.43.
 
-- [ ] **Left-hand pages.** About 25 of the page photographs show only the right
-  page, so a short note near the outer edge of a left page could have been
-  missed: pp. 1–4, 6–8, 11–13, 15, 20–25, 27, 33–34, 37–39 and 42.
 - [ ] **Expand the two jottings**, on p.5 and p.17, if wanted.
 - [ ] **Story 8, Vernon's.** The marker is an estimate of where the settlement
   is, not the grocery's surveyed position.
@@ -70,5 +68,7 @@ which can still sit on a name.
 - The full site build runs on this machine, thumbnails included.
 - The transcript's readings confirmed: both stray year headings are 2024, the
   chart spellings stay, and the two supplied words are right.
+- The notebook's left-hand pages checked: nothing was missed, and the journal
+  ends at p.43.
 - The washing-up story moved to the first anchorage on Sunday morning, where the
   journal has it. It is now story 3.
