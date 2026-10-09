@@ -176,11 +176,11 @@ STORIES = [
               "turtle, southern stingray, barracuda, pufferfish, Atlantic spadefish, "
               "lionfish, and many more."),
     dict(day="Wed 27 Mar", time="19:00", lon=-77.05373, lat=26.54891,
-         title="The Captain's Club",
+         title="The Captains Club",
          text="Dinner was chicken breasts, conch, the mackerel that Harrison caught "
               "and yellow jack with rice and salad. Then they brought out cake for "
               "Kyle. Josh led a rose–bud–thorn activity and shared his thoughts about "
               "the week. He said we are among the best groups he has captained for. He "
-              "gave us our Seabase patches and added us to the Captain's Club, which "
+              "gave us our Seabase patches and added us to the Captains Club, which "
               "he doesn't always give out."),
 ]
