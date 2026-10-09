@@ -297,6 +297,14 @@ def test_placement(photos, spans):
     check("everything plotted has a sailing day",
           all(r["day"] for r in plotted),
           f"{sum(1 for r in plotted if not r['day'])} without one")
+    # A photograph the track cannot place still happened on a day. 101 of them
+    # were going out with a trusted UTC on a trip day and no day at all, because
+    # the branch that gives up on a position also skipped naming the day -- so
+    # the tray filed them under "Undated" and no day box could hide them.
+    lost = [r["id"] for r in placed
+            if r["utc"] and not r["day"] and P.day_for(C._utc(r["utc"]))[0]]
+    check("a known trip day survives a failed placement", not lost,
+          f"{len(lost)} have a UTC on a trip day and no day, e.g. {lost[:3]}")
     check("nothing off the chart keeps a position",
           all(r["lat"] is None or r["tier"] != "unplaced" for r in placed))
     check("every photograph has a note", all(r["note"] for r in placed))
@@ -583,6 +591,75 @@ def test_nothing_published_carries_metadata(placed):
               else f"rebuilt {rebuilt}, bytes match")
 
 
+# ------------------------------------------------------ derivative cache ---
+def test_derive_cache():
+    """derive against a throwaway archive: does it notice the source changing?
+
+    Ids are positions in the time-sorted index, so one photograph added to the
+    archives renumbers everything after it. A cache keyed on the id alone then
+    keeps p00000.jpg and shows it at whatever is p00000 now. No archive of real
+    photographs is needed to ask the question, so this runs everywhere.
+    """
+    section("derivative cache")
+    import io
+    import shutil
+    import tempfile
+    import zipfile
+    from PIL import Image
+    from map import derive as D
+
+    def archive(folder, colour, member="a.jpg"):
+        buf = io.BytesIO()
+        Image.new("RGB", (64, 48), colour).save(buf, "JPEG", quality=90)
+        with zipfile.ZipFile(os.path.join(folder, "Seabase 2024.zip"), "w") as zf:
+            zf.writestr(member, buf.getvalue())
+            info = zf.getinfo(member)
+        return dict(id="p00000", unreadable=False,
+                    src=dict(archive="mine", member=member,
+                             crc=info.CRC, size=info.file_size))
+
+    def colour_of(dest):
+        with Image.open(os.path.join(dest, "view", "p00000.jpg")) as im:
+            r, g, b = im.convert("RGB").getpixel((5, 5))
+        return "red" if r > b else "blue"
+
+    tmp = tempfile.mkdtemp(prefix="derive-test-")
+    try:
+        dest = os.path.join(tmp, "media")
+        run = lambda p: D.run([p], dest, workers=1, progress=False, archive_dir=tmp)
+        red = archive(tmp, (220, 20, 20))
+        first = run(red)
+        check("a first run makes both derivatives",
+              first["errors"] == 0 and first["made"] == 1 and colour_of(dest) == "red",
+              str(first))
+        again = run(red)
+        check("an unchanged source is not rendered twice", again["made"] == 0,
+              str(again))
+        blue = archive(tmp, (20, 20, 220))
+        changed = run(blue)
+        check("the same id from a different source is rendered again",
+              changed["made"] == 1 and colour_of(dest) == "blue",
+              f"{changed}, viewing copy is {colour_of(dest)}")
+        missing = dict(blue, src=dict(blue["src"], member="not-there.jpg", crc=1))
+        broken = run(missing)
+        check("a photograph that cannot be read is counted as an error",
+              broken["errors"] == 1, str(broken))
+        try:
+            D.fail_on_errors(broken)
+            raised = False
+        except SystemExit as e:
+            raised = bool(e.code)
+        check("and that fails the build rather than finishing it", raised)
+        try:
+            D.fail_on_errors(changed)
+            clean = True
+        except SystemExit:
+            clean = False
+        check("a clean run does not", clean)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 # ---------------------------------------------------------------- stories ---
 def test_stories():
     """The journal's stories, as the chart places them.
@@ -735,6 +812,7 @@ def main():
     test_units()
     spans = test_coverage()
     test_stories()
+    test_derive_cache()
     if not os.path.exists(INDEX):
         print(f"\nSKIP  the archive-backed tests: no {INDEX}")
         print("      run: python -m map.photo_index")
