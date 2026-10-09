@@ -26,14 +26,7 @@ The journal is kept outside this repository. These need the notebook to hand.
 - [ ] **Left-hand pages.** About 25 of the page photographs show only the right
   page, so a short note near the outer edge of a left page could have been
   missed: pp. 1–4, 6–8, 11–13, 15, 20–25, 27, 33–34, 37–39 and 42.
-- [ ] **Confirm three readings in the transcript:**
-  - the page headings dated 2025 (p.22) and 2023 (p.24), read as 2024;
-  - the spellings standardized to "Hope Town" and "Cay";
-  - the two words supplied: "get" on p.24, "trip" on p.43.
 - [ ] **Expand the two jottings**, on p.5 and p.17, if wanted.
-- [ ] **Story 6, washing up.** Placed at Tilloo Pond on Sunday evening with no
-  time shown. The journal describes it that morning at the first anchorage, where
-  it would sit on top of story 2.
 - [ ] **Story 8, Vernon's.** The marker is an estimate of where the settlement
   is, not the grocery's surveyed position.
 
@@ -75,3 +68,7 @@ which can still sit on a name.
 - `out/compare_offset.png` regenerated, so it shows Lubbers Quarters where it now is.
 - The journal's `locations.md` brought up to date.
 - The full site build runs on this machine, thumbnails included.
+- The transcript's readings confirmed: both stray year headings are 2024, the
+  chart spellings stay, and the two supplied words are right.
+- The washing-up story moved to the first anchorage on Sunday morning, where the
+  journal has it. It is now story 3.
