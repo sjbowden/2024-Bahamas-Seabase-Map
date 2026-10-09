@@ -33,11 +33,23 @@ on disk. That matters at this size on a laptop.
 positions in the time-sorted index, so one photograph added to an archive
 renumbers everything after it, and a cache keyed on the id alone would keep
 p00001.jpg and show it at whatever is p00001 now -- present, sized right,
-stripped clean, and wrong. So each run records, per id, a fingerprint of the
-source (archive, member, CRC, size) and of the render settings, and anything
-whose fingerprint has changed is rendered again. The record is `.derived.json`
-beside the two folders; it holds hashes, not names. A media folder from before
-that file existed is rebuilt once, because nothing says what it was made from.
+stripped clean, and wrong. So each run records, per id and per size, a
+fingerprint of the source (archive, member, CRC, size) and of that size's render
+settings, and renders again whatever no longer matches. A change to the thumbnail
+settings therefore leaves the viewing copies alone.
+
+The record is `out/derived.json`, deliberately *outside* the folder that gets
+published: its hashes are of file names that are easy to guess, so publishing it
+would let anyone confirm a guess. An entry that no longer matches is struck from
+the record before anything is rendered, and the record is saved even when the run
+is interrupted, so a file is never vouched for by a fingerprint it does not have.
+A media folder with no record is rebuilt once, because nothing says what it was
+made from.
+
+**The folder holds what the index asks for and nothing else.** A photograph
+dropped from the index has its derivatives removed, and half-written `.part`
+files from a killed run are swept up, so neither is published. A sample run
+(`--only`) removes nothing.
 
 A photograph that cannot be read or written is an error, and any error fails the
 run: a build that says "built" with thumbnails missing is worse than one that
@@ -48,6 +60,7 @@ import hashlib
 import io
 import json
 import os
+import re
 import sys
 import time
 import zipfile
@@ -71,7 +84,9 @@ VIEW = dict(name="view", px=1600, quality=82, progressive=True)
 # Bump when prepare() or render() changes what comes out for the same settings,
 # so derivatives made the old way are not mistaken for current ones.
 RENDER_VERSION = 1
-MANIFEST = ".derived.json"
+MANIFEST = os.path.join(HERE, "out", "derived.json")
+LEGACY_MANIFEST = ".derived.json"      # once kept inside the published folder
+_DERIVED = re.compile(r"^(p\d+)\.jpg$")
 
 _ZIPS = {}          # per-process handle cache; a zip is cheap to reopen, not to reopen 2,505 times
 _SRGB = None
@@ -131,31 +146,29 @@ def render(im, spec):
     return buf.getvalue()
 
 
-def fingerprint(photo):
-    """What a derivative was made from: the source bytes and the settings.
-
-    A hash rather than the fields themselves, because the record sits in the
-    folder that gets published and archive member names are not for publishing.
-    """
+def fingerprint(photo, spec):
+    """What one derivative was made from: the source bytes and that size's settings."""
     src = photo["src"]
     key = json.dumps([src["archive"], src["member"], src.get("crc"), src.get("size"),
-                      THUMB, VIEW, RENDER_VERSION], sort_keys=True)
+                      spec, RENDER_VERSION], sort_keys=True)
     return hashlib.sha1(key.encode()).hexdigest()
 
 
 def one(job):
-    """Make both derivatives for one photograph. Returns (id, bytes, error).
+    """Make the derivatives one photograph needs. Returns (id, bytes, files, error).
 
-    `fresh` says the files on disk are known to be from this source, so any that
-    exist can be kept; otherwise both are rendered again whatever is there.
+    `fresh` names the sizes whose files on disk are known to be from this source,
+    so those can be kept if they exist; any other size is rendered again whatever
+    is there.
     """
     pid, archive, member, dest, fresh = job
-    made = 0
+    made = files = 0
     try:
         wanted = [s for s in (THUMB, VIEW)
-                  if not (fresh and _exists(os.path.join(dest, s["name"], f"{pid}.jpg")))]
+                  if not (s["name"] in fresh
+                          and _exists(os.path.join(dest, s["name"], f"{pid}.jpg")))]
         if not wanted:
-            return pid, 0, None
+            return pid, 0, 0, None
         with _zip(archive).open(member) as fh:
             im = prepare(fh.read())
         for spec in wanted:
@@ -168,9 +181,10 @@ def one(job):
                 f.write(payload)
             os.replace(tmp, out)
             made += len(payload)
-        return pid, made, None
+            files += 1
+        return pid, made, files, None
     except Exception as e:                   # noqa: BLE001
-        return pid, made, f"{type(e).__name__}: {e}"[:120]
+        return pid, made, files, f"{type(e).__name__}: {e}"[:120]
 
 
 def _exists(path):
@@ -180,20 +194,54 @@ def _exists(path):
         return False
 
 
-def _load_manifest(dest):
+def _load_manifest(path, dest):
+    """This folder's fingerprints. One record serves every destination, keyed by
+    where the files are, so a sample in /tmp cannot vouch for site_build."""
     try:
-        with open(os.path.join(dest, MANIFEST)) as fh:
-            m = json.load(fh)
+        with open(path) as fh:
+            m = json.load(fh).get(os.path.abspath(dest), {})
         return m if isinstance(m, dict) else {}
-    except (OSError, ValueError):
+    except (OSError, ValueError, AttributeError):
         return {}
 
 
-def _save_manifest(dest, manifest):
-    tmp = os.path.join(dest, MANIFEST + ".part")
+def _save_manifest(path, dest, manifest):
+    try:
+        with open(path) as fh:
+            everything = json.load(fh)
+        if not isinstance(everything, dict):
+            everything = {}
+    except (OSError, ValueError):
+        everything = {}
+    everything[os.path.abspath(dest)] = manifest
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    tmp = path + ".part"
     with open(tmp, "w") as fh:
-        json.dump(manifest, fh, separators=(",", ":"), sort_keys=True)
-    os.replace(tmp, os.path.join(dest, MANIFEST))
+        json.dump(everything, fh, separators=(",", ":"), sort_keys=True)
+    os.replace(tmp, path)
+
+
+def _sweep(dest, keep):
+    """Remove what the index no longer asks for. Returns how many files went.
+
+    Only this module's own names are touched: pNNNNN.jpg for an id not in `keep`,
+    and the .part files a killed run leaves behind. `keep` of None means a sample
+    run, which sweeps the debris and leaves every derivative alone.
+    """
+    gone = 0
+    for spec in (THUMB, VIEW):
+        folder = os.path.join(dest, spec["name"])
+        for name in os.listdir(folder):
+            m = _DERIVED.match(name)
+            stale = (name.endswith(".jpg.part")
+                     or (m and keep is not None and m.group(1) not in keep))
+            if stale:
+                os.remove(os.path.join(folder, name))
+                gone += 1
+    legacy = os.path.join(dest, LEGACY_MANIFEST)
+    if os.path.exists(legacy):
+        os.remove(legacy)
+    return gone
 
 
 def fail_on_errors(result):
@@ -203,45 +251,72 @@ def fail_on_errors(result):
                          "the media folder is incomplete")
 
 
-def run(photos, dest, workers=None, only=None, progress=True, archive_dir=None):
+def run(photos, dest, workers=None, only=None, progress=True, archive_dir=None,
+        manifest_path=None):
     for spec in (THUMB, VIEW):
         os.makedirs(os.path.join(dest, spec["name"]), exist_ok=True)
     archive_dir = archive_dir or os.path.join(HERE, "photos")
-    manifest = _load_manifest(dest)
+    manifest_path = manifest_path or MANIFEST
     todo = [p for p in photos if not p.get("unreadable")]
     if only:
         todo = todo[:only]
-    prints = {p["id"]: fingerprint(p) for p in todo}
+    ids = {p["id"] for p in todo}
+    removed = _sweep(dest, None if only else ids)
+
+    prints = {p["id"]: {s["name"]: fingerprint(p, s) for s in (THUMB, VIEW)}
+              for p in todo}
+    # Strike what no longer matches *before* rendering, and say so on disk. If
+    # the run dies after replacing a file, the record must not still be holding
+    # the old fingerprint for it -- that is how a wrong picture gets trusted.
+    was = _load_manifest(manifest_path, dest)
+    manifest = {}
+    for pid, old in was.items():
+        if not isinstance(old, dict):
+            continue                # a record from before sizes had their own
+        if pid not in prints:
+            if only:
+                manifest[pid] = old     # a sample says nothing about the rest
+            continue                # otherwise: gone from the index
+        kept = {name: h for name, h in old.items() if prints[pid].get(name) == h}
+        if kept:
+            manifest[pid] = kept
+    if manifest != was:
+        _save_manifest(manifest_path, dest, manifest)
+
     jobs = [(p["id"], os.path.join(archive_dir, os.path.basename(_archive_path(p))),
-             p["src"]["member"], dest, manifest.get(p["id"]) == prints[p["id"]])
+             p["src"]["member"], dest, tuple(manifest.get(p["id"], ())))
             for p in todo]
 
     total, done, errors, t0 = len(jobs), 0, [], time.time()
-    written = rendered = 0
+    written = rendered = files = 0
     workers = workers or max(1, min(8, (os.cpu_count() or 2) - 1))
-    with ProcessPoolExecutor(max_workers=workers) as pool:
-        futures = [pool.submit(one, j) for j in jobs]
-        for f in as_completed(futures):
-            pid, made, err = f.result()
-            done += 1
-            written += made
-            rendered += bool(made)
-            if err:
-                errors.append((pid, err))
-                manifest.pop(pid, None)     # whatever is on disk is not vouched for
-            else:
-                manifest[pid] = prints[pid]
-            # Often enough that an interrupted run keeps nearly all its work.
-            if done % 200 == 0:
-                _save_manifest(dest, manifest)
-            if progress and (done % 100 == 0 or done == total):
-                rate = done / max(time.time() - t0, 1e-6)
-                left = (total - done) / rate if rate else 0
-                print(f"  {done}/{total}  {written / 2**20:6.0f} MB  "
-                      f"{rate:4.1f}/s  ~{left / 60:4.1f} min left"
-                      + (f"  {len(errors)} errors" if errors else ""),
-                      flush=True)
-    _save_manifest(dest, manifest)
+    try:
+        with ProcessPoolExecutor(max_workers=workers) as pool:
+            futures = [pool.submit(one, j) for j in jobs]
+            for f in as_completed(futures):
+                pid, made, n, err = f.result()
+                done += 1
+                written += made
+                files += n
+                rendered += bool(n)
+                if err:
+                    errors.append((pid, err))
+                    manifest.pop(pid, None)     # whatever is on disk is not vouched for
+                else:
+                    manifest[pid] = prints[pid]
+                # Often enough that an interrupted run keeps nearly all its work.
+                if done % 200 == 0:
+                    _save_manifest(manifest_path, dest, manifest)
+                if progress and (done % 100 == 0 or done == total):
+                    rate = done / max(time.time() - t0, 1e-6)
+                    left = (total - done) / rate if rate else 0
+                    print(f"  {done}/{total}  {written / 2**20:6.0f} MB  "
+                          f"{rate:4.1f}/s  ~{left / 60:4.1f} min left"
+                          + (f"  {len(errors)} errors" if errors else ""),
+                          flush=True)
+    finally:
+        # Ctrl-C, or a worker killed for memory: what did finish is still true.
+        _save_manifest(manifest_path, dest, manifest)
     for pid, err in errors[:10]:
         print(f"  ! {pid}: {err}", file=sys.stderr)
     if len(errors) > 10:
@@ -249,6 +324,7 @@ def run(photos, dest, workers=None, only=None, progress=True, archive_dir=None):
     return dict(thumbs=_count(os.path.join(dest, "thumb")),
                 views=_count(os.path.join(dest, "view")),
                 bytes=_dir_bytes(dest), errors=len(errors), made=rendered,
+                files=files, removed=removed,
                 seconds=round(time.time() - t0, 1))
 
 
@@ -284,7 +360,7 @@ def main():
     r = run(photos, a.dest, workers=a.workers, only=a.only)
     print(f"\n{r['thumbs']} thumbnails, {r['views']} viewing copies, "
           f"{r['bytes'] / 2**20:.0f} MB, {r['made']} rendered this run, "
-          f"{r['errors']} errors, {r['seconds']:.0f}s")
+          f"{r['removed']} removed, {r['errors']} errors, {r['seconds']:.0f}s")
     fail_on_errors(r)
 
 

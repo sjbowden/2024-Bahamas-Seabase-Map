@@ -553,13 +553,14 @@ def test_nothing_published_carries_metadata(placed):
           f"{portraits} of {len(names)} are taller than wide, so rotation was "
           f"baked in before the tags went")
 
-    # And the failure the other checks cannot see. derive skips any derivative
-    # already on disk, which makes an interrupted run cheap to resume but also
-    # means a re-run will never repair a mismatch: if ids ever shift, p00001.jpg
-    # stays on disk showing the photograph that used to be p00001. Every check
-    # above still passes -- the file is present, sized right and metadata-free --
-    # and the wrong picture sits on the wrong point on the chart. So rebuild a
-    # few from the index we ship now and insist on the same bytes.
+    # And the failure the other checks cannot see: the wrong picture at an id.
+    # derive now fingerprints each derivative's source and renders again when it
+    # changes, so this should not happen -- but every check above would still
+    # pass if it did, the file being present, sized right and metadata-free. So
+    # rebuild a few from the index we ship now and insist on the same bytes. A
+    # mismatch here with the fingerprints intact means the renderer itself
+    # changed (a Pillow upgrade, or prepare/render edited without bumping
+    # derive.RENDER_VERSION), not that ids moved.
     # placed records have had src stripped, so the archive and member come from
     # the index -- which is the point: it is this index the derivatives must match.
     stale, rebuilt = [], 0
@@ -626,30 +627,71 @@ def test_derive_cache():
     tmp = tempfile.mkdtemp(prefix="derive-test-")
     try:
         dest = os.path.join(tmp, "media")
-        run = lambda p: D.run([p], dest, workers=1, progress=False, archive_dir=tmp)
+        record = os.path.join(tmp, "derived.json")
+        run = lambda ps: D.run(ps if isinstance(ps, list) else [ps], dest, workers=1,
+                               progress=False, archive_dir=tmp, manifest_path=record)
         red = archive(tmp, (220, 20, 20))
         first = run(red)
         check("a first run makes both derivatives",
-              first["errors"] == 0 and first["made"] == 1 and colour_of(dest) == "red",
+              first["errors"] == 0 and first["files"] == 2 and colour_of(dest) == "red",
               str(first))
         again = run(red)
-        check("an unchanged source is not rendered twice", again["made"] == 0,
+        check("an unchanged source is not rendered twice", again["files"] == 0,
               str(again))
         blue = archive(tmp, (20, 20, 220))
         changed = run(blue)
         check("the same id from a different source is rendered again",
-              changed["made"] == 1 and colour_of(dest) == "blue",
+              changed["files"] == 2 and colour_of(dest) == "blue",
               f"{changed}, viewing copy is {colour_of(dest)}")
+        check("the record of what came from where is not in the published folder",
+              os.path.exists(record)
+              and not any(n.endswith(".json") for n in os.listdir(dest)),
+              str(os.listdir(dest)))
+
+        # One size's settings change: only that size is made again.
+        keep = D.THUMB
+        D.THUMB = dict(keep, quality=keep["quality"] - 10)
+        try:
+            thumb_only = run(blue)
+        finally:
+            D.THUMB = keep
+        check("changing the thumbnail settings leaves the viewing copies alone",
+              thumb_only["files"] == 1, str(thumb_only))
+        run(blue)                       # back to the real settings
+
+        # Debris from a killed run, and a photograph that has left the index.
+        open(os.path.join(dest, "view", "p00007.jpg.part"), "wb").write(b"half")
+        other = dict(blue, id="p00001")
+        both = run([blue, other])
+        swept = not os.path.exists(os.path.join(dest, "view", "p00007.jpg.part"))
+        check("half-written files from a killed run are swept up", swept)
+        only_second = run(other)
+        left = sorted(os.listdir(os.path.join(dest, "view")))
+        check("a photograph dropped from the index takes its derivatives with it",
+              left == ["p00001.jpg"] and only_second["removed"] == 2,
+              f"{left}, {only_second}")
+        sample = D.run([blue], dest, workers=1, progress=False, archive_dir=tmp,
+                       manifest_path=record, only=1)
+        check("a sample run removes nothing",
+              sample["removed"] == 0
+              and os.path.exists(os.path.join(dest, "view", "p00001.jpg")),
+              str(sample))
+
         missing = dict(blue, src=dict(blue["src"], member="not-there.jpg", crc=1))
         broken = run(missing)
         check("a photograph that cannot be read is counted as an error",
               broken["errors"] == 1, str(broken))
+        # The file from before is still on disk under that id. It must not be
+        # trusted again just because a later run asks for the old source.
+        healed = run(blue)
+        check("and what is on disk after a failure is not vouched for",
+              healed["files"] == 2, str(healed))
         try:
             D.fail_on_errors(broken)
             raised = False
         except SystemExit as e:
             raised = bool(e.code)
-        check("and that fails the build rather than finishing it", raised)
+        check("an error fails the build rather than finishing it", raised)
         try:
             D.fail_on_errors(changed)
             clean = True

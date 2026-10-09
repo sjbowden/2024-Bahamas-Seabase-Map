@@ -110,7 +110,8 @@ def main():
         made = derive.run(photos, os.path.join(a.out, "media"))
         print(f"[derive] {made['thumbs']} thumbnails, {made['views']} viewing copies, "
               f"{made['bytes'] / 2**20:.0f} MB, {made['made']} rendered this run, "
-              f"{made['errors']} errors ({time.time() - t:.0f}s)")
+              f"{made['removed']} removed, {made['errors']} errors "
+              f"({time.time() - t:.0f}s)")
         # Before "built": a site with thumbnails missing is not built.
         derive.fail_on_errors(made)
     else:
