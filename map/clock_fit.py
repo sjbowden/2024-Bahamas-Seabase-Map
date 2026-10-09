@@ -394,8 +394,11 @@ def fit(photos):
                 rec["method"] = rec.get("method") or "correlate"
                 off = timedelta(seconds=fits[best]["offset_s"])
                 method = "correlate"
-                for p in need:
-                    direct[p["id"]] = (_local(p["time_local"]) + off, method)
+                # The offset belongs to the reading it was fitted to. Adding it
+                # to the indexed time when the other archive's reading won put
+                # every photograph out by the difference between the two.
+                for p, read in zip(need, variants[best]):
+                    direct[p["id"]] = (read + off, method)
         cameras[cam] = rec
 
     per_photo = {}

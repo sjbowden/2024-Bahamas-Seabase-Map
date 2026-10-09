@@ -269,6 +269,18 @@ def _merge(name, cam, group, stats, suffix=False):
 
 
 # ------------------------------------------------------------------ report ---
+def readable(photos):
+    """The photographs that can be shown, and how many cannot.
+
+    A file that would not decode -- corrupt, or HEIC on a machine without the
+    HEIC decoder -- stays in the index so the count is honest, but it has no
+    thumbnail and never will, so nothing downstream may list it: a record on the
+    site pointing at an image that does not exist is worse than an absence.
+    """
+    ok = [p for p in photos if not p.get("unreadable")]
+    return ok, len(photos) - len(ok)
+
+
 def report(photos, stats):
     n = len(photos)
     print(f"\n{n} photographs across {stats['read_mine']} + {stats['read_crew']} "

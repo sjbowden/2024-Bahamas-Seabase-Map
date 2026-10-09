@@ -110,11 +110,21 @@ async function start() {
 
   addChart(meta);
   await addTracks(meta);
-  await addPhotos();
-  await addPlaces();
-  await addStories();
+  // Photographs, names and stories are each worth having and none is worth the
+  // chart: one failed fetch used to stop here, before the panel was built, and
+  // leave a chart with no Days list and a Layers button wired to nothing.
+  const lost = [];
+  for (const [what, load] of [['photographs', addPhotos], ['place names', addPlaces],
+                              ['stories', addStories]]) {
+    try { await load(); } catch (e) { console.error(e); lost.push(what); }
+  }
   buildPanel(meta);
   wirePanel();
+  if (lost.length) {
+    const n = $('#notice');
+    n.textContent = `Could not load the ${lost.join(' or the ')}. The rest of the chart is here.`;
+    n.hidden = false;
+  }
   scaleBar();
   map.on('move', scaleBar);
   map.on('zoom', scaleBar);
@@ -743,8 +753,7 @@ function showAt(i, { pan = true } = {}) {
   $('#viewer-meta').textContent =
     [p.camera, p.uncertainty_m != null ? `± ${fmtDistance(p.uncertainty_m)}` : null]
       .filter(Boolean).join('  ·  ');
-  $('#viewer').hidden = false;
-  document.body.classList.add('viewing');
+  revealViewer();
 
   map.getSource('uncertainty').setData(
     p.uncertainty_m ? ringAround(p.lon, p.lat, p.uncertainty_m) : emptyFC());
@@ -780,9 +789,34 @@ function fmtDistance(m) {
   return `${m} m`;
 }
 
+/* The viewer says it is a modal dialog, so it has to behave like one for someone
+ * not using a pointer: focus goes into it when it opens, cannot wander off to the
+ * controls behind it while it is open, and goes back to whatever opened it when
+ * it closes. `inert` does the middle part -- everything behind is unfocusable and
+ * unclickable -- which is sturdier than catching Tab by hand. */
+const BEHIND_VIEWER = ['#map', '#masthead', '#panel-toggle', '#panel', '#scalebar',
+                       '#clusters', '#tray', '#notice'];
+
+function revealViewer() {
+  const v = $('#viewer');
+  if (!v.hidden) return;            // already open: previous/next, or a renumbering
+  state.viewerReturn = document.activeElement;
+  v.hidden = false;
+  document.body.classList.add('viewing');
+  for (const sel of BEHIND_VIEWER) { const el = $(sel); if (el) el.inert = true; }
+  $('#viewer-close').focus();
+}
+
 function closeViewer() {
+  const wasOpen = !$('#viewer').hidden;
   $('#viewer').hidden = true;
   document.body.classList.remove('viewing');
+  for (const sel of BEHIND_VIEWER) { const el = $(sel); if (el) el.inert = false; }
+  if (wasOpen) {
+    const back = state.viewerReturn;
+    state.viewerReturn = null;
+    if (back && document.contains(back) && back.focus) back.focus();
+  }
   // state.at is only meaningful while the viewer is open on a chart photograph.
   // Left behind, it would tell refreshPhotos a closed viewer was still showing it.
   state.at = null;
@@ -800,13 +834,27 @@ function wireViewer() {
     () => { if (state.at != null) showAt(Math.min(state.shown.length - 1, state.at + 1)); });
   document.addEventListener('keydown', (e) => {
     if ($('#viewer').hidden && $('#tray').hidden) return;
-    if (e.key === 'Escape') { closeViewer(); $('#tray').hidden = true; }
+    // One layer at a time: Escape on a tray photograph goes back to the tray,
+    // with focus on the thumbnail it came from, and a second closes the tray.
+    if (e.key === 'Escape') {
+      if (!$('#viewer').hidden) closeViewer(); else closeTray();
+      return;
+    }
     if ($('#viewer').hidden || state.at == null) return;
     if (e.key === 'ArrowLeft') showAt(Math.max(0, state.at - 1));
     if (e.key === 'ArrowRight') showAt(Math.min(state.shown.length - 1, state.at + 1));
   });
-  $('#tray-open').addEventListener('click', () => { $('#tray').hidden = false; });
-  $('#tray-close').addEventListener('click', () => { $('#tray').hidden = true; });
+  $('#tray-open').addEventListener('click', () => {
+    $('#tray').hidden = false;
+    $('#tray-close').focus();
+  });
+  $('#tray-close').addEventListener('click', closeTray);
+}
+
+function closeTray() {
+  if ($('#tray').hidden) return;
+  $('#tray').hidden = true;
+  $('#tray-open').focus();
 }
 
 /* ------------------------------------------------------------------- tray --- */
@@ -854,14 +902,23 @@ function buildTray() {
       const grid = document.createElement('div');
       grid.className = 'grid';
       for (const p of ps) {
+        // A button, not a bare image: an <img> with a click handler cannot be
+        // reached with Tab or opened with Enter, so the tray could be opened
+        // from the keyboard and nothing in it could.
+        const what = `${p.camera}${p.utc ? ' · ' + whenText(p) : ''}`;
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'thumb';
+        btn.title = what;
+        btn.setAttribute('aria-label', `Open photograph: ${what}`);
         const img = document.createElement('img');
         img.src = p.thumb;
         img.loading = 'lazy';            // only what is on screen is fetched
         img.decoding = 'async';
-        img.alt = '';
-        img.title = `${p.camera}${p.utc ? ' · ' + whenText(p) : ''}`;
-        img.addEventListener('click', () => openOffChart(p));
-        grid.append(img);
+        img.alt = '';                    // the button carries the name
+        btn.append(img);
+        btn.addEventListener('click', () => openOffChart(p));
+        grid.append(btn);
       }
       body.append(dh, grid);
     }
@@ -880,8 +937,7 @@ function openOffChart(p) {
   $('#viewer-meta').textContent = p.camera || '';
   $('#viewer-prev').hidden = true;
   $('#viewer-next').hidden = true;
-  $('#viewer').hidden = false;
-  document.body.classList.add('viewing');
+  revealViewer();
   map.getSource('uncertainty').setData(emptyFC());
   map.getSource('selected').setData(emptyFC());
 }

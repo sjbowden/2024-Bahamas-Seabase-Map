@@ -73,6 +73,95 @@ def test_units():
           camera_key(dict(make="Apple", model="iPhone 15 Pro")) == "Apple iPhone 15 Pro")
     check("camera key with nothing", camera_key({}) == "unknown")
 
+    # at(): a fix is a recorded position at its own instant, wherever it sits in
+    # the stream. The first fix after the receiver came back on used to be
+    # refused, because the gap behind it was checked before the match.
+    t0 = datetime(2024, 3, 25, 12, 0, tzinfo=C.UTC)
+    two = [(t0, 26.50, -77.00, 0.0, "Mon 25 Mar"),
+           (t0 + timedelta(hours=4), 26.60, -77.10, 0.0, "Mon 25 Mar")]
+    when = [f[0] for f in two]
+    hit = P.at(two, when, two[1][0])
+    check("a fix answers for its own instant, even the first after a gap",
+          hit is not None and abs(hit[0] - 26.60) < 1e-9, str(hit))
+    check("but a moment inside the gap is still unknown",
+          P.at(two, when, t0 + timedelta(hours=2)) is None)
+
+    from map import photo_index as PI
+    ok, dropped = PI.readable([dict(id="a"), dict(id="b", unreadable=True),
+                               dict(id="c", unreadable=False)])
+    check("an unreadable photograph is left off, and counted",
+          [p["id"] for p in ok] == ["a", "c"] and dropped == 1)
+
+
+def test_fit_uses_the_reading_that_won():
+    """Two archives disagree about a camera's clock; the offset fitted to one
+    reading must be added to that reading. It was being added to the indexed one
+    whichever won. No camera in the real archives takes this branch, so the
+    correlation is stubbed to make it win."""
+    section("clock fit, alternate reading")
+    photos = [dict(id=f"x{i:02d}", name=f"x{i}.jpg", camera="Test Cam",
+                   time_local=f"2024:03:25 02:{i:02d}:00",
+                   time_disagree=dict(mine=f"2024:03:25 02:{i:02d}:00",
+                                      crew=f"2024:03:25 12:{i:02d}:00"))
+              for i in range(3)]
+    real = C.correlate_offset
+
+    def stub(local_times, reference_utc, spans, search_h=C.SEARCH_H):
+        won = local_times[0].hour == 12
+        return dict(accepted=won, offset_s=4 * 3600.0, offset_min=240.0,
+                    coincidences=10 if won else 1, coverage=1.0, rate=9.0,
+                    peak_width_s=60.0, reason=None if won else "stubbed out")
+    C.correlate_offset = stub
+    try:
+        per_photo, cameras, _ = C.fit(photos)
+    finally:
+        C.correlate_offset = real
+    check("the other archive's reading wins the stubbed fit",
+          cameras["Test Cam"]["fit"]["variant"] == "other_archive",
+          str(cameras["Test Cam"].get("fit")))
+    got = [per_photo[p["id"]]["utc"] for p in photos]
+    check("and each UTC is that reading plus the offset",
+          got == [f"2024-03-25T16:{i:02d}:00Z" for i in range(3)], str(got))
+
+
+def test_land_cache_follows_its_source():
+    """Refreshing a coastline has to refresh the land built from it."""
+    section("land cache")
+    import glob
+    import tempfile
+    import abaco_geo as G
+
+    def coast(path, side):
+        # One square island, anticlockwise, so the land is on the left.
+        ring = [(0, 0), (side, 0), (side, side), (0, side), (0, 0)]
+        with open(path, "w") as fh:
+            json.dump(dict(elements=[dict(type="way", geometry=[
+                dict(lon=x, lat=y) for x, y in ring])]), fh)
+
+    tmp = tempfile.mkdtemp(prefix="coast-test-")
+    src = os.path.join(tmp, f"cachetest{os.getpid()}.json")
+    bbox = (-1.0, -1.0, 4.0, 4.0)
+    stem = os.path.join(G.HERE, "geo", "land_" + os.path.basename(src).split(".")[0])
+    try:
+        coast(src, 1)
+        small = G.land_polygons(bbox, source=src).area
+        again = G.land_polygons(bbox, source=src).area
+        made = glob.glob(stem + "_*.pkl")
+        check("land is cached once for one source", len(made) == 1 and again == small,
+              f"{len(made)} files")
+        coast(src, 2)
+        big = G.land_polygons(bbox, source=src).area
+        check("a changed coastline gives changed land, not the cached one",
+              abs(small - 1.0) < 1e-9 and abs(big - 4.0) < 1e-9,
+              f"area {small:g} then {big:g}")
+        check("and the superseded cache is cleared away",
+              len(glob.glob(stem + "_*.pkl")) == 1)
+    finally:
+        for f in glob.glob(stem + "_*.pkl"):
+            os.remove(f)
+        import shutil
+        shutil.rmtree(tmp, ignore_errors=True)
+
 
 def test_coverage():
     section("receiver coverage")
@@ -643,6 +732,15 @@ def test_derive_cache():
         check("the same id from a different source is rendered again",
               changed["files"] == 2 and colour_of(dest) == "blue",
               f"{changed}, viewing copy is {colour_of(dest)}")
+        # A build that does not render must still notice that it should have.
+        nothing = D.stale([blue], os.path.join(tmp, "no-media"), manifest_path=record)
+        check("no media folder is not stale media", nothing is None, str(nothing))
+        check("media made from this index is current",
+              D.stale([blue], dest, manifest_path=record) == [])
+        moved = dict(red, id="p00000")
+        check("media made from another source is reported, without rendering",
+              D.stale([moved], dest, manifest_path=record) == ["p00000"]
+              and colour_of(dest) == "blue")
         check("the record of what came from where is not in the published folder",
               os.path.exists(record)
               and not any(n.endswith(".json") for n in os.listdir(dest)),
@@ -834,6 +932,26 @@ def test_site_build():
           all(f"{t}:" in app for t in in_tray & emitted),
           f"no note for {[t for t in in_tray & emitted if f'{t}:' not in app]}")
 
+    # A build without --media must still refuse an index the media on disk does
+    # not belong to, and unreadable photographs must be dropped before anything
+    # lists them. Both live in build.py's main, which no test can call cheaply.
+    build_src = open(os.path.join(C.HERE, "map", "build.py")).read()
+    check("a build that skips rendering still checks the media it has",
+          "derive.stale(" in build_src)
+    check("and unreadable photographs are dropped before placement",
+          build_src.index("PI.readable(") < build_src.index("C.fit(photos)"))
+    # One optional fetch failing must not stop the panel being built.
+    start_body = re.search(r"async function start\(\)\s*\{(.*?)\n\}", app, re.S).group(1)
+    check("a failed optional load does not stop the panel being built",
+          "catch" in start_body and "addStories" in start_body
+          and start_body.index("catch") < start_body.index("buildPanel("))
+    tray_body = re.search(r"function buildTray\(\)\s*\{(.*?)\n\}", app, re.S).group(1)
+    check("tray photographs are buttons, so a keyboard can open them",
+          "createElement('button')" in tray_body and "aria-label" in tray_body)
+    check("the viewer takes focus, holds it, and gives it back",
+          ".inert = true" in app and "$('#viewer-close').focus()" in app
+          and "viewerReturn" in app and "back.focus()" in app)
+
     html = open(os.path.join(out, "index.html")).read()
     # Stories are HTML markers, so nothing but the page's own code hides them:
     # the panel needs a box for them, and a day switched off has to take its
@@ -855,6 +973,8 @@ def main():
     spans = test_coverage()
     test_stories()
     test_derive_cache()
+    test_fit_uses_the_reading_that_won()
+    test_land_cache_follows_its_source()
     if not os.path.exists(INDEX):
         print(f"\nSKIP  the archive-backed tests: no {INDEX}")
         print("      run: python -m map.photo_index")

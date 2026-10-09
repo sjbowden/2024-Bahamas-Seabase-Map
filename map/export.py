@@ -402,7 +402,8 @@ def main():
 
     if not os.path.exists(a.index):
         raise SystemExit(f"no index at {a.index} — run python -m map.photo_index first")
-    photos = json.load(open(a.index))
+    from map.photo_index import readable
+    photos, _ = readable(json.load(open(a.index)))
     per_photo, cameras, _ = C.fit(photos)
     placed = P.place(photos, per_photo, cameras)
     written = export(a.dest, placed)
