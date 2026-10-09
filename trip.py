@@ -401,18 +401,25 @@ def overnight_bridges():
     bridge is a few metres long; the Tuesday night one carries the 200 m move off
     the mooring that happened before the handheld came on.
     """
+    # Two different ends for each day. Where the bridge is *drawn* from is the
+    # last point of the drawn track, so the lines meet. *When* the night began is
+    # the receiver's last fix, which can be hours later: the drawn track is
+    # thinned to 22 m steps, so an evening at anchor contributes no points to it,
+    # and taking the night from the last drawn point handed the inReach two hours
+    # of Sunday evening that the handheld had in fact recorded.
     days = []
     for d in DAYS:
         t = load_day(d["file"], walk_split=d.get("walk_split"),
                      road_split=d.get("road_split"))
         pts = sorted((t.get("afloat") or []) + (t.get("walk") or [])
                      + (t.get("road") or []), key=lambda p: p[0])
-        if pts:
-            days.append((d, pts[0], pts[-1]))
+        rec = recorded_fixes(d["file"])
+        if pts and rec:
+            days.append((d, pts[0], pts[-1], rec[0][0], rec[-1][0]))
     inreach = read_inreach()
     out = []
-    for (d1, _, end), (d2, start, _) in zip(days, days[1:]):
-        between = [(p[1], p[2]) for p in inreach if end[0] < p[0] < start[0]]
+    for (d1, _, end, _, off), (d2, start, _, on, _) in zip(days, days[1:]):
+        between = [(p[1], p[2]) for p in inreach if off < p[0] < on]
         line = [(end[1], end[2])] + between + [(start[1], start[2])]
         if len(line) >= 2:
             out.append((d2["label"], d1["label"], d2["color"], line))
@@ -456,6 +463,28 @@ def read_fixes(stem):
     # correct on a sorted stream, and that guarantee should be the reader's.
     fixes.sort(key=lambda p: p[0])
     return fixes, dropped
+
+
+def recorded_fixes(stem, max_kn=30.0):
+    """Every fix the receiver recorded, at full cadence, less the spikes.
+
+    What to ask when the question is about the *receiver* -- when it was running,
+    where it was at a given moment -- rather than about the drawing. load_day()
+    answers the second and thins stationary stretches away entirely, so its last
+    point can be hours before the receiver stopped. The spike rule is load_day's.
+    """
+    raw, _ = read_fixes(stem)
+    if not raw:
+        return []
+    kept, prev = [raw[0]], raw[0]
+    for p in raw[1:]:
+        dt = (p[0] - prev[0]).total_seconds()
+        step = haversine(prev[1], prev[2], p[1], p[2])
+        if dt > 0 and step / dt * 1.94384 > max_kn and step > 60:
+            continue
+        kept.append(p)
+        prev = p
+    return kept
 
 
 def _split_at(pts, iso):

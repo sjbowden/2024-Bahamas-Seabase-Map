@@ -179,27 +179,73 @@ def moored_at(fixes, times, t):
             {a[3], b[3]})
 
 
+def moored_through(fixes, times, t, half_window_s):
+    """moored_at, for a photograph whose time is only known to a window.
+
+    Returns (lat, lon, reach_m, gap_s, receivers) or None. A fitted camera's UTC
+    is good to its fit's width, which can be ten minutes either way, and two
+    reports that bracket the nominal instant say nothing about the rest of that
+    window: the boat can be lying still at 16:05 and have been a kilometre off at
+    15:50. So the boat has to have lain still across the *whole* window -- every
+    pair of consecutive fixes that overlaps it within MOORED_M of each other --
+    and the reach is how far any of those fixes is from the position given,
+    which is what the ring should be.
+    """
+    got = moored_at(fixes, times, t)
+    if got is None:
+        return None
+    lat, lon, moved, gap, who = got
+    if half_window_s <= 0:
+        return got
+    lo = t - timedelta(seconds=half_window_s)
+    hi = t + timedelta(seconds=half_window_s)
+    i0 = bisect.bisect_right(times, lo) - 1      # the fix at or before the window
+    i1 = bisect.bisect_left(times, hi)           # the fix at or after it
+    if i0 < 0 or i1 >= len(times):
+        return None                               # the window runs past the record
+    reach, who = moved, set(who)
+    for k in range(i0, i1 + 1):
+        if k > i0 and haversine(fixes[k - 1][1], fixes[k - 1][2],
+                                fixes[k][1], fixes[k][2]) > MOORED_M:
+            return None                           # she moved somewhere in the window
+        reach = max(reach, haversine(lat, lon, fixes[k][1], fixes[k][2]))
+        who.add(fixes[k][3])
+    return lat, lon, reach, gap, who
+
+
 def spread_m(fixes, times, t, half_window_s):
     """How far the boat moved across a photograph's timing uncertainty.
 
     This is the uncertainty, in metres, and it is a property of the boat's
-    behaviour rather than of the clock: sample the track at t and at both ends of
-    the window, and take the largest distance from the middle. Anchored, that is
-    a few metres however wide the window; under sail it is the real cost.
+    behaviour rather than of the clock: the farthest the track gets from its
+    position at t anywhere inside the window. Anchored, that is a few metres
+    however wide the window; under sail it is the real cost.
+
+    Every fix in the window is looked at, not just its two ends. A boat that
+    rounds a mark and comes back is where it started at both ends and a
+    kilometre away in the middle, and the ring has to contain the middle.
     """
     mid = at(fixes, times, t)
     if mid is None:
         return None
     if half_window_s <= 0:
         return 0.0
+    lo, hi = t - timedelta(seconds=half_window_s), t + timedelta(seconds=half_window_s)
     worst = 0.0
-    for d in (-half_window_s, half_window_s):
-        end = at(fixes, times, t + timedelta(seconds=d))
+    for edge in (lo, hi):
+        end = at(fixes, times, edge)
         if end is None:
             # The window runs off the end of the day's recording; the honest
             # reading is that we cannot bound it, so say so with the window.
             return None
         worst = max(worst, haversine(mid[0], mid[1], end[0], end[1]))
+    i0, i1 = bisect.bisect_left(times, lo), bisect.bisect_right(times, hi)
+    for k in range(i0, i1):
+        # A hole in the recording inside the window is the same admission as one
+        # at its end: where the boat went in it is not known.
+        if k > 0 and (times[k] - times[k - 1]).total_seconds() > MAX_GAP_S:
+            return None
+        worst = max(worst, haversine(mid[0], mid[1], fixes[k][1], fixes[k][2]))
     return worst
 
 
@@ -327,7 +373,9 @@ def place(photos, per_photo, cameras, fixes=None):
         if rec["tier"] != "unplaced" or not rec["utc"]:
             continue
         t = C._utc(rec["utc"])
-        got = moored_at(both, bt, t)
+        # The same timing window the first pass used: a fitted clock is no
+        # better known in a gap than out of one.
+        got = moored_through(both, bt, t, half.get(rec["camera"], 2.0))
         if got is None:
             continue
         lat, lon, moved, gap, who = got

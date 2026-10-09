@@ -145,7 +145,7 @@ other. That is what makes the chart checkable rather than merely plausible.
 
 | source | cadence | coverage |
 |---|---|---|
-| handheld GPS receiver (`GPSFILES/*.log`) | a fix every ~5 s | 10–13 h a day, one battery charge |
+| handheld GPS receiver (`GPSFILES/*.log`) | a fix every ~5 s | 10–14 h a day, one battery charge |
 | inReach satellite communicator (`geo/inreach.gpx`) | 10 min by day, 4 h overnight | continuous, including nights — and it bridges them |
 | crew cameras (EXIF) | per shot | 458 located photos |
 
@@ -186,8 +186,8 @@ handheld log. Four independent tells:
 
 | test | median | 90th | max |
 |---|---|---|---|
-| same place at the same moment (108 coincident fixes) | 10 m | 23 m | 34 m |
-| **same route** — each inReach point vs the handheld's path | **3 m** | 10 m | 20 m |
+| same place at the same moment (137 coincident fixes) | 8 m | 16 m | 32 m |
+| **same route** — each inReach point vs the handheld's path | **2 m** | 4 m | 10 m |
 
 **All 150 inReach points lie within 50 m of the handheld's path.** The second
 test is the more telling one: it ignores timing and asks whether the two
@@ -200,15 +200,22 @@ night is a hole in the primary record. The inReach fills it:
 
 | handheld off | fixes | path | net move | longest unwatched |
 |---|---|---|---|---|
-| Sat 20:06 → Sun 06:56 | 2 | 17 m | 17 m | 4.0 h |
-| Sun 18:46 → Mon 07:17 | 3 | 27 m | 27 m | 4.0 h |
-| Mon 20:05 → Tue 07:49 | 4 | 24 m | 5 m | 4.0 h |
-| Tue 19:28 → Wed 08:20 | 4 | 18 m | 13 m | 4.0 h |
-| Wed 18:20 → Thu 07:17 | 4 | 20 m | 4 m | 9.0 h |
+| Sat 20:52 → Sun 06:56 | 2 | 17 m | 17 m | 4.0 h |
+| Sun 21:02 → Mon 07:17 | 3 | 27 m | 27 m | 4.0 h |
+| Mon 20:29 → Tue 07:49 | 2 | 12 m | 12 m | 4.0 h |
+| Tue 19:34 → Wed 08:20 | 4 | 18 m | 13 m | 4.0 h |
+| Wed 20:15 → Thu 07:17 | 1 | — | — | 9.0 h |
 
 Tens of metres — anchor swing, no night passages. This measures directly what
 was previously only inferred from where one day's log stopped and the next
-began.
+began. Wednesday night has a single report, on the Marsh Harbour mooring, so
+it says where the boat was once rather than how far she moved.
+
+These windows run from the receiver's last fix of the evening to its first of
+the morning, read from every fix it recorded. They were once read from the
+track as drawn, which is thinned to 22 m steps and so stops when the boat
+stops moving: that put Sunday's "off" two and a quarter hours early, and
+counted evening reports the handheld had itself recorded as overnight ones.
 
 The limit worth stating: the inReach drops to roughly 4-hourly overnight, so a
 departure and return between two fixes isn't strictly excluded — but each

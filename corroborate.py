@@ -23,7 +23,7 @@ import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 
 from trip import (DAYS, EDT, LAT0, OFFSHORE_KM, haversine, load_day,
-                  offshore_km, read_inreach)
+                  offshore_km, read_inreach, recorded_fixes)
 
 NS = "{http://www.topografix.com/GPX/1/1}"
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -36,23 +36,26 @@ def load_gpx(path):
 
 
 def handheld_windows():
-    """One (start, end, label) per log — i.e. per battery charge."""
+    """One (start, end, label) per log — i.e. per battery charge.
+
+    From every fix the receiver recorded, not from the track as drawn: the drawn
+    track is thinned to 22 m steps, so hours at anchor leave no points in it and
+    a window taken from it ends when the boat stopped moving rather than when
+    the receiver stopped recording -- two and a quarter hours early on Sunday.
+    """
     out = []
     for d in DAYS:
-        t = load_day(d["file"], walk_split=d.get("walk_split"),
-                     road_split=d.get("road_split"))
-        pts = sorted(t["afloat"] + t["walk"] + t["road"], key=lambda p: p[0])
+        pts = recorded_fixes(d["file"])
         if pts:
             out.append((pts[0][0], pts[-1][0], d["label"]))
     return sorted(out)
 
 
 def all_fixes():
+    """The receiver's whole record, for asking where it was at a given moment."""
     fixes = []
     for d in DAYS:
-        t = load_day(d["file"], walk_split=d.get("walk_split"),
-                     road_split=d.get("road_split"))
-        fixes += t["afloat"] + t["walk"] + t["road"]
+        fixes += recorded_fixes(d["file"])
     return sorted(fixes, key=lambda p: p[0])
 
 
