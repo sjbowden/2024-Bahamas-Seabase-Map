@@ -260,11 +260,14 @@ def places_layer():
                           properties=dict(label=text, kind="anchorage", minzoom=11.5),
                           geometry=dict(type="Point", coordinates=[round(lon, 5),
                                                                    round(lat, 5)])))
-    for lon, lat, label, kind in ((AIRPORT[0], AIRPORT[1], AIRPORT[3], "airport"),
-                                  (HOTEL[0], HOTEL[1], "Hotel", "hotel"),
-                                  (MARINA[0], MARINA[1], "Marina", "marina")):
+    # The hotel is 300 m from the marina, and the two names overlap until z12.8,
+    # so the hotel waits for z13 and the marina, where the boat lay, shows first.
+    for lon, lat, label, kind, minzoom in (
+            (AIRPORT[0], AIRPORT[1], AIRPORT[3], "airport", 12),
+            (HOTEL[0], HOTEL[1], "Hotel", "hotel", 13),
+            (MARINA[0], MARINA[1], "Marina", "marina", 12)):
         feats.append(dict(type="Feature",
-                          properties=dict(label=label, kind=kind, minzoom=12),
+                          properties=dict(label=label, kind=kind, minzoom=minzoom),
                           geometry=dict(type="Point", coordinates=[round(lon, 5),
                                                                    round(lat, 5)])))
     return _fc(feats)
