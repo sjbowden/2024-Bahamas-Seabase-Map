@@ -124,6 +124,107 @@ def test_fit_uses_the_reading_that_won():
           got == [f"2024-03-25T16:{i:02d}:00Z" for i in range(3)], str(got))
 
 
+def test_honest_uncertainty():
+    """Four ways a position or a fit was claimed more firmly than the evidence."""
+    section("uncertainty that matches the evidence")
+    import numpy as np
+    from map import depth as DP
+
+    # The rival a fit is measured against is the strongest by the fit's own score.
+    far = C.SHOULDER_S * 10
+    grid = np.array([0.0, far, 2 * far])
+    counts = np.array([100.0, 90.0, 80.0])
+    cover = {0.0: 0.60, far: 0.60, 2 * far: 1.00}
+    score, off = C.strongest_rival([0, 1, 2], counts, grid, 0.0, lambda o: cover[o])
+    check("a lower-count rival with full coverage is the one that counts",
+          score == 80.0 and off == 2 * far, f"{score} at {off}")
+    check("which turns an apparent margin of 1.11 into 0.75",
+          round(60.0 / 54.0, 2) == 1.11 and round(60.0 / score, 2) == 0.75)
+
+    # A ring has to hold everywhere the boat was inside the timing window.
+    t0 = datetime(2024, 3, 25, 12, 0, tzinfo=C.UTC)
+    out_and_back = []
+    for k in range(-24, 25):                    # a fix every 5 s, 2 min either side
+        away = 0.009 * (1 - abs(abs(k) - 6) / 6) if abs(k) <= 12 else 0.0
+        out_and_back.append((t0 + timedelta(seconds=5 * k), 26.50 + away, -77.00,
+                             5.0, "Mon 25 Mar"))
+    when = [f[0] for f in out_and_back]
+    ends = max(haversine(26.50, -77.00, f[1], f[2])
+               for f in (out_and_back[12], out_and_back[36]))
+    ring = P.spread_m(out_and_back, when, t0, 60)
+    check("an out-and-back inside the window is inside the ring",
+          ends < 1 and ring is not None and ring > 900,
+          f"ends {ends:.0f} m from the middle, ring {ring}")
+    holed = [f for f in out_and_back if not (0 < (f[0] - t0).total_seconds() < 300)]
+    check("a hole in the recording inside the window leaves the ring unbounded",
+          P.spread_m(holed, [f[0] for f in holed], t0, 600) is None)
+
+    # In a gap, two still reports either side of the nominal time are not enough
+    # when the clock is only known to twenty minutes.
+    gap = [(t0 - timedelta(minutes=15), 26.510, -77.00, "handheld"),
+           (t0 - timedelta(minutes=5), 26.500, -77.00, "handheld"),
+           (t0 + timedelta(minutes=5), 26.500, -77.00, "handheld"),
+           (t0 + timedelta(minutes=15), 26.510, -77.00, "handheld")]
+    gt = [f[0] for f in gap]
+    sure = P.moored_through(gap, gt, t0, 2.0)
+    check("a photograph timed to the second, between two still reports, is placed",
+          sure is not None and sure[2] < 1, str(sure))
+    check("the same photograph timed to twenty minutes is not",
+          P.moored_through(gap, gt, t0, 20 * 60) is None)
+    drift = [(f[0], 26.5000 + 0.0001 * i, f[2], f[3]) for i, f in enumerate(gap)]
+    got = P.moored_through(drift, gt, t0, 12 * 60)
+    check("and where the boat lay still throughout, the ring is how far she swung",
+          got is not None and 15 < got[2] < 25, str(got))
+
+    # Depth: just outside the grid is outside it.
+    g = DP.merged()
+    top = g.y0 + g.nrows * g.cell
+    check("a point half a cell north-west of the depth grid has no depth",
+          g.at(top + g.cell / 2, g.x0 - g.cell / 2) is None
+          and g.at(top - g.cell / 2, g.x0 - g.cell / 2) is None
+          and g.at(top + g.cell / 2, g.x0 + g.cell / 2) is None)
+    check("and one half a cell inside it does",
+          g.at(top - g.cell / 2, g.x0 + g.cell / 2) is not None)
+
+
+def test_receiver_windows():
+    """When the handheld was running, from what it recorded rather than what was
+    drawn. The drawn track is thinned, so an evening at anchor is not in it."""
+    section("receiver windows")
+    import corroborate as K
+    from trip import EDT, load_day, overnight_bridges, read_inreach, recorded_fixes
+    late = []
+    for d in DAYS:
+        rec = recorded_fixes(d["file"])
+        drawn = load_day(d["file"], walk_split=d.get("walk_split"),
+                         road_split=d.get("road_split"))
+        pts = sorted(drawn["afloat"] + drawn["walk"] + drawn["road"], key=lambda p: p[0])
+        if rec and pts:
+            late.append((d["label"], (rec[-1][0] - pts[-1][0]).total_seconds()))
+    check("the record never ends before the drawing does",
+          all(s >= 0 for _, s in late), str(late))
+    sun = dict(late).get("Sun 24 Mar", 0)
+    check("Sunday's record runs two hours past its last drawn point", sun > 7200,
+          f"{sun:.0f} s")
+    wins = {label: (s, e) for s, e, label in K.handheld_windows()}
+    check("the runtime windows end at the last recorded fix",
+          all(wins[d["label"]][1] == recorded_fixes(d["file"])[-1][0]
+              for d in DAYS if d["label"] in wins))
+    end = wins["Sun 24 Mar"][1].astimezone(EDT)
+    check("so Sunday's ends at 21:02, not 18:46", (end.hour, end.minute) == (21, 2),
+          f"{end:%H:%M}")
+    # No inReach report the handheld was awake for may be drawn as a night bridge.
+    inr = read_inreach()
+    awake = [(s, e) for s, e in wins.values()]
+    middles = set()
+    for _, _, _, line in overnight_bridges():
+        middles.update(line[1:-1])
+    stolen = [p for p in inr if (p[1], p[2]) in middles
+              and any(s <= p[0] <= e for s, e in awake)]
+    check("no bridge borrows a report from while the handheld was recording",
+          not stolen, f"{len(stolen)} such")
+
+
 def test_land_cache_follows_its_source():
     """Refreshing a coastline has to refresh the land built from it."""
     section("land cache")
@@ -974,6 +1075,8 @@ def main():
     test_stories()
     test_derive_cache()
     test_fit_uses_the_reading_that_won()
+    test_honest_uncertainty()
+    test_receiver_windows()
     test_land_cache_follows_its_source()
     if not os.path.exists(INDEX):
         print(f"\nSKIP  the archive-backed tests: no {INDEX}")

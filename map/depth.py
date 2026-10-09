@@ -151,8 +151,10 @@ class Grid:
 
     def at(self, lat, lon):
         """Metres of water, negative on land, or None outside the grid."""
-        col = int((lon - self.x0) / self.cell)
-        row = int((self.y0 + self.nrows * self.cell - lat) / self.cell)
+        # floor, not int(): int() rounds toward zero, so a point up to a cell
+        # west or north of the grid came out as index 0 and was given a depth.
+        col = math.floor((lon - self.x0) / self.cell)
+        row = math.floor((self.y0 + self.nrows * self.cell - lat) / self.cell)
         if 0 <= row < self.nrows and 0 <= col < self.ncols:
             return float(self.depth[row, col])
         return None
@@ -199,8 +201,10 @@ def merged():
                  0, wide.nrows - 1)
     depth = wide.depth[np.ix_(wr, wc)].copy()
 
-    fc = ((lon - fine.x0) / fine.cell).astype(int)
-    fr = ((fine.y0 + fine.nrows * fine.cell - lat) / fine.cell).astype(int)
+    # floor for the same reason as Grid.at: astype(int) truncates toward zero and
+    # would lay the fine grid over one extra row and column to the north and west.
+    fc = np.floor((lon - fine.x0) / fine.cell).astype(int)
+    fr = np.floor((fine.y0 + fine.nrows * fine.cell - lat) / fine.cell).astype(int)
     okc, okr = (fc >= 0) & (fc < fine.ncols), (fr >= 0) & (fr < fine.nrows)
     if okc.any() and okr.any():
         depth[np.ix_(okr, okc)] = fine.depth[np.ix_(fr[okr], fc[okc])]

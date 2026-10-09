@@ -203,6 +203,28 @@ def _nearest_gap(shifted, ref):
                       np.abs(shifted - ref[np.minimum(i, len(ref) - 1)]))
 
 
+def strongest_rival(order, counts, grid, coarse, cov_frac):
+    """The best offset that is not the winner's own shoulder: (score, offset).
+
+    Best by the score the winner is judged on, coincidences times coverage --
+    not the first one down the raw count, which is what this used to take. A
+    rival with fewer coincidences and full coverage can outscore one with more
+    and half of it, and a margin measured against the wrong one let an ambiguous
+    fit through. Coverage is at most 1, so once the raw count has fallen to the
+    best score found, nothing further down `order` can beat it.
+    """
+    rival, rival_off = 0.0, None
+    for i in order:
+        if float(counts[i]) <= rival:
+            break
+        if abs(float(grid[i]) - coarse) <= SHOULDER_S:
+            continue
+        s = float(counts[i]) * cov_frac(float(grid[i]))
+        if s > rival:
+            rival, rival_off = s, float(grid[i])
+    return rival, rival_off
+
+
 def correlate_offset(local_times, reference_utc, spans, search_h=SEARCH_H):
     """Fit one camera's clock against the moments other cameras were shooting.
 
@@ -258,12 +280,7 @@ def correlate_offset(local_times, reference_utc, spans, search_h=SEARCH_H):
 
     # The best genuinely different hypothesis — not the winner's own shoulder,
     # which is broad because coincidence is.
-    rival, rival_off = 0.0, None
-    for i in order:
-        if abs(float(grid[i]) - coarse) <= SHOULDER_S:
-            continue
-        rival, rival_off = float(counts[i]) * cov_frac(float(grid[i])), float(grid[i])
-        break
+    rival, rival_off = strongest_rival(order, counts, grid, coarse, cov_frac)
     margin = score / rival if rival > 0 else float("inf")
 
     failed = []
