@@ -24,7 +24,6 @@ Everything built so far is committed; these are loose ends and one decision.
 The journal is kept outside this repository. The transcript is complete: every
 left-hand page has been checked against the notebook, and nothing follows p.43.
 
-- [ ] **Expand the two jottings**, on p.5 and p.17, if wanted.
 - [ ] **Story 8, Vernon's.** The marker is an estimate of where the settlement
   is, not the grocery's surveyed position.
 
@@ -70,5 +69,7 @@ which can still sit on a name.
   chart spellings stay, and the two supplied words are right.
 - The notebook's left-hand pages checked: nothing was missed, and the journal
   ends at p.43.
+- The two jottings settled: the p.5 one expanded from memory, and the p.17 one
+  found to be an outline whose every item the entry already tells.
 - The washing-up story moved to the first anchorage on Sunday morning, where the
   journal has it. It is now story 3.
