@@ -284,7 +284,9 @@ def place(photos, per_photo, cameras, fixes=None):
                     rec["day_provisional"] = True
                     rec["note"] = ("shared over WhatsApp, which kept the date "
                                    "in the filename and dropped the time")
-            out.append(rec)
+            # No position, but the camera's own date can still name the day,
+            # flagged as a guess -- _finish leaves a filename's day alone.
+            out.append(_finish(rec, p))
             continue
         t = C._utc(v["utc"])
         pos = at(fixes, times, t)
@@ -293,7 +295,10 @@ def place(photos, per_photo, cameras, fixes=None):
             rec.update(tier="travel" if travel else "unplaced",
                        note=("taken away from Abaco — not on this chart" if travel
                              else "the receiver was not recording at this moment"))
-            out.append(rec)
+            # The track cannot say where, but the UTC still says which day, and
+            # the tray is grouped by day. Skipping this sent 101 photographs out
+            # as "Undated" with a trusted time on a trip day.
+            out.append(_finish(rec, p))
             continue
         lat, lon, sog, day = pos
         u = spread_m(fixes, times, t, half.get(p["camera"], 2.0))
@@ -395,7 +400,7 @@ def _track_note(t, sog, lat, lon, u):
 
 
 def _finish(rec, photo):
-    """Attach the sailing day to a photograph placed without the track."""
+    """Attach the sailing day to a photograph the track did not place."""
     if not rec["day"]:
         local = C._local(photo["time_local"]) if photo.get("time_local") else None
         day, provisional = day_for(C._utc(rec["utc"]) if rec["utc"] else None,
