@@ -630,12 +630,13 @@ async function addPhotos() {
   map.addSource('photos', {
     type: 'geojson',
     cluster: true,
-    // 13, not 15. Clustering applies per integer tile zoom, so a ceiling of 15
-    // meant nothing became an individual pin until z16 — and with maxZoom 17
-    // that left one zoom level in which to actually look at a photograph. The
-    // design's promise is cluster → zoom splits it → pin opens the viewer, and
-    // the split has to happen somewhere a person would still be exploring.
-    clusterMaxZoom: 13,
+    // Clustered at every zoom the chart reaches. It once stopped at 13, on the
+    // promise that zooming always splits a cluster into pins; but a boat at
+    // anchor for an afternoon puts sixty photographs within a few metres, and
+    // past 13 those drew as a heap of dots with one on top to click. A heap
+    // that cannot be split now stays a count, and a click on it opens it.
+    maxzoom: 20,
+    clusterMaxZoom: 19,
     clusterRadius: 42,
     data: emptyFC(),        // refreshPhotos hands it the visible set below
   });
@@ -683,8 +684,8 @@ async function addPhotos() {
     },
   });
 
-  // Clustering runs to z15, so the photograph you have open is usually still
-  // inside a cluster and would otherwise have nothing marking it.
+  // Clustering runs at every zoom, so the photograph you have open is usually
+  // still inside a cluster and would otherwise have nothing marking it.
   map.addLayer({
     id: 'selected', type: 'circle', source: 'selected',
     paint: {
@@ -695,12 +696,19 @@ async function addPhotos() {
     },
   });
 
-  // A cluster is a promise that zooming will split it.
+  // A cluster splits when zooming can split it, and opens when it cannot:
+  // one that would hold together past z16 is a single anchorage, where another
+  // zoom level only spreads the dots a few pixels.
   map.on('click', 'clusters', (e) => {
     const f = map.queryRenderedFeatures(e.point, { layers: ['clusters'] })[0];
-    map.getSource('photos').getClusterExpansionZoom(f.properties.cluster_id)
-      .then((z) => map.easeTo({ center: f.geometry.coordinates, zoom: z + 0.15 }))
-      .catch(() => {});
+    const src = map.getSource('photos');
+    const id = f.properties.cluster_id;
+    src.getClusterExpansionZoom(id).then((z) => {
+      if (z > OPEN_ZOOM || map.getZoom() >= map.getMaxZoom() - 0.01) {
+        return src.getClusterLeaves(id, f.properties.point_count, 0).then(openStack);
+      }
+      map.easeTo({ center: f.geometry.coordinates, zoom: z + 0.15 });
+    }).catch(() => {});
   });
   map.on('click', 'photo-points', (e) => {
     openViewer(e.features[0].properties.id);
@@ -726,6 +734,17 @@ async function addPhotos() {
 
   refreshPhotos();          // computes state.shown, fills the source, builds the tray
   wireViewer();
+}
+
+// Past this zoom a cluster is opened rather than zoomed into.
+const OPEN_ZOOM = 16;
+
+// Open a heap of photographs at its earliest. state.shown is in time order and
+// a heap was taken in one sitting, so next and previous walk through it.
+function openStack(leaves) {
+  const at = leaves.map((l) => state.indexById.get(l.properties.id))
+    .filter((i) => i != null).sort((a, b) => a - b);
+  if (at.length) openViewer(state.shown[at[0]].id);
 }
 
 function emptyFC() { return { type: 'FeatureCollection', features: [] }; }

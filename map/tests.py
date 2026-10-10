@@ -1141,6 +1141,9 @@ def test_site_build():
     wire = re.search(r"function wirePanel\(\)\s*\{(.*?)\n\}", app, re.S).group(1)
     check("and each layer is put in its box's state when the panel is wired",
           wire.count("applyLayer(cb.dataset.layer, cb.checked)") == 2)
+    check("photographs taken in one spot stay a count, and a click opens them",
+          "clusterMaxZoom: 19" in app and "getClusterLeaves" in app
+          and "openStack" in app)
     check("the key to the photograph dots is shown only with the photographs",
           re.search(r'id="photo-key" hidden>\s*<h2>How each one was placed', html)
           and "$('#photo-key').hidden = !on" in app)
