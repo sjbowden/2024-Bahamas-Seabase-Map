@@ -290,6 +290,24 @@ def stories_layer():
         for i, s in enumerate(STORIES, 1)])
 
 
+# The finished sheet, offered for download from the chart. The PDF is the one to
+# send to a print shop; the PNG is the one to look at.
+POSTER = [("abaco_poster_18x24.pdf", "PDF, for printing"),
+          ("abaco_poster_18x24_300dpi.png", "PNG, for a screen")]
+
+
+def poster_files():
+    """The poster renders that exist in out/, with what the page needs to offer
+    them: [{src, href, label, bytes}]. Empty if the poster has not been rendered."""
+    out = []
+    for name, label in POSTER:
+        src = os.path.join(HERE, "out", name)
+        if os.path.exists(src):
+            out.append(dict(src=src, href=f"poster/{name}", label=label,
+                            bytes=os.path.getsize(src)))
+    return out
+
+
 def public_camera(cam):
     """The camera as the site is allowed to name it.
 
@@ -355,6 +373,8 @@ def export(dest, placed):
         depth_bands=[dict(lo=lo, hi=None if hi > 1e8 else hi, colour=c, label=l)
                      for lo, hi, c, l in DEPTH.BANDS],
         depth_days=depth_days,
+        poster=[dict(href=f["href"], label=f["label"], bytes=f["bytes"])
+                for f in poster_files()],
         tiers=sorted({r["tier"] for r in placed}),
         counts=dict(collections.Counter(r["tier"] for r in placed)))
 

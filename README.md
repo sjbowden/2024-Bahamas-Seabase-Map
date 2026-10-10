@@ -431,10 +431,23 @@ stop at 26.5135, −77.0782 on the last morning is the airport terminal, and the
 only excursion outside the barrier cays was Sunday's two-hour reef stop off
 Man-O-War — see [Three independent records](#three-independent-records).
 
-## Next
+## The interactive chart
 
-An interactive version of this map (zoomable, day toggles, time scrubber) is
-planned — `tracks/*.csv` and `geo/` are the inputs it should reuse.
+`python -m map.build` writes a static site to `site_build/`: the chart itself,
+zoomable, with a checkbox per day, and three things beside it.
+
+- **Photographs and stories**, both off until ticked, so the chart opens as a
+  chart. The stories are passages from the journal, each at the place it
+  happened (`map/stories.py`).
+- **The journal**, as its own page (`journal.html`), built from `map/journal.md`:
+  the notebook one of the leaders kept that week, lightly edited, with a few
+  private passages left out and first names only. Each day links to that day on
+  the chart, and each story back to its day in the journal. The full transcript
+  is not in this repository.
+- **The poster**, for download as PDF or PNG, copied in from `out/` when it has
+  been rendered.
+
+## Next
 
 **Cay names.** Every label the interactive chart draws was checked against the
 Explorer chartbook sheets for Abaco (AB 11 to AB 24) in October 2026, and the cays

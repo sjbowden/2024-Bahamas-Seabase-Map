@@ -61,6 +61,9 @@ which can still sit on a name.
 
 ## Done since this list was first written
 
+- The journal published as a page of the site, lightly edited; the poster offered
+  for download from the chart; photographs and stories off until ticked.
+- Two code reviews' findings fixed, nineteen in all, each with a test.
 - `out/compare_offset.png` regenerated, so it shows Lubbers Quarters where it now is.
 - The journal's `locations.md` brought up to date.
 - The full site build runs on this machine, thumbnails included.

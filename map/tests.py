@@ -225,6 +225,58 @@ def test_receiver_windows():
           not stolen, f"{len(stolen)} such")
 
 
+def test_journal():
+    """The journal as published. It is the one part of a private notebook that
+    is public, so the test that matters is what must not be in it."""
+    section("journal page")
+    from map import journal as J
+    text = open(J.SOURCE, encoding="utf-8").read()
+    page = J.render()
+    # Passages cut on purpose before publishing: health and a few family asides.
+    # A later edit that pastes from the full transcript would bring them back
+    # without anyone deciding to.
+    private = ["Dramamine", "Bonine", "got sick", "thrown up", "threw up", "threw that up", "seasickness medicine",
+               "panicked", "freaked", "pre-calc", "agonized", "blamed each other",
+               "Legoland", "use the bathroom"]
+    leaked = [w for w in private if w.lower() in text.lower()]
+    check("nothing cut from the journal has come back", not leaked, str(leaked))
+    # Surnames were cut too, and a list of them here would publish them. It is
+    # kept with the transcript, outside the repository, so this runs only where
+    # that folder is.
+    repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    terms = os.path.join(os.path.dirname(repo), "bahamas-journal", "private-terms.txt")
+    if os.path.exists(terms):
+        names = [l.strip() for l in open(terms, encoding="utf-8")
+                 if l.strip() and not l.startswith("#")]
+        named = [n for n in names if re.search(rf"\b{re.escape(n)}", text, re.I)]
+        check("no surname is published", not named, f"{len(named)} found")
+    else:
+        print("  SKIP  no surname is published (the private list is not on this machine)")
+    check("no transcription scaffolding is published",
+          "<!--" not in text and "IMG_" not in text and "left page" not in text)
+    title, intro, days = J.parse(text)
+    heads = [h for h, _ in days]
+    check("the journal runs from the Thursday out to the Thursday home",
+          len(heads) == 8 and heads[0].startswith("Thursday 21")
+          and heads[-1].startswith("Thursday 28"), str(heads))
+    labels = [J.chart_label(h) for h in heads]
+    on_chart = [d["label"] for d in DAYS]
+    check("every day on the chart has a day in the journal",
+          set(on_chart) <= set(labels), str(set(on_chart) - set(labels)))
+    check("each has an anchor the chart can link to",
+          all(f'id="{J.slug(l)}"' in page for l in on_chart))
+    check("and a link back to that day on the chart",
+          all(f'index.html?day={l.replace(" ", "%20")}' in page for l in on_chart))
+    check("the travel day with no track has no chart link",
+          'day=Thu%2021%20Mar' not in page and 'id="thu-21-mar"' in page)
+    check("later additions are set apart from the notebook's own words",
+          page.count("<aside>") == text.count("\n> ") >= 6)
+    check("text is escaped and a URL is a link",
+          J._inline("a < b & https://example.org/x.") ==
+          'a &lt; b &amp; <a href="https://example.org/x" rel="noopener">https://example.org/x</a>.')
+    check("the page tells robots to stay away", "noindex" in page)
+
+
 def test_land_cache_follows_its_source():
     """Refreshing a coastline has to refresh the land built from it."""
     section("land cache")
@@ -965,7 +1017,8 @@ def test_site_build():
             "data/depth.geojson", "data/shoals.geojson",
             "vendor/maplibre-gl.js", "vendor/maplibre-gl.css",
             "data/meta.json", "data/photos.json", "data/tracks.geojson",
-            "data/places.geojson", "data/stories.geojson"]
+            "data/places.geojson", "data/stories.geojson",
+            "journal.html", "journal.css"]
     missing = [n for n in need if not os.path.exists(os.path.join(out, n))]
     check("every file the page asks for is present", not missing, str(missing))
 
@@ -1054,6 +1107,27 @@ def test_site_build():
           and "viewerReturn" in app and "back.focus()" in app)
 
     html = open(os.path.join(out, "index.html")).read()
+    # The chart opens as a chart. Photographs and stories are a tick away, and a
+    # box that starts unticked has to start with its layer hidden, which is the
+    # page's job: every layer is added visible before the panel exists.
+    boxes = dict(re.findall(r'data-layer="(\w+)"( checked)?', html))
+    check("photographs and stories start off; depth and names start on",
+          boxes.get("photos") == "" and boxes.get("stories") == ""
+          and boxes.get("depth") and boxes.get("places"), str(boxes))
+    wire = re.search(r"function wirePanel\(\)\s*\{(.*?)\n\}", app, re.S).group(1)
+    check("and each layer is put in its box's state when the panel is wired",
+          wire.count("applyLayer(cb.dataset.layer, cb.checked)") == 2)
+    # The poster: offered only if it is there, and there if it is offered.
+    offered = meta.get("poster", [])
+    gone = [f["href"] for f in offered if not os.path.exists(os.path.join(out, f["href"]))]
+    check("every poster file the page offers is in the build", not gone, str(gone))
+    check("and the page knows how to offer them",
+          'id="poster-links"' in html and "meta.poster" in app)
+    check("the chart links to the journal, and a story to its day in it",
+          'href="journal.html"' in html and "journal.html#" in app)
+    from map import journal as J
+    check("the chart and the journal agree how a day's anchor is spelled",
+          "replace(/[^a-z0-9]+/g, '-')" in app and J.slug("Sun 24 Mar") == "sun-24-mar")
     # Stories are HTML markers, so nothing but the page's own code hides them:
     # the panel needs a box for them, and a day switched off has to take its
     # stories with it the way it takes its photographs.
@@ -1077,6 +1151,7 @@ def main():
     test_fit_uses_the_reading_that_won()
     test_honest_uncertainty()
     test_receiver_windows()
+    test_journal()
     test_land_cache_follows_its_source()
     if not os.path.exists(INDEX):
         print(f"\nSKIP  the archive-backed tests: no {INDEX}")

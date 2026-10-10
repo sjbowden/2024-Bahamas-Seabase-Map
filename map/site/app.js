@@ -426,10 +426,18 @@ function openStory(s) {
   const html = here.map((o) =>
     `<article class="story-text"><h3><span class="story-n" style="background:${esc(o.p.color)}">` +
     `${esc(o.p.n)}</span>${esc(o.p.title)}</h3>` +
-    `<p class="popup-route">${esc(storyWhen(o.p))}</p><p>${esc(o.p.text)}</p></article>`).join('');
+    `<p class="popup-route">${esc(storyWhen(o.p))}</p><p>${esc(o.p.text)}</p></article>`).join('') +
+    `<p class="story-more"><a href="journal.html#${esc(daySlug(here[0].p.day))}">` +
+    `Read ${esc(here[0].p.day)} in the journal</a></p>`;
   if (state.storyPopup) state.storyPopup.remove();
   state.storyPopup = new maplibregl.Popup({ offset: 14, maxWidth: '21rem', className: 'story-popup' })
     .setLngLat(s.lngLat).setHTML(html).addTo(map);
+}
+
+// The journal page's anchor for a day: 'Sun 24 Mar' -> 'sun-24-mar'. The same
+// rule as map/journal.py's slug(), which makes the anchors.
+function daySlug(label) {
+  return label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 }
 
 function storyWhen(p) {
@@ -463,7 +471,10 @@ function buildPanel(meta) {
 }
 
 function wirePanel() {
-  state.layers = { photos: true, depth: true, places: true, stories: true };
+  // What the chart opens with is whatever index.html ticks: the chart, its depths
+  // and its names. Photographs and stories are there for whoever asks -- 2,180
+  // pins and 21 dots over a chart this size bury the chart.
+  state.layers = {};
   const panel = $('#panel'), toggle = $('#panel-toggle');
   const setOpen = (open) => {
     panel.hidden = !open;
@@ -473,28 +484,81 @@ function wirePanel() {
   toggle.addEventListener('click', () => setOpen(panel.hidden));
 
   for (const cb of document.querySelectorAll('#chart-layers input[data-layer]')) {
-    cb.addEventListener('change', () => {
-      const key = cb.dataset.layer;
-      state.layers[key] = cb.checked;
-      if (key === 'depth') {
-        for (const b of ((state.meta && state.meta.depth_bands) || []))
-          if (b.hi != null) setVisible(`depth-${b.hi}`, cb.checked);
-        for (const o of [0, 1]) setVisible(`shoal-${o}`, !cb.checked);
-      } else if (key === 'places') {
-        state.refreshPlaces && state.refreshPlaces();
-      } else if (key === 'stories') {
-        refreshStories();
-      } else if (key === 'photos') {
-        for (const id of ['clusters', 'photo-points', 'uncertainty',
-                          'uncertainty-edge', 'selected']) {
-          setVisible(id, cb.checked);
-        }
-        drawClusterCounts();
-      }
-    });
+    cb.addEventListener('change', () => applyLayer(cb.dataset.layer, cb.checked));
+    // Once now, so a box that starts unticked starts with its layer hidden: the
+    // layers are all added visible, before the panel exists to say otherwise.
+    applyLayer(cb.dataset.layer, cb.checked);
   }
   $('#days-all').addEventListener('click', () => setAllDays(true));
   $('#days-none').addEventListener('click', () => setAllDays(false));
+  posterLinks();
+  applyDayParam();
+}
+
+function applyLayer(key, on) {
+  state.layers[key] = on;
+  if (key === 'depth') {
+    for (const b of ((state.meta && state.meta.depth_bands) || []))
+      if (b.hi != null) setVisible(`depth-${b.hi}`, on);
+    for (const o of [0, 1]) setVisible(`shoal-${o}`, !on);
+  } else if (key === 'places') {
+    state.refreshPlaces && state.refreshPlaces();
+  } else if (key === 'stories') {
+    refreshStories();
+  } else if (key === 'photos') {
+    for (const id of ['clusters', 'photo-points', 'uncertainty',
+                      'uncertainty-edge', 'selected']) {
+      setVisible(id, on);
+    }
+    drawClusterCounts();
+  }
+}
+
+// The printed sheet, for anyone who wants it on a wall. The build says which
+// files it copied in and how big they are; with none, the group stays hidden.
+function posterLinks() {
+  const files = (state.meta && state.meta.poster) || [];
+  if (!files.length) return;
+  const host = $('#poster-links');
+  host.textContent = 'Download the 18 × 24 in chart: ';
+  files.forEach((f, i) => {
+    const a = document.createElement('a');
+    a.href = f.href;
+    a.download = '';
+    a.textContent = `${f.label} (${(f.bytes / 2 ** 20).toFixed(f.bytes < 10 * 2 ** 20 ? 1 : 0)} MB)`;
+    host.append(a);
+    if (i < files.length - 1) host.append(' · ');
+  });
+  $('#poster-group').hidden = false;
+}
+
+// journal.html links here as index.html?day=Sun 24 Mar: show that day alone,
+// frame its track, and turn the stories on, since that is what the reader was
+// just reading.
+async function applyDayParam() {
+  const want = new URLSearchParams(location.search).get('day');
+  if (!want || !state.meta.days.some((d) => d.label === want)) return;
+  for (const cb of document.querySelectorAll('#days input[data-day]')) {
+    cb.checked = cb.dataset.day === want;
+  }
+  state.days = new Set([want]);
+  applyDays();
+  const stories = document.querySelector('#chart-layers input[data-layer="stories"]');
+  if (stories && !stories.checked) { stories.checked = true; applyLayer('stories', true); }
+  try {
+    const fc = await json('data/tracks.geojson');
+    let w = Infinity, s = Infinity, e = -Infinity, n = -Infinity;
+    const eat = (c) => {
+      if (typeof c[0] === 'number') {
+        w = Math.min(w, c[0]); e = Math.max(e, c[0]);
+        s = Math.min(s, c[1]); n = Math.max(n, c[1]);
+      } else c.forEach(eat);
+    };
+    for (const f of fc.features) if (f.properties.day === want) eat(f.geometry.coordinates);
+    if (w < e || s < n) {
+      map.fitBounds([[w, s], [e, n]], { padding: 70, maxZoom: 13.5, animate: false });
+    }
+  } catch (err) { console.error(err); }
 }
 
 function setAllDays(on) {

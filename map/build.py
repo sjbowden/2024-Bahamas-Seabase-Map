@@ -37,10 +37,22 @@ def copy_site(dest):
     """The web app itself: three files and the vendored map library."""
     os.makedirs(dest, exist_ok=True)
     copied = []
-    for name in ("index.html", "app.js", "style.css"):
+    for name in ("index.html", "app.js", "style.css", "journal.css"):
         src = os.path.join(SITE_SRC, name)
         shutil.copy2(src, os.path.join(dest, name))
         copied.append(name)
+    # The journal, as a page: rendered here rather than kept as HTML, so the text
+    # is edited in one plain file.
+    from map import journal
+    with open(os.path.join(dest, "journal.html"), "w", encoding="utf-8") as fh:
+        fh.write(journal.render())
+    copied.append("journal.html")
+    # The printed sheet, for download. Only what export() listed in meta.json,
+    # so the page never offers a file that is not there.
+    for f in E.poster_files():
+        os.makedirs(os.path.join(dest, "poster"), exist_ok=True)
+        shutil.copy2(f["src"], os.path.join(dest, f["href"]))
+        copied.append(f["href"])
     vsrc = os.path.join(SITE_SRC, "vendor")
     if os.path.isdir(vsrc):
         vdst = os.path.join(dest, "vendor")

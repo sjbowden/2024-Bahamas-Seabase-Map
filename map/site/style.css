@@ -55,6 +55,16 @@ html, body {
   font-weight: 400;
   letter-spacing: .055em;
 }
+/* The masthead lets clicks through to the chart; its one link has to take them. */
+#masthead .more {
+  margin: .4rem 0 0;
+  letter-spacing: .04em; text-transform: none; font-size: .78rem;
+  pointer-events: auto;
+}
+#masthead .more a { color: var(--ink); text-underline-offset: .15em; }
+#poster-links a, .story-more a { color: var(--ink); text-underline-offset: .15em; }
+.story-more { margin: .6rem 0 0; font-size: .76rem; }
+
 #masthead p {
   margin: .12rem 0 0;
   font-size: .705rem;

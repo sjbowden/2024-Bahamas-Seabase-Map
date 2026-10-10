@@ -1,0 +1,85 @@
+/* The journal page: the chart's palette on a page that is meant to be read, and
+   therefore scrolls, which the chart's own stylesheet forbids. Kept apart for
+   that reason, and small enough that sharing the variables by hand is cheaper
+   than untangling the two. */
+:root {
+  --water: #E7F1F5;
+  --ink: #2E3A42;
+  --ink-soft: #5C6B75;
+  --paper: #FBF6EA;
+  --rule: #B9AC91;
+  --serif: "P052", Palatino, "Palatino Linotype", "Book Antiqua", Georgia, serif;
+  --sans: "Lato", system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+html { background: var(--water); -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+
+body {
+  margin: 0 auto; max-width: 42rem;
+  padding: 0 1.15rem 4rem;
+  background: var(--paper);
+  color: var(--ink);
+  font: 1.06rem/1.62 var(--serif);
+  border-left: 1px solid var(--rule); border-right: 1px solid var(--rule);
+  min-height: 100vh;
+}
+
+a { color: inherit; text-decoration-color: var(--rule); text-underline-offset: .15em; }
+a:hover, a:focus-visible { text-decoration-color: var(--ink); }
+
+.top { padding: 1.4rem 0 .9rem; border-bottom: 1px solid var(--rule); }
+.top h1 { margin: .5rem 0 0; font-size: 1.9rem; font-weight: 400; letter-spacing: .05em; }
+.top .sub, .back, .days, .tochart, .added, footer {
+  font-family: var(--sans);
+}
+.top .sub {
+  margin: .15rem 0 0; font-size: .74rem; letter-spacing: .16em;
+  text-transform: uppercase; color: var(--ink-soft);
+}
+.back { margin: 0; font-size: .8rem; }
+
+/* The days stay in reach while reading: eight short links that wrap on a phone. */
+.days {
+  position: sticky; top: 0; z-index: 1;
+  display: flex; flex-wrap: wrap; gap: .1rem .9rem;
+  margin: 0 -1.15rem; padding: .55rem 1.15rem;
+  background: var(--paper); border-bottom: 1px solid var(--rule);
+  font-size: .78rem; letter-spacing: .04em;
+}
+.days a { text-decoration: none; color: var(--ink-soft); white-space: nowrap; }
+.days a:hover, .days a:focus-visible { color: var(--ink); text-decoration: underline; }
+
+.intro { margin: 1.3rem 0 0; color: var(--ink-soft); font-size: .98rem; }
+
+section { scroll-margin-top: 3rem; }
+h2 {
+  margin: 2.6rem 0 .1rem; padding-top: 1.1rem;
+  border-top: 1px solid var(--rule);
+  font-size: 1.32rem; font-weight: 400; letter-spacing: .03em;
+}
+.tochart { margin: 0 0 1rem; font-size: .78rem; color: var(--ink-soft); }
+
+p { margin: 0 0 1rem; }
+ul { margin: 0 0 1rem; padding-left: 1.2rem; }
+
+/* Written two and a half years after the rest, so it must not read as the rest. */
+aside {
+  margin: 0 0 1rem; padding: .55rem .8rem;
+  border-left: 3px solid var(--rule);
+  background: rgba(185, 172, 145, .14);
+  font-size: .95rem; color: var(--ink-soft);
+}
+.added {
+  display: block; margin-bottom: .15rem;
+  font-size: .66rem; letter-spacing: .14em; text-transform: uppercase;
+}
+aside a { overflow-wrap: anywhere; }
+
+footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--rule); font-size: .8rem; }
+
+@media (max-width: 34rem) {
+  body { font-size: 1rem; border: 0; }
+  .top h1 { font-size: 1.55rem; }
+}

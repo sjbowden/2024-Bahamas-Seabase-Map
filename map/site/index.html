@@ -18,6 +18,7 @@
 <header id="masthead">
   <h1>Sea Base 1830</h1>
   <p>Sea of Abaco &middot; March 2024</p>
+  <p class="more"><a href="journal.html">Read the journal</a></p>
 </header>
 
 <button id="panel-toggle" aria-expanded="false" aria-controls="panel">Layers</button>
@@ -32,13 +33,17 @@
   <div class="group">
     <h2>Chart</h2>
     <ul id="chart-layers">
-      <li><label><input type="checkbox" data-layer="photos" checked> Photographs</label></li>
+      <li><label><input type="checkbox" data-layer="photos"> Photographs</label></li>
       <li><label><input type="checkbox" data-layer="depth" checked> Depth</label>
           <span class="note">measured, GMRT ~61 m grid · off draws the halo</span></li>
       <li><label><input type="checkbox" data-layer="places" checked> Place names</label></li>
-      <li><label><input type="checkbox" data-layer="stories" checked> Stories</label>
-          <span class="note">from the journal · tap a numbered dot</span></li>
+      <li><label><input type="checkbox" data-layer="stories"> Stories</label>
+          <span class="note">from the journal · tick, then tap a numbered dot</span></li>
     </ul>
+  </div>
+  <div class="group" id="poster-group" hidden>
+    <h2>The poster</h2>
+    <p class="hint" id="poster-links"></p>
   </div>
   <div class="group">
     <h2>How each one was placed</h2>
