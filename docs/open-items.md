@@ -23,10 +23,11 @@ Everything built so far is committed; these are loose ends and one decision.
 - [ ] **Old commits on GitHub.** A force-push leaves them fetchable by hash until
   GitHub collects them. Asking GitHub Support, or deleting and recreating the
   repository, closes that for certain.
-- [ ] **Names wanting local confirmation:** the three that carry only
-  OpenStreetMap's name — Outer Point Cay, Gumelemi Cay and Little Ambergris
-  Cay. `docs/map-labels.md` marks them. Goliath Cay is settled: the chart
-  letters the name across the island the label is on.
+- [ ] **Names wanting local confirmation.** Little Ambergris Cay is in
+  OpenStreetMap and nowhere else. Four cays carry only the GeoNames gazetteer's
+  name, where the charts draw the island unnamed: Pond Apple, Push, Lower Hill
+  and Woolendean Cays. Goliath Cay is where the chart letters it; the gazetteer
+  puts it 900 m further east. `docs/map-labels.md` has the detail for each.
 
 ## The journal
 
@@ -51,16 +52,23 @@ which can still sit on a name.
 
 ## Optional
 
-- [ ] **Nurse Cay.** An earlier pass noted the name on the Explorer sheets
-  without recording where, and it has not been found again.
 - [ ] **Two readings to check by eye**, both in Cherokee Sound: North Cay and
   Chicken Cay are lettered over mangrove with no shore drawn, so each label is
   where the chart's lettering is rather than on an island.
-- [ ] **Three unnamed mangrove islands** on the Great Abaco shore, listed in a
-  comment in `trip.py`. The charts draw them without a name.
+- [ ] **Two unnamed mangrove islands** on the Great Abaco shore, listed in a
+  comment in `trip.py`. Neither the charts nor the gazetteer names them.
+- [ ] **About fifty more gazetteer names**, most of them in the Marls. They were
+  left off because the gazetteer's points run up to 400 m east of the charts,
+  and each of these has two or more islands that could answer to the name.
 
 ## Done since this list was first written
 
+- Fifteen more cays named with the GeoNames gazetteer as a second source: eleven
+  the charts letter too, four on the gazetteer alone. Outer Point Cay turned out
+  to be lettered on the chart after all, and Gumelemi Cay is in the gazetteer.
+  Aaron Cay and Goliath Cay each moved to where the two sources point.
+- Nurse Cay closed: the only one in the Bahamas gazetteer is in the Ragged
+  Islands, so the earlier note of it in Abaco was a misreading.
 - Seventeen more cays named from a closer reading of the Explorer charts, with a
   graticule over each view so positions could be read off it. The three chart
   tiles over the Marls were read too: the Explorer sheets do not reach them,

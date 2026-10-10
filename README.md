@@ -456,11 +456,15 @@ Explorer chartbook sheets for Abaco (AB 11 to AB 24) in October 2026, and the ca
 those charts letter were added to `MAP_CAYS` in `trip.py`, most held back until the
 chart is zoomed in. `docs/map-labels.md` lists all of them with what the chart
 prints for each. Lubbers Quarters and four `MAP_SPOTS` moved to the charts' positions in the
-same pass. Still open there: three small cays carry OpenStreetMap's name alone, and
-four names sit in water because the coastline draws no land for them.
+same pass. A second source, the GeoNames gazetteer for the Bahamas, then pointed at cays the
+chart sweep had missed; the charts confirmed eleven of them and four more carry the
+gazetteer's name alone. Still open there: Little Ambergris Cay carries OpenStreetMap's
+name alone, and four names sit in water because the coastline draws no land for them.
 Nothing has checked the names on the water.
 
 Coastline data © OpenStreetMap contributors (ODbL).
+
+Some cay names from the GeoNames gazetteer (geonames.org, CC BY 4.0).
 
 Depths from GMRT, the Global Multi-Resolution Topography synthesis, drawn by the
 `--depth` edition of the poster and by the interactive chart. On banks this

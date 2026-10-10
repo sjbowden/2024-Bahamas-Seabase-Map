@@ -226,7 +226,7 @@ MAP_CAYS = [
     (-77.36325, 26.82063, "Rat Cay", 14.0),
     (-77.42715, 26.67707, "Theresa Cay", 13.0),
     (-77.42629, 26.66608, "Snapper Cay", 13.0),
-    (-77.35004, 26.66613, "Goliath Cay", 13.0),
+    (-77.34360, 26.66820, "Goliath Cay", 13.0),
     (-77.15672, 26.55016, "Green Cay", 13.0),
     (-77.14158, 26.53543, "Big Potato Cay", 13.0),
     (-76.99564, 26.47856, "Tavern Cay", 14.0),
@@ -253,7 +253,7 @@ MAP_CAYS = [
     (-77.53850, 26.85500, "Randalls Cay", 13.0),
     (-77.50230, 26.81530, "Rocky Harbour Cay", 14.0),
     (-77.32520, 26.67020, "Okra Cay", 13.5),
-    (-77.41410, 26.65980, "Aaron Cay", 13.0),
+    (-77.40870, 26.65889, "Aaron Cay", 13.0),
     (-77.35630, 26.64800, "Big Lake Cay", 13.0),
     (-77.27925, 26.63593, "Hills Cay", 13.5),
     (-77.17350, 26.60350, "Archers Cay", 14.0),
@@ -270,6 +270,30 @@ MAP_CAYS = [
     (-77.03820, 26.29270, "Marsh Cay", 14.5),
     (-77.04370, 26.29080, "North Cay", 14.5),
     (-77.05080, 26.29080, "Chicken Cay", 14.5),
+    # A fifth pass, against a second source: the GeoNames gazetteer for the Bahamas,
+    # which carries the names off the national topographic sheets. It pointed at
+    # cays the chart sweep had missed, and the charts were then read at each. These
+    # the Explorer charts letter. Allans and Pensacola Cays are the two ends of
+    # what is now one island.
+    (-77.71636, 27.00720, "Umbrella Cay", 13.0),
+    (-77.69385, 26.99731, "Guineamans Cay", 13.5),
+    (-77.68274, 26.99020, "Allans Cay", 12.5),
+    (-77.65530, 26.97440, "Pensacola Cay", 12.5),
+    (-77.64411, 26.97752, "Big Murray Cay", 14.0),
+    (-77.64081, 26.97608, "Little Murray Cay", 14.5),
+    (-77.61689, 26.96874, "Big Hog Cay", 13.0),
+    (-76.96089, 26.54987, "Anna Cay", 15.0),
+    (-76.96250, 26.54230, "Mouth of Harbour Cay", 15.0),
+    (-77.06805, 26.54697, "Big Cay", 15.0),
+    (-77.06976, 26.54694, "Grunt Cay", 15.0),
+    # And four the gazetteer names where the charts draw an island without one.
+    # Each is the only island near the gazetteer's point; its points run up to
+    # 400 m east of the charts in places, so nothing was taken from it where two
+    # islands could answer to the name.
+    (-77.50561, 26.84721, "Push Cay", 14.5),
+    (-77.28694, 26.64470, "Lower Hill Cay", 14.5),
+    (-77.39200, 26.56616, "Woolendean Cay", 13.5),
+    (-77.04445, 26.40526, "Pond Apple Cay", 14.0),
     (-77.04430, 26.45940, "Angel Cays", 13.0),
 ]
 
@@ -310,13 +334,10 @@ MAP_REGIONS = [
 # island's own interior point.
 #
 # Islands the coastline draws in the trip area that are still unnamed here, with
-# the size and length the geometry gives them. The Explorer charts settled the rest
-# of this list: the 143 ha island beside Elbow Cay is Lubbers Quarters itself, and
-# the others became Deep Sea, Iron, Noah Bethel, Matt Lowe's and Channel Cays. These
-# the charts draw without a name (ARMSTRONG CAY is the strip east of the first, and
-# has its own label above):
+# the size and length the geometry gives them. The Explorer charts settled most
+# of the list this began as, and the gazetteer one more (Pond Apple Cay, the
+# 40 ha island west of Armstrong Cay). Neither source names these two:
 #
-#   26.40549 -77.04310   40 ha  1.5 km
 #   26.35872 -77.02272   22 ha  0.9 km
 #   26.33446 -77.02760   20 ha  1.5 km
 
