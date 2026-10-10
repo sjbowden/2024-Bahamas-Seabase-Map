@@ -98,6 +98,8 @@ Other things worth remembering:
 
 - 21 Mar and part of 28 Mar are Portland legs (lat ≈ 45 N); everything filters
   to `lat < 30`. The 25.8 kn peak on 28 Mar is the airport van, not the boat.
+  The drive home on 28 Mar is published as far as the Hillsboro exit and no
+  further, so the log ends there rather than where the receiver was switched off.
 - **22 Mar has no usable passage at all** — the whole log fits in an 870 m box.
   The airport→hotel drive shown on the poster is *reconstructed* by routing over
   the OSM road network (`roads.py`, 5.90 km / **3.2 nm**), not recorded. For
