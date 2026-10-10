@@ -58,7 +58,7 @@ After dinner we all just relaxed. Some boys walked on the beach and the adults j
 
 ## Saturday 23 March 2024
 
-We woke up, repacked our backpacks and ate our breakfast. We then walked with our gear to the Conch Inn, where our ship was docked, and we met the organizers of Seabase Bahamas. Before we met them we ate at Snappa's restaurant. Jeff and I split shrimp and grits. Most of the others got a burger that came with an egg on top. After lunch the Seabase organizer met us and gave us an orientation. They also oriented another troop. We talked to the troop — they are from Colorado. They wanted to do our trip, but we had beaten them to the reservation (January 2023). Instead their troop split into two, each group on a smallish monohull boat. They arrived a day late due to missing a flight caused by weather delays. They didn't get all their gear — luggage lost by the airlines. The other troop had not followed instructions and they packed their forms in checked luggage. They were lucky the captains let them on without liability waivers.
+We woke up, repacked our backpacks and ate our breakfast. We then walked with our gear to the Conch Inn, where our ship was docked, and we met the organizers of Sea Base Bahamas. Before we met them we ate at Snappa's restaurant. Jeff and I split shrimp and grits. Most of the others got a burger that came with an egg on top. After lunch the Sea Base organizer met us and gave us an orientation. They also oriented another troop. We talked to the troop — they are from Colorado. They wanted to do our trip, but we had beaten them to the reservation (January 2023). Instead their troop split into two, each group on a smallish monohull boat. They arrived a day late due to missing a flight caused by weather delays. They didn't get all their gear — luggage lost by the airlines. The other troop had not followed instructions and they packed their forms in checked luggage. They were lucky the captains let them on without liability waivers.
 
 We had our orientation and then met our captain, Josh. We then boarded the Adonai, a 56-foot catamaran. The mast of the Adonai is 78 feet tall.
 
@@ -133,7 +133,7 @@ The SpaceX launch was at about 7:30 pm EDT on 25 March 2024.
 
 We also saw an amazing moonrise. It was awesome.
 
-We then held another devotional. We are trying to earn the Seabase Duty to God award, which requires leading and participating in devotionals as well as praying with the group.
+We then held another devotional. We are trying to earn the Sea Base Duty to God award, which requires leading and participating in devotionals as well as praying with the group.
 
 After the devotional we put glowsticks in the water, tied to strings, to try and attract fish. We didn't see any though.
 
@@ -187,7 +187,7 @@ We sailed a bit more. Then we switched to motor and went to another barge wreck.
 
 Then we motored to Marsh Harbour. Dinner was chicken breasts, conch, mackerel (that Harrison caught) and yellow jack (that Josh caught and froze last week) with rice and salad. As we were finishing our dinner, Josh called an important meeting at the cockpit. We then sang Happy Birthday to Kyle for the third time and they brought out cake for Kyle and for all of us to share.
 
-After dinner and dessert we cleaned the dishes like normal. Then we gathered to do a rose–bud–thorn activity (like highs/lows). However, with 20 of us we just focused on roses. Josh led the activity and then shared his thoughts about the week. He said we are among the best groups he has captained for. He gave us our Seabase patches and also added us to the Captain's List (meaning one of the best; he doesn't always give it out). It means we get to order special patches. During the week we worked on the Seabase Duty to God requirements as well. We also sang Happy Birthday to Kyle for the fourth time.
+After dinner and dessert we cleaned the dishes like normal. Then we gathered to do a rose–bud–thorn activity (like highs/lows). However, with 20 of us we just focused on roses. Josh led the activity and then shared his thoughts about the week. He said we are among the best groups he has captained for. He gave us our Sea Base patches and also added us to the Captain's List (meaning one of the best; he doesn't always give it out). It means we get to order special patches. During the week we worked on the Sea Base Duty to God requirements as well. We also sang Happy Birthday to Kyle for the fourth time.
 
 > Sea Base's name for this is the Captains Club Award: a certificate for a crew that prepares well, works as a team and takes care of its vessel, with a patch that can be bought afterwards.
 

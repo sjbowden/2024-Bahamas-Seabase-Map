@@ -20,7 +20,7 @@ STORIES = [
     # ------------------------------------------------------------ Sat 23 Mar
     dict(day="Sat 23 Mar", time="14:00", lon=-77.05192, lat=26.54688,
          title="Boarding the Adonai",
-         text="After lunch the Seabase organizer met us and gave us an orientation. "
+         text="After lunch the Sea Base organizer met us and gave us an orientation. "
               "Then we met our captain, Josh, and boarded the Adonai, a 56-foot "
               "catamaran. Her mast is 78 feet tall. The captain showed us where to put "
               "our bags. The places were technically bedrooms, but certainly not big "
@@ -184,6 +184,6 @@ STORIES = [
               "and yellow jack with rice and salad. Then they brought out cake for "
               "Kyle. Josh led a rose–bud–thorn activity and shared his thoughts about "
               "the week. He said we are among the best groups he has captained for. He "
-              "gave us our Seabase patches and added us to the Captains Club, which "
+              "gave us our Sea Base patches and added us to the Captains Club, which "
               "he doesn't always give out."),
 ]
