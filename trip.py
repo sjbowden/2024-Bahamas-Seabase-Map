@@ -98,18 +98,19 @@ PLACES = [
     # The cay names sit where the square page put them — just off their island,
     # over open water, where italic serif reads better than across the land's
     # own clutter. All three artefacts agree, with two exceptions: Lubbers
-    # Quarters has no square-page position (that page skips it), and Tilloo Cay
-    # keeps its own spot because the square page's position for it is inside
-    # the gap left by dropping Tilloo Pond — which the sheet and the map still
-    # draw, so the two names would land on each other here.
+    # Quarters has no square-page position (that page skips it), and Elbow Cay
+    # and Tilloo Cay sit beside the middle of their islands' ocean shores. Elbow
+    # Cay's name stood at 26.495 N until October 2026, which is south of Elbow
+    # Cay altogether, off the north tip of Tilloo Cay; Tilloo Cay's stood low on
+    # its island, below Tilloo Pond's.
     (-77.0980, 26.6790, "Great Guana Cay", "isle", "center", "bottom"),
     (-77.0170, 26.6134, "Man-O-War Cay", "isle", "left", "center"),
-    (-76.9795, 26.4950, "Elbow Cay", "isle", "left", "center"),
+    (-76.9670, 26.5200, "Elbow Cay", "isle", "left", "center"),
     # Lubbers Quarters is the island beside Elbow Cay, per Explorer Chart AB 22.
     # Its name stood 4.4 km to the south-west until the labels were checked
     # against the charts; it now sits just off the island's west shore.
     (-77.0070, 26.5030, "Lubbers\nQuarters", "isle", "right", "center"),
-    (-76.9830, 26.4400, "Tilloo Cay", "isle", "left", "center"),
+    (-76.9860, 26.4630, "Tilloo Cay", "isle", "left", "center"),
     # The two wide legends sit where the square page put them, so the 18x24
     # sheet, the 8x8 page and the interactive map agree. Great Abaco's spot
     # keeps the letter-spaced line on the solid land tone — clear of the
@@ -364,15 +365,14 @@ MAP_REGIONS = [
 # The sheet sets the other island names in open water beside their islands, which
 # reads well on one printed frame and badly on a map that zooms: the gap is a
 # distance on the ground, so Great Guana Cay's name, 1.4 km offshore, leaves the
-# screen with the island still on it. Elbow Cay's stood south of Elbow Cay
-# altogether, off the north tip of Tilloo Cay. On the map each sits on the middle
-# of its own island.
+# screen with the island still on it. On the map each sits on the middle of its
+# own island.
 MAP_LABEL_NUDGE = {"Lynyard Cay": (0.0020, 0.0080),
                    "Lubbers\nQuarters": (0.0031, -0.0030),
                    "Great Guana Cay": (-0.0317, 0.0003),
                    "Man-O-War Cay": (0.0113, -0.0148),
-                   "Elbow Cay": (0.0087, 0.0278),
-                   "Tilloo Cay": (-0.0058, 0.0227),
+                   "Elbow Cay": (-0.0038, 0.0028),
+                   "Tilloo Cay": (-0.0028, -0.0003),
                    # The two water legends step aside for the names now on
                    # Man-O-War Cay and Tilloo Cay.
                    "S E A   O F   A B A C O": (-0.0200, 0.0265),

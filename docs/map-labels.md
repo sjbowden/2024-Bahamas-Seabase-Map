@@ -111,7 +111,7 @@ from `site_build/data/places.geojson`, so this is what actually ships.
 | ☑ | **Pepper Cay** | cay | 26.50800 | -77.04786 | 26° 30.480′ N | 77° 02.872′ W | land | 14 | yes | map only | PEPPER CAY |
 | ☑ | **Lubbers Quarters** | isle | 26.50000 | -77.00390 | 26° 30.000′ N | 77° 00.234′ W | water | 9.6 | yes | poster + map | LUBBERS QUARTER; on the map the name ends at this point, the island's westernmost shore, as it does on the sheet, so it stays beside the island at every zoom |
 | ☑ | **Cooper Jacks Cay** | cay | 26.49702 | -76.98535 | 26° 29.821′ N | 76° 59.121′ W | land | 14 | yes | map only | COOPER JACKS CAY |
-| ☑ | **Elbow Cay** | isle | 26.52280 | -76.97080 | 26° 31.368′ N | 76° 58.248′ W | land | 9.6 | yes | poster + map | ELBOW CAY; on the map only — the sheet's position is in the water south of the island, off Tilloo Cay's north tip |
+| ☑ | **Elbow Cay** | isle | 26.52280 | -76.97080 | 26° 31.368′ N | 76° 58.248′ W | land | 9.6 | yes | poster + map | ELBOW CAY; on the map the name sits on the island; the sheet sets it off the ocean shore at 26.52000, -76.96700 (it stood at 26.495, south of the island, until 10 October 2026) |
 | ☑ | **Davids Cay** | cay | 26.48850 | -77.04340 | 26° 29.310′ N | 77° 02.604′ W | land | 14 | yes | map only | DAVIDS CAY; the coastline joins it to Great Abaco |
 | ☑ | **Tavern Cay** | cay | 26.47856 | -76.99564 | 26° 28.714′ N | 76° 59.738′ W | land | 14 | yes | map only | TAVERN CAY |
 | ☑ | **A T L A N T I C O C E A N** | water | 26.47800 | -76.89500 | 26° 28.680′ N | 76° 53.700′ W | water | 8.5 | yes | poster + map | ATLANTIC OCEAN; moved on the map to clear the island names |
@@ -121,7 +121,7 @@ from `site_build/data/places.geojson`, so this is what actually ships.
 | ☑ | **Snake Cay** | cay | 26.45610 | -77.05230 | 26° 27.366′ N | 77° 03.138′ W | land | 14 | yes | map only | SNAKE CAY; the coastline joins it to Great Abaco |
 | ☑ | **T H E   M A R L S** | region | 26.45000 | -77.32000 | 26° 27.000′ N | 77° 19.200′ W | water | 10 | — | map only | base chart: THE MARLS |
 | ☑ | **Tilloo Pond** | anchorage | 26.44880 | -76.99070 | 26° 26.928′ N | 76° 59.442′ W | water | 11.5 | yes | poster + map | TILLOO POND |
-| ☑ | **Tilloo Cay** | isle | 26.46270 | -76.98880 | 26° 27.762′ N | 76° 59.328′ W | land | 9.6 | yes | poster + map | TILLOO CAY; on the map the name sits on the island, the sheet sets it in the water beside |
+| ☑ | **Tilloo Cay** | isle | 26.46270 | -76.98880 | 26° 27.762′ N | 76° 59.328′ W | land | 9.6 | yes | poster + map | TILLOO CAY; on the map the name sits on the island; the sheet sets it off the ocean shore at 26.46300, -76.98600 (moved up from 26.440 on 10 October 2026) |
 | ☑ | **Deep Sea Cay** | cay | 26.43816 | -77.05019 | 26° 26.290′ N | 77° 03.011′ W | land | 12.5 | yes | map only | DEEP SEA CAY |
 | ☑ | **Mocking Bird Cay** | cay | 26.43464 | -77.04568 | 26° 26.078′ N | 77° 02.741′ W | land | 13.5 | yes | map only | MOCKING BIRD CAY (unnamed in OpenStreetMap) |
 | ☑ | **Iron Cay** | cay | 26.42317 | -77.04139 | 26° 25.390′ N | 77° 02.483′ W | land | 13 | yes | map only | IRON CAY |
