@@ -1,6 +1,6 @@
 # Open items
 
-What is left to do on the chart, the poster and the journal, as of 9 October 2026.
+What is left to do on the chart, the poster and the journal, as of 10 October 2026.
 Everything built so far is committed; these are loose ends and one decision.
 
 ## Needs a person
@@ -15,6 +15,14 @@ Everything built so far is committed; these are loose ends and one decision.
   photographs; two of the sixteen scouts were 18 and the rest were minors. The
   site tells search engines not to index it (`robots.txt`, `_headers`, the page's
   own meta tag), but anyone with the link can read it.
+- [ ] **Read the published journal through** (`journal.html`) for anything that
+  should not be public. It is live in the repository as `map/journal.md`.
+- [ ] **Replace the clone on the other machine** with a fresh one. History was
+  rewritten on 10 October, so a pull or a push from the old clone would bring
+  the trimmed drive home back.
+- [ ] **Old commits on GitHub.** A force-push leaves them fetchable by hash until
+  GitHub collects them. Asking GitHub Support, or deleting and recreating the
+  repository, closes that for certain.
 - [ ] **Names wanting local confirmation:** Goliath Cay, and the three that carry
   only OpenStreetMap's name — Outer Point Cay, Gumelemi Cay and Little Ambergris
   Cay. `docs/map-labels.md` marks all four.
@@ -54,13 +62,14 @@ which can still sit on a name.
   which the Explorer sheets barely cover.
 - [ ] **Three unnamed mangrove islands** on the Great Abaco shore, listed in a
   comment in `trip.py`.
-- [ ] **A second copy of `bahamas-pre-rewrite.bundle`**, the only copy of the
-  history from before the rewrite. It is on one machine only.
-- [ ] **The hand-drawn Abaco map** (`out/LOCALABACOMAP.jpg`, gitignored), if a
-  second reference for the cay names is wanted on this machine.
 
 ## Done since this list was first written
 
+- The drive home on 28 March cut at the Hillsboro exit, and old poster renders
+  removed, in every commit. A backup of the history as it was is kept outside
+  the repository, as is the reference material that was parked in `out/`.
+- The poster re-rendered and found identical; the published photographs checked
+  for metadata, and both pages for broken links and script errors.
 - The journal published as a page of the site, lightly edited; the poster offered
   for download from the chart; photographs and stories off until ticked.
 - Two code reviews' findings fixed, nineteen in all, each with a test.
