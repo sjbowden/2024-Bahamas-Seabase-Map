@@ -1,6 +1,6 @@
 # Labels on the chart
 
-All 97 labels the interactive chart draws, north to south. Generated
+All 114 labels the interactive chart draws, north to south. Generated
 from `site_build/data/places.geojson`, so this is what actually ships.
 
 - **Source** — `poster + map` labels are shared with the printed sheet, so moving
@@ -10,7 +10,8 @@ from `site_build/data/places.geojson`, so this is what actually ships.
   a desktop and z9.9 on a phone.
 - **On** — whether the label sits on land or in water.
 - **In frame** — whether it falls inside the printed sheet's chart frame.
-- **✓ / Against the Explorer charts** — each label was checked on 7 October 2026 against the
+- **✓ / Against the Explorer charts** — each label was checked on 7 October 2026 (and seventeen
+  added from a closer reading on 10 October) against the
   Explorer chartbook sheets for Abaco (AB 11–AB 24, Lewis Offshore, 2022–2025
   editions) as shown in the i-Boating web viewer. ☑ means the chart letters the same
   name on the feature the label sits on or beside; ☐ means the note says what
@@ -32,9 +33,11 @@ from `site_build/data/places.geojson`, so this is what actually ships.
 | ☑ | **Little Abaco Island** | cay | 26.88000 | -77.64000 | 26° 52.800′ N | 77° 38.400′ W | land | 10 | — | map only | outside the Explorer sheets; the viewer's base chart letters LITTLE ABACO ISLAND here |
 | ☐ | **Little Ambergris Cay** | cay | 26.87861 | -77.43201 | 26° 52.717′ N | 77° 25.921′ W | land | 14 | — | map only | OpenStreetMap name; the chart viewer has no sheet over it |
 | ☑ | **Ambergris Cay** | cay | 26.87033 | -77.42692 | 26° 52.220′ N | 77° 25.615′ W | land | 13 | — | map only | AMBERGRIS CAY (Private) |
+| ☑ | **Randalls Cay** | cay | 26.85500 | -77.53850 | 26° 51.300′ N | 77° 32.310′ W | land | 13 | — | map only | RANDALLS CAY, lettered along the land; the coastline joins it to Great Abaco |
 | ☑ | **Manjack Cay** | cay | 26.83119 | -77.37152 | 26° 49.871′ N | 77° 22.291′ W | land | 11 | — | map only | MANJACK CAY AKA NUNJACK CAY |
 | ☑ | **Rat Cay** | cay | 26.82063 | -77.36325 | 26° 49.238′ N | 77° 21.795′ W | land | 14 | — | map only | RAT CAY |
 | ☑ | **Bamboo Cay** | cay | 26.81957 | -77.50948 | 26° 49.174′ N | 77° 30.569′ W | land | 12.5 | — | map only | BAMBOO CAY |
+| ☑ | **Rocky Harbour Cay** | cay | 26.81530 | -77.50230 | 26° 48.918′ N | 77° 30.138′ W | land | 14 | — | map only | ROCKY HARBOUR CAY, lettered off the eastern arm of the island the coastline draws as one with Bamboo Cay |
 | ☑ | **Crab Cay** | cay | 26.81432 | -77.35982 | 26° 48.859′ N | 77° 21.589′ W | land | 13 | — | map only | CRAB CAY |
 | ☑ | **Fiddle Cay** | cay | 26.80567 | -77.34578 | 26° 48.340′ N | 77° 20.747′ W | land | 13.5 | — | map only | FIDDLE CAY |
 | ☑ | **Basin Harbour Cay** | cay | 26.80357 | -77.50465 | 26° 48.214′ N | 77° 30.279′ W | land | 12.5 | — | map only | lettered BASIN HARB… at the sheet edge, beside the Basin Harbour waypoint |
@@ -49,22 +52,30 @@ from `site_build/data/places.geojson`, so this is what actually ships.
 | ☑ | **Great Guana Cay** | isle | 26.67900 | -77.09800 | 26° 40.740′ N | 77° 05.880′ W | water | 9.6 | yes | poster + map | GREAT GUANA CAY |
 | ☑ | **Theresa Cay** | cay | 26.67707 | -77.42715 | 26° 40.624′ N | 77° 25.629′ W | land | 13 | — | map only | THERESA CAY |
 | ☑ | **Treasure Cay** | spot | 26.67690 | -77.28580 | 26° 40.614′ N | 77° 17.148′ W | land | 11 | — | map only | TREASURE CAY MARINA |
-| ☐ | **Goliath Cay** | cay | 26.66613 | -77.35004 | 26° 39.968′ N | 77° 21.002′ W | land | 13 | — | map only | GOLIATH CAY, but less certain: two sheets join here and the lettering straddles the flats between this island and the shore to its east |
+| ☑ | **Okra Cay** | cay | 26.67020 | -77.32520 | 26° 40.212′ N | 77° 19.512′ W | land | 13.5 | — | map only | OKRA CAY, lettered along the land; the coastline joins it to Great Abaco |
+| ☑ | **Goliath Cay** | cay | 26.66613 | -77.35004 | 26° 39.968′ N | 77° 21.002′ W | land | 13 | — | map only | GOLIATH CAY. The western of the two sheets that join here letters the name across this island; the eastern one cuts it off at the seam |
 | ☑ | **Snapper Cay** | cay | 26.66608 | -77.42629 | 26° 39.965′ N | 77° 25.577′ W | land | 13 | — | map only | SNAPPER CAY |
 | ☑ | **Delia's Cay** | cay | 26.66535 | -77.11805 | 26° 39.921′ N | 77° 07.083′ W | land | 14 | yes | map only | DELIAS CAY |
+| ☑ | **Aaron Cay** | cay | 26.65980 | -77.41410 | 26° 39.588′ N | 77° 24.846′ W | land | 13 | — | map only | AARON CAY, lettered beside the long island's eastern lobe |
+| ☑ | **Big Lake Cay** | cay | 26.64800 | -77.35630 | 26° 38.880′ N | 77° 21.378′ W | land | 13 | — | map only | BIG LAKE CAY; the coastline joins it to Great Abaco |
 | ☑ | **Scotland Cay** | cay | 26.64559 | -77.07431 | 26° 38.735′ N | 77° 04.459′ W | land | 11 | yes | map only | SCOTLAND CAY |
 | ☑ | **Foots Cay** | cay | 26.64531 | -77.11324 | 26° 38.719′ N | 77° 06.794′ W | land | 13 | yes | map only | FOOTS CAY |
 | ☑ | **Little Joe Downer Cay** | cay | 26.64462 | -77.44009 | 26° 38.677′ N | 77° 26.405′ W | land | 12.5 | — | map only | LITTLE JOE DOWNER CAY |
 | ☑ | **Fish Cays** | cay | 26.63761 | -77.15567 | 26° 38.257′ N | 77° 09.340′ W | land | 13 | yes | map only | FISH CAYS |
+| ☑ | **Hills Cay** | cay | 26.63593 | -77.27925 | 26° 38.156′ N | 77° 16.755′ W | land | 13.5 | — | map only | HILLS CAY, lettered beside the island |
 | ☑ | **Fowl Cay** | cay | 26.63475 | -77.05142 | 26° 38.085′ N | 77° 03.085′ W | land | 13 | yes | map only | FOWL CAY |
+| ☑ | **Joes Cay** | cay | 26.63110 | -77.26740 | 26° 37.866′ N | 77° 16.044′ W | water | 14.5 | — | map only | JOES CAY, beside an islet too small for the coastline, so the label is in water |
 | ☑ | **Levi Cay** | cay | 26.61811 | -77.40957 | 26° 37.087′ N | 77° 24.574′ W | land | 13 | — | map only | LEVI CAY |
 | ☑ | **Big Joe Downer Cay** | cay | 26.61364 | -77.42498 | 26° 36.818′ N | 77° 25.499′ W | land | 12.5 | — | map only | BIG JOE DOWNER CAY |
 | ☑ | **Man-O-War Cay** | isle | 26.61340 | -77.01700 | 26° 36.804′ N | 77° 01.020′ W | water | 9.6 | yes | poster + map | MAN-O-WAR CAY |
 | ☑ | **Water Cay** | cay | 26.60658 | -77.17260 | 26° 36.395′ N | 77° 10.356′ W | land | 13 | yes | map only | WATER CAY, on the islet the chart names |
 | ☑ | **S E A   O F   A B A C O** | water | 26.60550 | -77.07500 | 26° 36.330′ N | 77° 04.500′ W | water | 8.5 | yes | poster + map | SEA OF ABACO |
+| ☑ | **Archers Cay** | cay | 26.60350 | -77.17350 | 26° 36.210′ N | 77° 10.410′ W | land | 14 | yes | map only | ARCHERS CAY, the headland south of Water Cay; the coastline joins it to Great Abaco |
 | ☑ | **Big Pigeon Cay** | cay | 26.59854 | -77.41222 | 26° 35.912′ N | 77° 24.733′ W | land | 13 | — | map only | BIG PIGEON CAY |
 | ☑ | **Ballast Cay** | cay | 26.59777 | -77.42244 | 26° 35.866′ N | 77° 25.346′ W | land | 14 | — | map only | BALLAST CAY |
 | ☑ | **Dickie's Cay** | cay | 26.59472 | -77.00851 | 26° 35.683′ N | 77° 00.511′ W | land | 13.5 | yes | map only | DICKIES CAY |
+| ☑ | **Spirit Cay** | cay | 26.59320 | -77.41905 | 26° 35.592′ N | 77° 25.143′ W | land | 14 | — | map only | SPIRIT CAY, lettered just below the islet |
+| ☑ | **Little Pigeon Cay** | cay | 26.58713 | -77.41213 | 26° 35.228′ N | 77° 24.728′ W | land | 14 | — | map only | LITTLE PIGEON CAY, a cluster of islets; the label is on one of them |
 | ☑ | **Garden Cay** | cay | 26.58632 | -77.01171 | 26° 35.179′ N | 77° 00.703′ W | land | 14 | yes | map only | GARDEN CAY |
 | ☑ | **Sandy Cay** | cay | 26.58352 | -77.00761 | 26° 35.011′ N | 77° 00.457′ W | land | 14 | yes | map only | SANDY CAY (the one off Man-O-War) |
 | ☑ | **Wills Cay** | cay | 26.58113 | -77.23547 | 26° 34.868′ N | 77° 14.128′ W | land | 13 | — | map only | WILLS CAY |
@@ -86,11 +97,13 @@ from `site_build/data/places.geojson`, so this is what actually ships.
 | ☑ | **Lubbers Quarters** | isle | 26.50300 | -77.02400 | 26° 30.180′ N | 77° 01.440′ W | water | 9.6 | yes | poster + map | LUBBERS QUARTER; on the map the name sits 1.7 km west of the sheet's position, clear of Elbow Cay's |
 | ☑ | **Cooper Jacks Cay** | cay | 26.49702 | -76.98535 | 26° 29.821′ N | 76° 59.121′ W | land | 14 | yes | map only | COOPER JACKS CAY |
 | ☑ | **Elbow Cay** | isle | 26.49500 | -76.97950 | 26° 29.700′ N | 76° 58.770′ W | water | 9.6 | yes | poster + map | ELBOW CAY |
+| ☑ | **Davids Cay** | cay | 26.48850 | -77.04340 | 26° 29.310′ N | 77° 02.604′ W | land | 14 | yes | map only | DAVIDS CAY; the coastline joins it to Great Abaco |
 | ☑ | **Tavern Cay** | cay | 26.47856 | -76.99564 | 26° 28.714′ N | 76° 59.738′ W | land | 14 | yes | map only | TAVERN CAY |
 | ☑ | **A T L A N T I C O C E A N** | water | 26.47800 | -76.94000 | 26° 28.680′ N | 76° 56.400′ W | water | 8.5 | yes | poster + map | ATLANTIC OCEAN |
 | ☑ | **Guano Cay** | cay | 26.47228 | -77.04969 | 26° 28.337′ N | 77° 02.981′ W | land | 14 | yes | map only | GUANO CAY |
 | ☑ | **Cormorant Cay** | cay | 26.46375 | -77.05039 | 26° 27.825′ N | 77° 03.023′ W | land | 13 | yes | map only | CORMORANT CAY |
 | ☑ | **Angel Cays** | cay | 26.45940 | -77.04430 | 26° 27.564′ N | 77° 02.658′ W | water | 13 | yes | map only | ANGEL CAYS, lettered offshore along the chain from Cormorant Cay to Snake Cay |
+| ☑ | **Snake Cay** | cay | 26.45610 | -77.05230 | 26° 27.366′ N | 77° 03.138′ W | land | 14 | yes | map only | SNAKE CAY; the coastline joins it to Great Abaco |
 | ☑ | **T H E   M A R L S** | region | 26.45000 | -77.32000 | 26° 27.000′ N | 77° 19.200′ W | water | 10 | — | map only | base chart: THE MARLS |
 | ☑ | **Tilloo Pond** | anchorage | 26.44880 | -76.99070 | 26° 26.928′ N | 76° 59.442′ W | water | 11.5 | yes | poster + map | TILLOO POND |
 | ☑ | **Tilloo Cay** | isle | 26.44000 | -76.98300 | 26° 26.400′ N | 76° 58.980′ W | water | 9.6 | yes | poster + map | TILLOO CAY |
@@ -101,6 +114,8 @@ from `site_build/data/places.geojson`, so this is what actually ships.
 | ☑ | **Channel Cay** | cay | 26.41404 | -76.99656 | 26° 24.842′ N | 76° 59.794′ W | land | 11 | yes | map only | CHANNEL CAY |
 | ☑ | **G R E A T   A B A C O** | big | 26.41200 | -77.12050 | 26° 24.720′ N | 77° 07.230′ W | land | 8.5 | yes | poster + map | GREAT ABACO ISLAND |
 | ☑ | **Gaulding Cay** | cay | 26.40767 | -77.00273 | 26° 24.460′ N | 77° 00.164′ W | land | 13.5 | yes | map only | GAULDING CAY |
+| ☑ | **Armstrong Cay** | cay | 26.40580 | -77.03710 | 26° 24.348′ N | 77° 02.226′ W | land | 14 | yes | map only | ARMSTRONG CAY, lettered along the strip; the coastline joins it to Great Abaco |
+| ☑ | **Black Point Cay** | cay | 26.40030 | -77.02770 | 26° 24.018′ N | 77° 01.662′ W | land | 14 | yes | map only | BLACK POINT CAY, lettered off the tip of the lobe the label sits on |
 | ☑ | **Sandy Cay** | cay | 26.39916 | -76.99270 | 26° 23.950′ N | 76° 59.562′ W | land | 13 | yes | map only | SANDY CAY — the reef the crew snorkelled on Tuesday |
 | ☑ | **Cornish Cay** | cay | 26.39758 | -77.00678 | 26° 23.855′ N | 77° 00.407′ W | land | 13 | yes | map only | CORNISH CAY |
 | ☑ | **Lynyard Cay** | anchorage | 26.36480 | -76.98290 | 26° 21.888′ N | 76° 58.974′ W | land | 11.5 | yes | poster + map | LYNYARD CAY |
@@ -113,7 +128,10 @@ from `site_build/data/places.geojson`, so this is what actually ships.
 | ☑ | **Cherokee Sound** | spot | 26.29460 | -77.07120 | 26° 17.676′ N | 77° 04.272′ W | water | 11 | — | map only | CHEROKEE SOUND |
 | ☑ | **Winding Bay** | spot | 26.29350 | -77.02390 | 26° 17.610′ N | 77° 01.434′ W | water | 11 | — | map only | WINDING BAY |
 | ☑ | **Casuarina Point** | spot | 26.29320 | -77.08050 | 26° 17.592′ N | 77° 04.830′ W | water | 13 | — | map only | CASUARINA POINT |
+| ☑ | **Marsh Cay** | cay | 26.29270 | -77.03820 | 26° 17.562′ N | 77° 02.292′ W | water | 14.5 | — | map only | MARSH CAY, an islet in mangrove flats the coastline draws as water |
 | ☑ | **Sugar Cay** | cay | 26.29195 | -77.01628 | 26° 17.517′ N | 77° 00.977′ W | land | 13.5 | — | map only | SUGAR CAY |
+| ☑ | **North Cay** | cay | 26.29080 | -77.04370 | 26° 17.448′ N | 77° 02.622′ W | water | 14.5 | — | map only | NORTH CAY, lettered over mangrove with no shore drawn; the label is where the chart letters it |
+| ☑ | **Chicken Cay** | cay | 26.29080 | -77.05080 | 26° 17.448′ N | 77° 03.048′ W | water | 14.5 | — | map only | CHICKEN CAY, lettered over mangrove with no shore drawn; the label is where the chart letters it |
 | ☑ | **Duck Cay** | cay | 26.27619 | -77.07685 | 26° 16.571′ N | 77° 04.611′ W | land | 12.5 | — | map only | DUCK CAY |
 
 ## The ones I had to judge
@@ -129,7 +147,7 @@ interior point from a coordinate you supplied.
 
 **Water Cay** — On the islet the Explorer chart names, at the tip of the point north of Archers Cay. It stood at the anchorage coordinate 1.2 km west until the chart showed which islet was meant; an earlier move onto the nearest islet had picked the wrong one.
 
-**Goliath Cay** — Placed on the separate 160 ha island, on the view that a cay's name belongs to the island rather than to a lobe of the Great Abaco shore. The chart's lettering is centred about 600 m east of it, across a seam between two sheets, so this is the one new name that wants local confirmation.
+**Goliath Cay** — On the 160 ha island. A first reading put the chart's lettering 600 m east of it, across a seam between two sheets; a view with a graticule on 10 October showed the western sheet lettering the name across this island, so it no longer wants confirming.
 
 **Dickie's Cay** — Held to z13.5: it sits 400 m from Man-O-War Cay's label, and these labels are HTML markers with no collision detection.
 

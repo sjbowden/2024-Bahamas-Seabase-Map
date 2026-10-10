@@ -23,9 +23,10 @@ Everything built so far is committed; these are loose ends and one decision.
 - [ ] **Old commits on GitHub.** A force-push leaves them fetchable by hash until
   GitHub collects them. Asking GitHub Support, or deleting and recreating the
   repository, closes that for certain.
-- [ ] **Names wanting local confirmation:** Goliath Cay, and the three that carry
-  only OpenStreetMap's name — Outer Point Cay, Gumelemi Cay and Little Ambergris
-  Cay. `docs/map-labels.md` marks all four.
+- [ ] **Names wanting local confirmation:** the three that carry only
+  OpenStreetMap's name — Outer Point Cay, Gumelemi Cay and Little Ambergris
+  Cay. `docs/map-labels.md` marks them. Goliath Cay is settled: the chart
+  letters the name across the island the label is on.
 
 ## The journal
 
@@ -50,21 +51,20 @@ which can still sit on a name.
 
 ## Optional
 
-- [ ] **Cays the charts name that are not on the chart.** Each was read on the
-  Explorer sheets but could not be tied to one island the coastline draws:
-  - joined to Great Abaco in the coastline data: Davids, Snake, Archers, Okra,
-    Randalls and Armstrong Cays;
-  - ambiguous between neighbours: Black Point, Hills, Joes, Rocky Harbour, Aaron
-    and Spirit Cays;
-  - too small, or mangrove with no outline: Chicken, Marsh, North, Nurse, Little
-    Pigeon and Big Lake Cays.
-- [ ] **Three chart tiles not read**, over the Marls and inland Great Abaco,
-  which the Explorer sheets barely cover.
+- [ ] **Nurse Cay.** An earlier pass noted the name on the Explorer sheets
+  without recording where, and it has not been found again.
+- [ ] **Two readings to check by eye**, both in Cherokee Sound: North Cay and
+  Chicken Cay are lettered over mangrove with no shore drawn, so each label is
+  where the chart's lettering is rather than on an island.
 - [ ] **Three unnamed mangrove islands** on the Great Abaco shore, listed in a
-  comment in `trip.py`.
+  comment in `trip.py`. The charts draw them without a name.
 
 ## Done since this list was first written
 
+- Seventeen more cays named from a closer reading of the Explorer charts, with a
+  graticule over each view so positions could be read off it. The three chart
+  tiles over the Marls were read too: the Explorer sheets do not reach them,
+  and the base chart names nothing there.
 - The drive home on 28 March cut at the Hillsboro exit, and old poster renders
   removed, in every commit. A backup of the history as it was is kept outside
   the repository, as is the reference material that was parked in `out/`.

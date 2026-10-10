@@ -244,6 +244,32 @@ MAP_CAYS = [
     (-77.41222, 26.59854, "Big Pigeon Cay", 13.0),
     (-77.42244, 26.59777, "Ballast Cay", 14.0),
     (-77.23547, 26.58113, "Wills Cay", 13.0),
+    # A fourth pass, with a graticule laid over each chart view so a position
+    # could be read off it. Seven of these the coastline joins to Great Abaco, so
+    # each sits on the land the chart letters: Randalls, Okra, Big Lake, Archers,
+    # Davids, Snake and Armstrong Cays, and Black Point Cay on its lobe. Rocky
+    # Harbour Cay is the eastern arm of the island the coastline draws as one with
+    # Bamboo Cay.
+    (-77.53850, 26.85500, "Randalls Cay", 13.0),
+    (-77.50230, 26.81530, "Rocky Harbour Cay", 14.0),
+    (-77.32520, 26.67020, "Okra Cay", 13.5),
+    (-77.41410, 26.65980, "Aaron Cay", 13.0),
+    (-77.35630, 26.64800, "Big Lake Cay", 13.0),
+    (-77.27925, 26.63593, "Hills Cay", 13.5),
+    (-77.17350, 26.60350, "Archers Cay", 14.0),
+    (-77.41905, 26.59320, "Spirit Cay", 14.0),
+    (-77.41213, 26.58713, "Little Pigeon Cay", 14.0),
+    (-77.04340, 26.48850, "Davids Cay", 14.0),
+    (-77.05230, 26.45610, "Snake Cay", 14.0),
+    (-77.03710, 26.40580, "Armstrong Cay", 14.0),
+    (-77.02770, 26.40030, "Black Point Cay", 14.0),
+    # Four the chart names and the coastline does not draw: an islet too small for
+    # it off Leisure Lee, and three in the mangrove flats of Cherokee Sound, where
+    # the chart letters North and Chicken Cays over mangrove with no shore at all.
+    (-77.26740, 26.63110, "Joes Cay", 14.5),
+    (-77.03820, 26.29270, "Marsh Cay", 14.5),
+    (-77.04370, 26.29080, "North Cay", 14.5),
+    (-77.05080, 26.29080, "Chicken Cay", 14.5),
     (-77.04430, 26.45940, "Angel Cays", 13.0),
 ]
 
@@ -287,8 +313,8 @@ MAP_REGIONS = [
 # the size and length the geometry gives them. The Explorer charts settled the rest
 # of this list: the 143 ha island beside Elbow Cay is Lubbers Quarters itself, and
 # the others became Deep Sea, Iron, Noah Bethel, Matt Lowe's and Channel Cays. These
-# the charts draw without a name, or letter a name beside them that could belong to
-# a neighbour (ARMSTRONG CAY runs along the strip east of the first):
+# the charts draw without a name (ARMSTRONG CAY is the strip east of the first, and
+# has its own label above):
 #
 #   26.40549 -77.04310   40 ha  1.5 km
 #   26.35872 -77.02272   22 ha  0.9 km
@@ -313,10 +339,12 @@ MAP_LABEL_NUDGE = {"Lynyard Cay": (0.0020, 0.0080),
                    "Lubbers\nQuarters": (-0.0170, 0.0),
                    "HOPE TOWN": (0.0070, 0.0)}
 
-# The cay labels that belong in water, both of them groups. Pelican Cays names a
-# chain of four islets, so it sits off them rather than on any one, and Angel Cays
-# is lettered offshore along its chain.
-MAP_CAYS_AFLOAT = {"Pelican Cays", "Angel Cays"}
+# The cay labels that belong in water. Two are groups: Pelican Cays names a chain
+# of four islets, so it sits off them rather than on any one, and Angel Cays is
+# lettered offshore along its chain. The other four the chart names where the
+# coastline has no land to put them on.
+MAP_CAYS_AFLOAT = {"Pelican Cays", "Angel Cays",
+                   "Joes Cay", "Marsh Cay", "North Cay", "Chicken Cay"}
 
 AIRPORT = (-77.0782, 26.5135, "MHH", "Leonard M. Thompson Intl")
 # hotel fixed from the EXIF of IMG_0496.JPG (14:43 EDT, 22 Mar, ±4.6 m); the

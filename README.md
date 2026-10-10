@@ -457,7 +457,7 @@ those charts letter were added to `MAP_CAYS` in `trip.py`, most held back until 
 chart is zoomed in. `docs/map-labels.md` lists all of them with what the chart
 prints for each. Lubbers Quarters and four `MAP_SPOTS` moved to the charts' positions in the
 same pass. Still open there: three small cays carry OpenStreetMap's name alone, and
-Goliath Cay's island is a judgement the chart does not settle.
+four names sit in water because the coastline draws no land for them.
 Nothing has checked the names on the water.
 
 Coastline data © OpenStreetMap contributors (ODbL).
