@@ -1047,6 +1047,21 @@ def test_site_build():
     check("every file the page asks for is present", not missing, str(missing))
 
     app = open(os.path.join(out, "app.js")).read()
+    # A nudge is a distance on the ground: 2 km is a finger's width at the opening
+    # view and four screens away at z15. Lubbers Quarters was there to be read at
+    # z10 and nowhere to be found by anyone who had zoomed in on the island.
+    import math
+    from trip import MAP_LABEL_CLOSE, MAP_LABEL_NUDGE
+    far = [t for t, (dx, dy) in MAP_LABEL_NUDGE.items()
+           if math.hypot(dx * 99.4, dy * 111.0) > 1.0 and t not in MAP_LABEL_CLOSE]
+    check("a name moved more than 1 km for the opening view comes back close up",
+          not far, str(far))
+    places = json.load(open(os.path.join(out, "data", "places.geojson")))["features"]
+    homed = [f["properties"] for f in places if "close" in f["properties"]]
+    check("the built labels carry their close-up positions",
+          len(homed) == len(MAP_LABEL_CLOSE)
+          and all(q["closezoom"] > q["minzoom"] for q in homed)
+          and "pm.closezoom" in app, str(homed))
     meta = json.load(open(os.path.join(out, "data", "meta.json")))
     for band in meta["bands"]:
         check(f"app.js knows the {band['name']} band",

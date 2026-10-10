@@ -29,7 +29,7 @@ from shapely.geometry import shape
 
 from abaco_geo import COASTLINE_MAP, land_polygons
 from trip import (AIRPORT, ANCHORAGES, DAYS, EXTENT, HOTEL, MAP_CAYS,
-                  MAP_LABEL_NUDGE, MAP_LAND_BBOX,
+                  MAP_LABEL_CLOSE, MAP_LABEL_NUDGE, MAP_LAND_BBOX,
                   MAP_REGIONS, MAP_SPOTS,
                   overnight_bridges, shoal,
                   MARINA, PLACES, VIEW_BOUNDS, load_day, transfer_route)
@@ -224,9 +224,13 @@ def places_layer():
         # The sheet's labels, shifted on the map only where MAP_LABEL_NUDGE says
         # so — the printed frame keeps its own composition.
         dlon, dlat = MAP_LABEL_NUDGE.get(text, (0.0, 0.0))
+        props = dict(label=text, kind=kind, minzoom=zoom.get(kind, 11))
+        if text in MAP_LABEL_CLOSE:
+            clon, clat, czoom = MAP_LABEL_CLOSE[text]
+            props.update(close=[round(clon, PRECISION), round(clat, PRECISION)],
+                         closezoom=czoom)
         feats.append(dict(type="Feature",
-                          properties=dict(label=text, kind=kind,
-                                          minzoom=zoom.get(kind, 11)),
+                          properties=props,
                           geometry=dict(type="Point",
                                         coordinates=[round(lon + dlon, PRECISION),
                                                      round(lat + dlat, PRECISION)])))

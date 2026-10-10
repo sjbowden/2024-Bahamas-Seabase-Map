@@ -109,7 +109,7 @@ from `site_build/data/places.geojson`, so this is what actually ships.
 | — | **Leonard M. Thompson Intl** | airport | 26.51350 | -77.07820 | 26° 30.810′ N | 77° 04.692′ W | land | 12 | yes | poster + map | inland, outside the chart's detail |
 | ☑ | **Dinner Cay** | cay | 26.51127 | -77.05107 | 26° 30.676′ N | 77° 03.064′ W | land | 14 | yes | map only | DINNER CAY |
 | ☑ | **Pepper Cay** | cay | 26.50800 | -77.04786 | 26° 30.480′ N | 77° 02.872′ W | land | 14 | yes | map only | PEPPER CAY |
-| ☑ | **Lubbers Quarters** | isle | 26.50300 | -77.02400 | 26° 30.180′ N | 77° 01.440′ W | water | 9.6 | yes | poster + map | LUBBERS QUARTER; on the map the name sits 1.7 km west of the sheet's position, clear of Elbow Cay's |
+| ☑ | **Lubbers Quarters** | isle | 26.50300 | -77.02400 | 26° 30.180′ N | 77° 01.440′ W | water | 9.6 | yes | poster + map | LUBBERS QUARTER; on the map the name sits 1.7 km west of the sheet's position, clear of Elbow Cay's, until z12; from there it sits on the island (26.50000, -76.99740) |
 | ☑ | **Cooper Jacks Cay** | cay | 26.49702 | -76.98535 | 26° 29.821′ N | 76° 59.121′ W | land | 14 | yes | map only | COOPER JACKS CAY |
 | ☑ | **Elbow Cay** | isle | 26.49500 | -76.97950 | 26° 29.700′ N | 76° 58.770′ W | water | 9.6 | yes | poster + map | ELBOW CAY |
 | ☑ | **Davids Cay** | cay | 26.48850 | -77.04340 | 26° 29.310′ N | 77° 02.604′ W | land | 14 | yes | map only | DAVIDS CAY; the coastline joins it to Great Abaco |

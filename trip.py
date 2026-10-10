@@ -360,6 +360,13 @@ MAP_LABEL_NUDGE = {"Lynyard Cay": (0.0020, 0.0080),
                    "Lubbers\nQuarters": (-0.0170, 0.0),
                    "HOPE TOWN": (0.0070, 0.0)}
 
+# A nudge is a distance on the ground, so it grows on screen with every zoom: the
+# 2 km that keeps Lubbers Quarters clear of Elbow Cay's name at the opening view
+# is 230 px by z13, and the name is off the screen of anyone looking at the
+# island. From the zoom given here the label sits at this point instead -- the
+# middle of the island, which by z12 is wide enough to carry it.
+MAP_LABEL_CLOSE = {"Lubbers\nQuarters": (-76.9974, 26.5000, 12)}
+
 # The cay labels that belong in water. Two are groups: Pelican Cays names a chain
 # of four islets, so it sits off them rather than on any one, and Angel Cays is
 # lettered offshore along its chain. The other four the chart names where the
