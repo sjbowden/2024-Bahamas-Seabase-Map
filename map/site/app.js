@@ -511,6 +511,8 @@ function applyLayer(key, on) {
       setVisible(id, on);
     }
     drawClusterCounts();
+    // The key explains the photograph dots, so it comes and goes with them.
+    $('#photo-key').hidden = !on;
   }
 }
 

@@ -1141,6 +1141,9 @@ def test_site_build():
     wire = re.search(r"function wirePanel\(\)\s*\{(.*?)\n\}", app, re.S).group(1)
     check("and each layer is put in its box's state when the panel is wired",
           wire.count("applyLayer(cb.dataset.layer, cb.checked)") == 2)
+    check("the key to the photograph dots is shown only with the photographs",
+          re.search(r'id="photo-key" hidden>\s*<h2>How each one was placed', html)
+          and "$('#photo-key').hidden = !on" in app)
     # The poster: offered only if it is there, and there if it is offered.
     offered = meta.get("poster", [])
     gone = [f["href"] for f in offered if not os.path.exists(os.path.join(out, f["href"]))]
