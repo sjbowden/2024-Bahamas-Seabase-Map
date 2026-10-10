@@ -17,12 +17,14 @@ Everything built so far is committed; these are loose ends and one decision.
   own meta tag), but anyone with the link can read it.
 - [ ] **Read the published journal through** (`journal.html`) for anything that
   should not be public. It is live in the repository as `map/journal.md`.
-- [ ] **Replace the clone on the other machine** with a fresh one. History was
-  rewritten on 10 October, so a pull or a push from the old clone would bring
-  the trimmed drive home back.
-- [ ] **Old commits on GitHub.** A force-push leaves them fetchable by hash until
-  GitHub collects them. Asking GitHub Support, or deleting and recreating the
-  repository, closes that for certain.
+- [ ] **Locations for about 1,040 of the crew's phone photographs.** Google
+  Photos removed them from the shared album, so these are placed from the
+  track by time. The owners would need to turn on location sharing for the
+  album, or send their originals. The keeper's own originals were checked
+  and add nothing: all 512 camera positions are already in the build.
+- [ ] **Two wordings in the photograph notes to confirm:** every stop on the
+  water reads "at anchor", moorings included, and "or ashore nearby" is
+  offered within 600 m of land.
 - [ ] **Names wanting local confirmation.** Little Ambergris Cay is in
   OpenStreetMap and nowhere else. Four cays carry only the GeoNames gazetteer's
   name, where the charts draw the island unnamed: Pond Apple, Push, Lower Hill
@@ -63,6 +65,10 @@ which can still sit on a name.
 
 ## Done since this list was first written
 
+- The clone on the other machine replaced with a fresh one after the history
+  rewrite. The old commits on GitHub are left for its garbage collection.
+- The photograph notes no longer offer "ashore" under way or out of reach of
+  land, and no longer call a fix on land the boat's track.
 - Fifteen more cays named with the GeoNames gazetteer as a second source: eleven
   the charts letter too, four on the gazetteer alone. Outer Point Cay turned out
   to be lettered on the chart after all, and Gumelemi Cay is in the gazetteer.
