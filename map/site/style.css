@@ -232,6 +232,7 @@ html, body {
   letter-spacing: .13em; text-transform: uppercase;
 }
 .place-isle { font-size: .82rem; font-style: italic; }
+.place-right { text-align: right; padding-right: .35rem; }
 /* The cays the sheet leaves unnamed: same voice as the isles it does name, a shade
    smaller, because they arrive later and there are more of them. */
 .place-cay { font-size: .74rem; font-style: italic; color: var(--ink-soft); }

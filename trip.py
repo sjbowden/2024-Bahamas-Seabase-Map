@@ -350,22 +350,36 @@ MAP_REGIONS = [
 # moves 0.9 km north and 0.2 km east, to the middle of the cay it names.
 #
 # Lubbers Quarters is set flush right on the sheet, ending just off the island's
-# west shore. The map centres every label on its point, which put the name across
-# the island and into Elbow Cay's until z10.5, so here it moves 1.7 km west.
+# west shore. The map centres a label on its point, which put the name across the
+# island and into Elbow Cay's until z10.5. Moving the point west cured that at the
+# opening view and lost the name at every other: a distance on the ground grows
+# with the zoom, and 2 km is off the screen by z14. So the map does what the sheet
+# does -- MAP_LABEL_ANCHOR ends the name at its point, and the point moves 0.3 km
+# to the island's westernmost shore. The gap is then a few pixels at any zoom.
 #
 # Hope Town's name sits on the village, which is where the stories about the
 # village sit too -- the grocery is 90 m from the label's point. On the map the
 # name moves 700 m east, just off the ocean shore, so the story dots stay clear.
+#
+# The sheet sets the other island names in open water beside their islands, which
+# reads well on one printed frame and badly on a map that zooms: the gap is a
+# distance on the ground, so Great Guana Cay's name, 1.4 km offshore, leaves the
+# screen with the island still on it. Elbow Cay's stood south of Elbow Cay
+# altogether, off the north tip of Tilloo Cay. On the map each sits on the middle
+# of its own island.
 MAP_LABEL_NUDGE = {"Lynyard Cay": (0.0020, 0.0080),
-                   "Lubbers\nQuarters": (-0.0170, 0.0),
+                   "Lubbers\nQuarters": (0.0031, -0.0030),
+                   "Great Guana Cay": (-0.0317, 0.0003),
+                   "Man-O-War Cay": (0.0113, -0.0148),
+                   "Elbow Cay": (0.0087, 0.0278),
+                   "Tilloo Cay": (-0.0058, 0.0227),
+                   # The two water legends step aside for the names now on
+                   # Man-O-War Cay and Tilloo Cay.
+                   "S E A   O F   A B A C O": (-0.0200, 0.0265),
+                   "A T L A N T I C\nO C E A N": (0.0450, 0.0),
                    "HOPE TOWN": (0.0070, 0.0)}
 
-# A nudge is a distance on the ground, so it grows on screen with every zoom: the
-# 2 km that keeps Lubbers Quarters clear of Elbow Cay's name at the opening view
-# is 230 px by z13, and the name is off the screen of anyone looking at the
-# island. From the zoom given here the label sits at this point instead -- the
-# middle of the island, which by z12 is wide enough to carry it.
-MAP_LABEL_CLOSE = {"Lubbers\nQuarters": (-76.9974, 26.5000, 12)}
+MAP_LABEL_ANCHOR = {"Lubbers\nQuarters": "right"}
 
 # The cay labels that belong in water. Two are groups: Pelican Cays names a chain
 # of four islets, so it sits off them rather than on any one, and Angel Cays is

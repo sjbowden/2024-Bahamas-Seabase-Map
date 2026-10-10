@@ -357,23 +357,20 @@ async function addPlaces() {
   for (const f of fc.features) {
     const p = f.properties;
     const el = document.createElement('div');
-    el.className = `place place-${p.kind}`;
+    // A name that ends at its point rather than straddling it stays the same few
+    // pixels off its island at every zoom, where a centred one set off to the
+    // side drifts away as the map grows.
+    el.className = `place place-${p.kind}${p.anchor ? ` place-${p.anchor}` : ''}`;
     el.textContent = p.label;      // CSS keeps the newline: see white-space
-    const m = new maplibregl.Marker({ element: el, anchor: 'center' })
+    const m = new maplibregl.Marker({ element: el, anchor: p.anchor || 'center' })
       .setLngLat(f.geometry.coordinates).addTo(map);
-    state.placeMarkers.push({
-      marker: m, minzoom: p.minzoom || 11, el,
-      far: f.geometry.coordinates, close: p.close, closezoom: p.closezoom,
-    });
+    state.placeMarkers.push({ marker: m, minzoom: p.minzoom || 11, el });
   }
   const tick = () => {
     const z = map.getZoom();
     const on = state.layers ? state.layers.places : true;
     for (const pm of state.placeMarkers) {
       pm.el.style.display = (on && z >= pm.minzoom) ? '' : 'none';
-      // A name set off its island for the opening view comes home once the
-      // island is big enough to carry it, or it would be off the screen.
-      if (pm.close) pm.marker.setLngLat(z >= pm.closezoom ? pm.close : pm.far);
     }
   };
   state.refreshPlaces = tick;

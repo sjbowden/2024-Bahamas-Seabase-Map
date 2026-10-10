@@ -1050,18 +1050,20 @@ def test_site_build():
     # A nudge is a distance on the ground: 2 km is a finger's width at the opening
     # view and four screens away at z15. Lubbers Quarters was there to be read at
     # z10 and nowhere to be found by anyone who had zoomed in on the island.
-    import math
-    from trip import MAP_LABEL_CLOSE, MAP_LABEL_NUDGE
-    far = [t for t, (dx, dy) in MAP_LABEL_NUDGE.items()
-           if math.hypot(dx * 99.4, dy * 111.0) > 1.0 and t not in MAP_LABEL_CLOSE]
-    check("a name moved more than 1 km for the opening view comes back close up",
-          not far, str(far))
+    from shapely.geometry import Point
+    from abaco_geo import COASTLINE_MAP, land_polygons
+    from trip import MAP_LABEL_ANCHOR, MAP_LAND_BBOX
+    land = land_polygons(MAP_LAND_BBOX, source=COASTLINE_MAP)
     places = json.load(open(os.path.join(out, "data", "places.geojson")))["features"]
-    homed = [f["properties"] for f in places if "close" in f["properties"]]
-    check("the built labels carry their close-up positions",
-          len(homed) == len(MAP_LABEL_CLOSE)
-          and all(q["closezoom"] > q["minzoom"] for q in homed)
-          and "pm.closezoom" in app, str(homed))
+    adrift = [f["properties"]["label"] for f in places
+              if f["properties"]["kind"] == "isle"
+              and land.distance(Point(f["geometry"]["coordinates"])) * 1e5 > 50]
+    check("every island's name is on the island, or ends at its shore",
+          not adrift, str(adrift))
+    sided = {f["properties"]["label"]: f["properties"]["anchor"]
+             for f in places if "anchor" in f["properties"]}
+    check("a name set beside its island ends at the shore rather than straddling it",
+          sided == MAP_LABEL_ANCHOR and "p.anchor || 'center'" in app, str(sided))
     meta = json.load(open(os.path.join(out, "data", "meta.json")))
     for band in meta["bands"]:
         check(f"app.js knows the {band['name']} band",
