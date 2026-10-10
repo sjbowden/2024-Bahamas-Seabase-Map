@@ -225,6 +225,30 @@ def test_receiver_windows():
           not stolen, f"{len(stolen)} such")
 
 
+def test_track_notes():
+    """What the viewer says about a photograph placed from the track. The note
+    once offered "may have been taken nearby ashore" under way in mid-sound, and
+    called Friday's walk through Marsh Harbour the boat's track."""
+    section("track notes")
+    t = datetime(2024, 3, 25, 16, 0)
+    mid = P._track_note(t, 5.0, 26.4700, -77.0200, 50)       # under way, mid-sound
+    check("under way, nothing is said about being ashore",
+          "under way" in mid and "ashore" not in mid, mid)
+    far = P.shore_m(26.4700, -77.0200)
+    check("and that spot really is out of reach of land", far > P.SHORE_M, f"{far:.0f} m")
+    still = P._track_note(t, 0.1, 26.4700, -77.0200, 50)     # stopped out there
+    check("stopped out of reach of land, the same", "ashore" not in still, still)
+    moor = P._track_note(t, 0.1, 26.5385, -76.9600, 50)      # Hope Town harbour
+    check("stopped within reach of land, ashore is offered with the distance",
+          "at anchor" in moor and "or ashore nearby" in moor and "m away" in moor, moor)
+    hotel = P._track_note(t, 0.1, P.HOTEL[1], P.HOTEL[0], 50)
+    check("a fix on land is ashore, not at anchor",
+          "ashore at the hotel" in hotel and "boat" not in hotel, hotel)
+    fri = P._track_note(t, 5.0, 26.4700, -77.0200, 50, day=DAYS[0]["label"])
+    check("and so is any fix before the crew had boarded",
+          "ashore" in fri and "boat" not in fri and "under way" not in fri, fri)
+
+
 def test_journal():
     """The journal as published. It is the one part of a private notebook that
     is public, so the test that matters is what must not be in it."""
@@ -1151,6 +1175,7 @@ def main():
     test_fit_uses_the_reading_that_won()
     test_honest_uncertainty()
     test_receiver_windows()
+    test_track_notes()
     test_journal()
     test_land_cache_follows_its_source()
     if not os.path.exists(INDEX):

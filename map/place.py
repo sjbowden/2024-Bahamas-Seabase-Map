@@ -358,7 +358,7 @@ def place(photos, per_photo, cameras, fixes=None):
                    tier="calibrated" if v["method"] in ("gps_utc", "tz_tag")
                    else "inferred",
                    uncertainty_m=None if u is None else round(u))
-        rec["note"] = _track_note(t, sog, lat, lon, u)
+        rec["note"] = _track_note(t, sog, lat, lon, u, rec["day"])
         out.append(rec)
 
     # A second pass over what the handheld missed. The other receiver was running
@@ -432,14 +432,76 @@ def _moored_note(t, lat, lon, moved, gap_s, who):
             f"{span}, and its fixes either side are {moved:.0f} m apart")
 
 
-def _track_note(t, sog, lat, lon, u):
-    """What the viewer says about a photograph placed from the boat."""
+# How far a crew would plausibly have gone from a stopped boat to the shore and
+# taken a photograph there: a dinghy ride or a swim. Past this the caveat about
+# being ashore is not worth making -- there is no ashore to have been on.
+SHORE_M = 600.0
+
+_SHORE = None
+
+
+def shore_m(lat, lon):
+    """Metres from a position to the nearest land the map draws; 0 on land."""
+    global _SHORE
+    if _SHORE is None:
+        from shapely.geometry import box
+        from shapely.strtree import STRtree
+        from abaco_geo import COASTLINE_MAP, land_polygons
+        from trip import MAP_LAND_BBOX
+        land = land_polygons(MAP_LAND_BBOX, source=COASTLINE_MAP)
+        parts = list(getattr(land, "geoms", [land]))
+        _SHORE = (STRtree(parts), parts, box)
+    from shapely.geometry import Point
+    from shapely.ops import nearest_points
+    tree, parts, _ = _SHORE
+    pt = Point(lon, lat)
+    best = None
+    # Degrees of longitude are shorter than degrees of latitude here, so the
+    # nearest part in degrees is not always the nearest on the ground: measure
+    # every part within a generous box rather than trusting the first.
+    for i in tree.query(pt.buffer(0.03)):
+        g = parts[int(i)]
+        if g.contains(pt):
+            return 0.0
+        q = nearest_points(g, pt)[0]
+        d = haversine(lat, lon, q.y, q.x)
+        if best is None or d < best:
+            best = d
+    return best if best is not None else float("inf")
+
+
+def _before_boarding(day):
+    """True for a day before the crew had a boat: the days ahead of the first sail."""
+    labels = [d["label"] for d in DAYS]
+    first = next((i for i, d in enumerate(DAYS) if d.get("sail")), 0)
+    return day in labels[:first]
+
+
+def _track_note(t, sog, lat, lon, u, day=None):
+    """What the viewer says about a photograph placed from the handheld's track.
+
+    The handheld went where its owner went. Afloat that is the boat; on land it
+    is a walk through Marsh Harbour or Hope Town, and on the Friday there was no
+    boat yet at all, so a fix on land is described as ashore and never as at
+    anchor or under way.
+    """
     local = (t - timedelta(hours=4)).strftime("%H:%M")
-    anchored = sog is not None and sog <= MOVING_KN
+    shore = shore_m(lat, lon)
+    # A fix a few metres off a waterfront road still was not taken afloat on a
+    # day when nobody had boarded.
+    if shore == 0 or _before_boarding(day):
+        note = (f"placed from the handheld's track at {local} EDT, ashore "
+                f"{_whereabouts(lat, lon)}")
+        if u is None:
+            note += " — the timing cannot be bounded here"
+        elif u > 400:
+            note += f" — only good to ~{round(u / 100) * 100:.0f} m"
+        return note
+    stopped = sog is not None and sog <= MOVING_KN
     near = nearest_named(lat, lon)
-    if anchored and near:
+    if stopped and near:
         where = f"at anchor off {near[0]}"
-    elif anchored:
+    elif stopped:
         where = "at anchor"
     else:
         where = "under way"
@@ -448,8 +510,10 @@ def _track_note(t, sog, lat, lon, u):
         note += " — the timing cannot be bounded here"
     elif u > 400:
         note += f" — the boat was moving, so this is only good to ~{round(u / 100) * 100:.0f} m"
-    else:
-        note += " — may have been taken nearby ashore"
+    elif stopped and shore <= SHORE_M:
+        # Only a stopped boat within reach of land: the photographer may have
+        # gone ashore and left the receiver aboard.
+        note += f" — or ashore nearby, {round(shore / 10) * 10:.0f} m away"
     return note
 
 
