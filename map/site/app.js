@@ -118,6 +118,11 @@ async function start() {
                               ['stories', addStories]]) {
     try { await load(); } catch (e) { console.error(e); lost.push(what); }
   }
+  // A local preview only: `map.build --candidates` sets the flag, and an
+  // ordinary build clears it, so the hosted chart never asks for the file.
+  if (meta.candidates) {
+    try { await addCandidates(); } catch (e) { console.error(e); }
+  }
   buildPanel(meta);
   wirePanel();
   if (lost.length) {
@@ -376,6 +381,39 @@ async function addPlaces() {
   state.refreshPlaces = tick;
   map.on('zoom', tick);
   tick();
+}
+
+/* ------------------------------------------------------------- candidates --- */
+// Names from the gazetteer that are not on the chart yet, shown for deciding
+// which to add. A red dot at every zoom says where to look; the name joins it
+// from CANDIDATE_NAME_ZOOM. A hollow dot is one the write-up calls unsettled.
+const CANDIDATE_NAME_ZOOM = 12.5;
+
+async function addCandidates() {
+  const fc = await json('data/candidates.geojson');
+  const els = [];
+  for (const f of fc.features) {
+    const p = f.properties;
+    const el = document.createElement('div');
+    el.className = 'candidate' + (p.verdict === 'Unsettled' ? ' candidate-open' : '');
+    el.title = `${p.label} — ${p.verdict}. ${p.note}`;
+    const name = document.createElement('span');
+    name.textContent = p.label + (p.verdict === 'Unsettled' ? ' ?' : '');
+    el.appendChild(name);
+    new maplibregl.Marker({ element: el, anchor: 'center' })
+      .setLngLat(f.geometry.coordinates).addTo(map);
+    els.push(name);
+  }
+  const tick = () => {
+    const show = map.getZoom() >= CANDIDATE_NAME_ZOOM;
+    for (const n of els) n.hidden = !show;
+  };
+  map.on('zoom', tick);
+  tick();
+  const note = document.createElement('p');
+  note.id = 'candidate-note';
+  note.textContent = `Preview: ${fc.features.length} gazetteer names not yet on the chart, in red`;
+  document.body.appendChild(note);
 }
 
 /* ---------------------------------------------------------------- stories --- */

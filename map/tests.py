@@ -1062,6 +1062,7 @@ def test_site_build():
     check("every file the page asks for is present", not missing, str(missing))
 
     app = open(os.path.join(out, "app.js")).read()
+    meta_early = json.load(open(os.path.join(out, "data", "meta.json")))
     # A nudge is a distance on the ground: 2 km is a finger's width at the opening
     # view and four screens away at z15. Lubbers Quarters was there to be read at
     # z10 and nowhere to be found by anyone who had zoomed in on the island.
@@ -1136,6 +1137,22 @@ def test_site_build():
     # it covers -- names never hide, and never show through a bubble either.
     # (An earlier fix hid any name a bubble touched, which cost the opening
     # view HOPE TOWN entirely; covering beats vanishing.)
+    # The red dots for names not yet added are a local preview. A folder built
+    # with them must not be the one uploaded, so a test run says so loudly.
+    from map import build as B
+    import tempfile
+    with tempfile.TemporaryDirectory() as tmp:
+        os.makedirs(os.path.join(tmp, "data"))
+        n = B.candidates(tmp)
+        got = json.load(open(os.path.join(tmp, "data", "candidates.geojson")))["features"]
+    kinds = {f["properties"]["verdict"] for f in got}
+    check("the candidate names are read from their write-up, each with a point",
+          n == len(got) >= 30 and "Two sources" in kinds and "Not for the map" not in kinds
+          and all(26.2 < f["geometry"]["coordinates"][1] < 27.1 for f in got), f"{n} {kinds}")
+    check("this built folder is not carrying the candidate preview",
+          "candidates" not in meta_early and
+          not os.path.exists(os.path.join(out, "data", "candidates.geojson")),
+          "built with --candidates: rebuild without it before uploading")
     # The arrows walk every photograph in time order, so the one after the last
     # at an anchorage is somewhere else and nothing said so.
     page = open(os.path.join(out, "index.html")).read()

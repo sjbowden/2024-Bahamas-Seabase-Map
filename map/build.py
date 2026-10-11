@@ -73,6 +73,36 @@ def copy_site(dest):
     return copied
 
 
+CANDIDATES = os.path.join(HERE, "docs", "gazetteer-candidates.md")
+
+
+def candidates(dest):
+    """Write the names in docs/gazetteer-candidates.md as points to look at.
+
+    A preview for deciding which of them to add: the page marks each with a red
+    dot. The document is the one record of them, so its tables are read rather
+    than kept a second time; a row counts if it has a proposed label point.
+    """
+    feats, verdict = [], None
+    for line in open(CANDIDATES, encoding="utf-8"):
+        if line.startswith("## "):
+            verdict = line[3:].strip()
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        if len(cells) < 7 or cells[0] in ("Name", "---"):
+            continue
+        try:
+            lat, lon = (float(v) for v in cells[4].split("(")[0].split(","))
+        except ValueError:
+            continue
+        feats.append(dict(type="Feature",
+                          properties=dict(label=cells[0], verdict=verdict,
+                                          kind=cells[1], note=cells[6]),
+                          geometry=dict(type="Point", coordinates=[lon, lat])))
+    with open(os.path.join(dest, "data", "candidates.geojson"), "w") as fh:
+        json.dump(dict(type="FeatureCollection", features=feats), fh)
+    return len(feats)
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--out", default=OUT)
@@ -82,6 +112,9 @@ def main():
                     help="serve the result on :8000 when the build finishes")
     ap.add_argument("--reuse-index", action="store_true",
                     help="skip re-reading the archives if out/photo_index.json exists")
+    ap.add_argument("--candidates", action="store_true",
+                    help="mark the unadded gazetteer names in red, to look at "
+                         "locally; never upload a folder built this way")
     a = ap.parse_args()
 
     t0 = time.time()
@@ -146,6 +179,22 @@ def main():
         else:
             print(f"[derive] skipped — the media on disk matches all "
                   f"{len(photos)} photographs")
+
+    # Every build settles this, so a folder that had the preview loses it on the
+    # next ordinary build rather than carrying it to the host.
+    meta_path = os.path.join(a.out, "data", "meta.json")
+    meta = json.load(open(meta_path))
+    cand_path = os.path.join(a.out, "data", "candidates.geojson")
+    if a.candidates:
+        n = candidates(a.out)
+        meta["candidates"] = True
+        print(f"[names ] {n} gazetteer candidates marked in red -- LOCAL PREVIEW, "
+              f"do not upload")
+    else:
+        meta.pop("candidates", None)
+        if os.path.exists(cand_path):
+            os.remove(cand_path)
+    json.dump(meta, open(meta_path, "w"))
 
     print(f"\nbuilt {a.out} in {time.time() - t0:.0f}s")
     if a.serve:
