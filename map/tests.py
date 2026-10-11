@@ -1233,6 +1233,44 @@ def test_site_build():
           "app.js must fetch only from this folder")
 
 
+def test_browser():
+    """What only a click can show, in a real browser. See map/browser_check.js."""
+    import functools
+    import http.server
+    import shutil
+    import subprocess
+    import threading
+    from map import serve
+    section("in a browser")
+    out = os.path.join(C.HERE, "site_build")
+    script = os.path.join(C.HERE, "map", "browser_check.js")
+    if not os.path.isdir(out):
+        print("  SKIP  not built (python -m map.build)")
+        return
+    if not shutil.which("node") or subprocess.run(
+            ["node", "-e", "require.resolve('playwright-core')"], cwd=C.HERE,
+            capture_output=True).returncode:
+        print("  SKIP  no browser driver (npm install --no-save playwright-core)")
+        return
+    class Quiet(serve.Handler):
+        def log_message(self, *args):
+            pass
+    httpd = http.server.ThreadingHTTPServer(
+        ("127.0.0.1", 0), functools.partial(Quiet, directory=out))
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    try:
+        run = subprocess.run(
+            ["node", script, f"http://127.0.0.1:{httpd.server_address[1]}/"],
+            cwd=C.HERE, capture_output=True, text=True, timeout=300)
+    finally:
+        httpd.shutdown()
+    lines = [json.loads(l) for l in run.stdout.splitlines() if l.startswith("{")]
+    for r in lines:
+        check(r["name"], r["ok"], r["detail"])
+    check("the browser check ran to the end", run.returncode == 0 and len(lines) >= 8,
+          run.stderr.strip()[-300:])
+
+
 def test_edges():
     """Inputs this trip's data does not contain, each of which once went wrong."""
     import io
@@ -1348,6 +1386,7 @@ def main():
         test_gaps(photos, placed)
         test_nothing_published_carries_metadata(placed)
     test_site_build()
+    test_browser()
 
     print(f"\n{_pass} passed, {len(_fail)} failed")
     if _fail:
