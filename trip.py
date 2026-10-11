@@ -307,6 +307,48 @@ MAP_CAYS = [
     (-77.39200, 26.56616, "Woolendean Cay", 13.5),
     (-77.04445, 26.40526, "Pond Apple Cay", 14.0),
     (-77.04430, 26.45940, "Angel Cays", 13.0),
+    # Thirty more from the gazetteer, added on 11 October 2026 once its points were
+    # understood: south of about 26.76 N they lie some 380 m east of their islands,
+    # as positions from an older datum would. Each name was moved by its
+    # neighbours' offset and looked up again; docs/gazetteer-candidates.md has the
+    # working. These six have a second source -- the Explorer chart letters Bluff,
+    # Dilly and Cistern Cays at close zoom and MINOS ROCK beside Minos Cay, and
+    # OpenStreetMap agrees on Lockhart Cay and Moore's Island.
+    (-77.34248, 26.78350, "Bluff Cay", 14.0),
+    (-77.00996, 26.59979, "Dilly Cay", 15.0),
+    (-77.35770, 26.59519, "Lockhart Cay", 12.5),
+    (-77.12730, 26.57797, "Minos Cay", 14.0),
+    (-77.11525, 26.57265, "Cistern Cay", 14.0),
+    (-77.55808, 26.29343, "Moore's Island", 10.0),
+    # And twenty-four on the gazetteer alone: the corrected point is within 60 m
+    # of one island and the next nearest is at least 125 m further off. More than
+    # half are in the Marls, where no chart names anything to check them against.
+    # South Mangrove, Cambridge Harbour Cays and Little Pelican Bush are group
+    # names, each set on the island its point falls on.
+    (-77.18094, 26.69743, "Lilly Cay", 14.0),
+    (-77.08687, 26.65038, "Jobes Cay", 14.5),
+    (-77.08518, 26.64849, "Canes Cay", 14.5),
+    (-77.05966, 26.63813, "Brush Cay", 14.5),
+    (-77.03900, 26.62791, "With Low Fall Cay", 13.5),
+    (-77.03420, 26.62342, "Fish Hawk Cay", 13.5),
+    (-77.34861, 26.56727, "Sudy Mangrove", 13.5),
+    (-77.14384, 26.55855, "Paddy's Head", 14.0),
+    (-77.24099, 26.55687, "Little Bill Bo Cay", 14.0),
+    (-77.13772, 26.55410, "Carrion Crow Cay", 14.0),
+    (-77.29641, 26.55385, "Red Shank Swash", 13.5),
+    (-77.14539, 26.54139, "Little Potato Cay", 14.0),
+    (-77.37213, 26.53589, "Little Pelican Bush", 13.0),
+    (-77.16221, 26.53552, "Man-O-War Bush", 14.0),
+    (-77.35478, 26.53486, "South Mangrove", 13.0),
+    (-77.36882, 26.52495, "Big Pelican Bush", 13.0),
+    (-77.34117, 26.50604, "Cambridge Harbour Cays", 13.0),
+    (-77.32236, 26.49081, "Sailor's Choice", 13.0),
+    (-77.31210, 26.48602, "Bevans Cay", 13.0),
+    (-77.30709, 26.48112, "Toucans Cay", 13.5),
+    (-77.30174, 26.47902, "Bibins Cay", 13.5),
+    (-77.28628, 26.47483, "Little Crab Cay", 13.0),
+    (-77.04546, 26.43111, "John Doctor Cay", 14.0),
+    (-77.29510, 26.28378, "Big Mangrove", 14.0),
 ]
 
 # Settlements, points and bays: named places that are not islands, so they get their

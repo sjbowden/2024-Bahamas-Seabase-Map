@@ -26,9 +26,9 @@ Everything built so far is committed and the site is hosted; these are loose end
   album, or send their originals. The keeper's own originals were checked
   and add nothing: all 512 camera positions are already in the build.
 - [ ] **Names wanting local confirmation.** Little Ambergris Cay is in
-  OpenStreetMap and nowhere else. Four cays carry only the GeoNames gazetteer's
-  name, where the charts draw the island unnamed: Pond Apple, Push, Lower Hill
-  and Woolendean Cays. Goliath Cay is where the chart letters it; the gazetteer
+  OpenStreetMap and nowhere else. Twenty-eight cays carry only the GeoNames
+  gazetteer's name, where the charts draw the island unnamed or do not reach;
+  they are marked ☐ in `docs/map-labels.md`. Goliath Cay is where the chart letters it; the gazetteer
   puts it 900 m further east. `docs/map-labels.md` has the detail for each.
 
 ## The journal
@@ -60,16 +60,19 @@ still sit on a name.
   where the chart's lettering is rather than on an island.
 - [ ] **Two unnamed mangrove islands** on the Great Abaco shore, listed in a
   comment in `trip.py`. Neither the charts nor the gazetteer names them.
-- [ ] **Decide which of 55 more gazetteer names to add.** The work is done and
-  written up in `docs/gazetteer-candidates.md`; nothing has been added. The
-  gazetteer's points turned out to be offset by a steady 380 m, and with that
-  corrected 6 names have a second source, 24 land on one island on the
-  gazetteer's word alone, 14 are unsettled and 11 do not belong on the map.
+- [ ] **Fourteen gazetteer names left unsettled**, where more than one island
+  fits or the sources disagree. `docs/gazetteer-candidates.md` has each one, and
+  `python -m map.build --candidates` marks the seven with a best-guess point in
+  red for looking at locally.
 - [ ] **A narrower key for uploads.** The site was uploaded with the account's
   global key; a token limited to Pages would do the same job.
 
 ## Done since this list was first written
 
+- Thirty more cays named from the gazetteer on 11 October, once its points were
+  found to be offset by a steady 380 m: six with a second source, twenty-four
+  on the gazetteer alone. The map now draws 159 labels. Each new one was
+  measured in a headless browser at three zooms and overlaps nothing.
 - Two figures confirmed on 10 October: the viewer says a step has landed at a
   different spot past 250 m, and a click on a photograph count opens the viewer
   once the count would not break up before zoom 16. The site's address stays

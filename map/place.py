@@ -309,14 +309,16 @@ def _closest(lat, lon, named, limit_m):
     return (best, round(best_d)) if best else None
 
 
-def nearest_named(lat, lon, limit_m=2000.0):
+def nearest_named(lat, lon, limit_m=1500.0):
     """The name for a spot on the water, or None.
 
     This took the nearest of eight labels, which named the stop at the Pelican
     Cays after Tilloo Pond, 3 km up the coast, and gave the one at Sandy Cay no
     name at all. A stop is now named, in order, for the anchorage it is at, the
     settlement it is off, the island it is beside, and only then the nearest
-    name of any kind.
+    name of any kind -- within 1.5 km, which reaches the Pelican Cays' name from
+    their anchorage and stops short of calling a pause in mid-sound "off" an
+    islet nearly 2 km away.
     """
     anch, towns, isles, owner = _names()
     hit = _closest(lat, lon, anch, ANCHORAGE_M) or _closest(lat, lon, towns, TOWN_M)

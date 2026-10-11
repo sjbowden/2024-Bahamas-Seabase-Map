@@ -465,7 +465,9 @@ chart is zoomed in. `docs/map-labels.md` lists all of them with what the chart
 prints for each. Lubbers Quarters and four `MAP_SPOTS` moved to the charts' positions in the
 same pass. A second source, the GeoNames gazetteer for the Bahamas, then pointed at cays the
 chart sweep had missed; the charts confirmed eleven of them and four more carry the
-gazetteer's name alone. Still open there: Little Ambergris Cay carries OpenStreetMap's
+gazetteer's name alone. Its points proved to lie a steady 380 m east of their islands
+south of 26.76° N; with that corrected, thirty more names found their islands and
+were added, six of them with a second source (`docs/gazetteer-candidates.md`). Still open there: Little Ambergris Cay carries OpenStreetMap's
 name alone, and four names sit in water because the coastline draws no land for them.
 Nothing has checked the names on the water.
 

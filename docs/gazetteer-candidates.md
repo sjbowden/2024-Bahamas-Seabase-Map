@@ -1,7 +1,10 @@
 # Gazetteer cay names not on the map
 
-Worked up on 10 October 2026 so the decision can be made later. **Nothing here has
-been added to the map.** The source is the GeoNames gazetteer for the Bahamas
+Worked up on 10 October 2026. **On 11 October the thirty names in the first two
+classes below were added to the map**, in `MAP_CAYS` in `trip.py`, at the proposed
+points. The fourteen unsettled names and the eleven that do not belong were not.
+`python -m map.build --candidates` marks the unsettled ones that have a point in
+red, for looking at locally. The source is the GeoNames gazetteer for the Bahamas
 (geonames.org, CC BY 4.0): every island, island group and peninsula it lists inside
 the map whose name the map does not already carry. There are 55.
 
@@ -35,7 +38,7 @@ Marls. OpenStreetMap's names were compared for all of them.
 The map already has four cays in the second class (Pond Apple, Push, Lower Hill and
 Woolendean), marked ☐ in `docs/map-labels.md`.
 
-## Two sources
+## Two sources — added
 
 | Name | Kind | Gazetteer point | Corrected by | Proposed label point | Island | Note |
 |---|---|---|---|---|---|---|
@@ -46,7 +49,7 @@ Woolendean), marked ☐ in `docs/map-labels.md`.
 | Cistern Cay | island | 26.57448, -77.11466 | 391 m W, 56 m N | 26.57265, -77.11525 | 0.1 ha | Explorer chart letters CISTERN CAY beside this islet. This gazetteer entry is one of the few with no offset: uncorrected it is 184 m from the islet, corrected it is on the mainland. |
 | Moore’s Island | island | 26.29273, -77.54958 | 407 m W, 64 m N | 26.29343, -77.55808 | — | The settled island in the Bight of Abaco; OpenStreetMap names it too. The position is OpenStreetMap's. |
 
-## Gazetteer alone, one island
+## Gazetteer alone, one island — added
 
 | Name | Kind | Gazetteer point | Corrected by | Proposed label point | Island | Note |
 |---|---|---|---|---|---|---|
@@ -110,14 +113,11 @@ Woolendean), marked ☐ in `docs/map-labels.md`.
 | Abaco Island | island | 26.46504, -77.13432 | Great Abaco itself. |
 | John Keys Cay | island | 26.42957, -77.04752 | The point is on Deep Sea Cay, already named from the chart. |
 
-## If these are added
+## If more are added
 
 - Each goes in `MAP_CAYS` in `trip.py` as longitude, latitude, name and the zoom it
-  first shows at. Most are small and would want zoom 14 or 15.
-- The first class would be marked ☑ in `docs/map-labels.md` and the second ☐.
-- The gazetteer writes Paddy’s Head, Sailor’s Choice and Moore’s Island with a curly
-  apostrophe; the map's other names use a straight one.
-- About half of the names are in the Marls, which the trip never entered.
+  first shows at, with a row in `docs/map-labels.md`.
+- The gazetteer writes its apostrophes curly; the map's names use a straight one.
 
 ## How far to trust this
 

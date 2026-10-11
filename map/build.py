@@ -83,16 +83,20 @@ def candidates(dest):
     dot. The document is the one record of them, so its tables are read rather
     than kept a second time; a row counts if it has a proposed label point.
     """
+    from trip import MAP_CAYS
+    have = {c[2].replace("'", "’") for c in MAP_CAYS} | {c[2] for c in MAP_CAYS}
     feats, verdict = [], None
     for line in open(CANDIDATES, encoding="utf-8"):
         if line.startswith("## "):
-            verdict = line[3:].strip()
+            verdict = line[3:].split("—")[0].strip()
         cells = [c.strip() for c in line.strip().strip("|").split("|")]
         if len(cells) < 7 or cells[0] in ("Name", "---"):
             continue
         try:
             lat, lon = (float(v) for v in cells[4].split("(")[0].split(","))
         except ValueError:
+            continue
+        if cells[0] in have:        # added since: no longer a candidate
             continue
         feats.append(dict(type="Feature",
                           properties=dict(label=cells[0], verdict=verdict,
