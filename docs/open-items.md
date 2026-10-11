@@ -48,7 +48,12 @@ phone, z10.4 on a desktop): MARSH HARBOUR and HOPE TOWN, z9 to z9.4.
 On 10 October the five island names and the two water legends moved. Those seven
 were then measured in a headless browser at eleven zooms from 8.5 to 15, each
 against every other label and every story dot on screen, and none overlapped.
-The other pairs have not been measured again since the move.
+
+On 11 October, with 160 labels, every pair was measured in headless Chrome at
+each tenth of a zoom from 8 to 18, at a desktop width and a phone's, comparing
+the lines of text themselves. The only overlap is the one already known: MARSH
+HARBOUR and HOPE TOWN, 19 by 5 px at z9 and gone by z9.3. Story dots were not
+part of this pass.
 
 A story dot under a photograph count now moves to the count's rim. A dot can
 still sit on a name.
@@ -71,7 +76,7 @@ still sit on a name.
 
 - Bunks Cay added on 11 October, the first of the unsettled names: a second
   listing puts it 50 m from the corrected point. The map now draws 160 labels.
-  Its spacing from Snake Cay's label was worked out, not measured in a browser.
+  Its spacing was then measured with every other label's; see Label overlaps.
   Wood Cay, Long Bay Cay, Dunc Cays, Burnt Cay, Potato Cays and Meal Cay were dropped
   the same day, none of them corroborated; `docs/gazetteer-candidates.md` has each reason.
 - Thirty more cays named from the gazetteer on 11 October, once its points were

@@ -36,8 +36,12 @@ Marls. OpenStreetMap's names were compared for all of them.
 |---|---|---|
 | Two sources | 6 | The chart letters it, or OpenStreetMap names the same island. |
 | Gazetteer alone, one island | 24 | The corrected point is within 60 m of one island, and the next nearest is at least 125 m further off. No second source. |
-| Unsettled | 14 | More than one island fits, or the sources disagree. |
-| Not for the map | 11 | Already named, a peninsula, the mainland, or no island there. |
+| Unsettled, then added | 1 | Bunks Cay, held back and then added on a second listing. |
+| Unsettled | 7 | More than one island fits, or the sources disagree. |
+| Not for the map | 17 | Already named, a peninsula, the mainland, or no island there; six of them were unsettled and then dropped as uncorroborated. |
+
+The table is as things stand after 11 October. As first worked up it read 14
+unsettled and 11 not for the map.
 
 The map already has four cays in the second class (Pond Apple, Push, Lower Hill and
 Woolendean), marked ☐ in `docs/map-labels.md`.
