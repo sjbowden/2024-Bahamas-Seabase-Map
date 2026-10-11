@@ -1,30 +1,34 @@
 # Open items
 
 What is left to do on the chart, the poster and the journal, as of 10 October 2026.
-Everything built so far is committed; these are loose ends and one decision.
+Everything built so far is committed and the site is hosted; these are loose ends.
 
 ## Needs a person
 
-- [ ] **Look over the interactive chart on a real screen.** Run
-  `python -m map.build` then `python -m map.serve` and open
-  http://127.0.0.1:8123/. The labels have been checked for overlap by
-  calculation (see below) and the story dots in headless screenshots, but
-  nobody has yet judged how the chart looks.
-- [ ] **Decide who gets the link when the chart is published.** The site is built
-  but not hosted. The stories carry the crew's first names, alongside their
-  photographs; two of the sixteen scouts were 18 and the rest were minors. The
-  site tells search engines not to index it (`robots.txt`, `_headers`, the page's
-  own meta tag), but anyone with the link can read it.
+- [ ] **Look over the interactive chart on a real screen and a phone.** It is
+  hosted (see the README), or run `python -m map.build` then
+  `python -m map.serve` and open http://127.0.0.1:8123/. Everything below has
+  been checked by measuring the page in a headless browser, which cannot show
+  how the chart looks. Changed on 10 October and not yet judged by eye: the
+  island names set on their islands and the two water legends moved clear of
+  them, Pelican Cays' name in the middle of its chain, story dots seated beside
+  the photograph counts, and the viewer's notice on a step to a different spot.
+- [ ] **Decide who gets the link.** The site is hosted, unlisted: it asks search
+  engines to stay away, and anyone with the address can read it. The stories
+  carry the crew's first names, alongside their photographs; two of the sixteen
+  scouts were 18 and the rest were minors.
 - [ ] **Read the published journal through** (`journal.html`) for anything that
-  should not be public. It is live in the repository as `map/journal.md`.
+  should not be public. It is live in the repository as `map/journal.md` and on
+  the site.
 - [ ] **Locations for about 1,040 of the crew's phone photographs.** Google
   Photos removed them from the shared album, so these are placed from the
   track by time. The owners would need to turn on location sharing for the
   album, or send their originals. The keeper's own originals were checked
   and add nothing: all 512 camera positions are already in the build.
-- [ ] **Two wordings in the photograph notes to confirm:** every stop on the
-  water reads "at anchor", moorings included, and "or ashore nearby" is
-  offered within 600 m of land.
+- [ ] **Two figures to confirm.** The viewer says a step has landed at a
+  different spot when it is more than 250 m from the last photograph, and a
+  click on a photograph count opens the viewer, rather than zooming, once the
+  count would not break up before zoom 16.
 - [ ] **Names wanting local confirmation.** Little Ambergris Cay is in
   OpenStreetMap and nowhere else. Four cays carry only the GeoNames gazetteer's
   name, where the charts draw the island unnamed: Pond Apple, Push, Lower Hill
@@ -41,16 +45,17 @@ Nothing is open here.
 ## Label overlaps
 
 Each label's box was estimated from its text and type size, and every pair
-checked at the lowest zoom where both show. Two overlaps were fixed on 9 October:
-Lubbers Quarters ran into Elbow Cay's name until z10.5, and Hotel into Marina
-until z12.8. Two remain, both below the zoom the chart opens at (z9.9 on a
-phone, z10.4 on a desktop), so they are seen only after zooming out:
+checked at the lowest zoom where both show. Two overlaps were fixed on 9 October,
+and one was left that is seen only below the zoom the chart opens at (z9.9 on a
+phone, z10.4 on a desktop): MARSH HARBOUR and HOPE TOWN, z9 to z9.4.
 
-- MARSH HARBOUR and HOPE TOWN, z9 to z9.4;
-- Elbow Cay and Lubbers Quarters, z9.6 to z9.8.
+On 10 October the five island names and the two water legends moved. Those seven
+were then measured in a headless browser at eleven zooms from 8.5 to 15, each
+against every other label and every story dot on screen, and none overlapped.
+The other pairs have not been measured again since the move.
 
-The estimate does not cover the story dots or the photograph cluster counts,
-which can still sit on a name.
+A story dot under a photograph count now moves to the count's rim. A dot can
+still sit on a name.
 
 ## Optional
 
@@ -62,9 +67,31 @@ which can still sit on a name.
 - [ ] **About fifty more gazetteer names**, most of them in the Marls. They were
   left off because the gazetteer's points run up to 400 m east of the charts,
   and each of these has two or more islands that could answer to the name.
+  Set aside for later on 10 October.
+- [ ] **A narrower key for uploads.** The site was uploaded with the account's
+  global key; a token limited to Pages would do the same job.
 
 ## Done since this list was first written
 
+- The site hosted on Cloudflare Pages, unlisted, by uploading the built folder.
+  The live copy was checked against the local one: pages, data, the poster, and
+  a sample of fifty photographs byte for byte.
+- The island names set on their islands. Elbow Cay's stood south of Elbow Cay,
+  off Tilloo Cay's north tip, on the sheet and the map alike; the sheet was
+  re-rendered with it and Tilloo Cay's beside the right shores. Lubbers Quarters'
+  name ends at the island's west shore instead of standing 2 km off it, and
+  Pelican Cays' sits in the middle of its chain.
+- A photograph's stop named for the anchorage, settlement or island it was at,
+  where it had taken the nearest of eight labels: the Pelican Cays, Sandy Cay,
+  Tahiti Beach and the first night's anchorage off Outer Point Cay were all
+  wrong or unnamed. "At anchor" for every stop and "or ashore nearby" within
+  600 m of land were both confirmed.
+- Photographs taken in one spot stay a count that opens on a click; a story's
+  dot moves out from under a count; the key to the photograph dots shows only
+  with the photographs; the viewer counts each photograph within its spot and
+  says when a step lands at a different one.
+- The square photobook page rendered again in both water treatments, so it has
+  the corrected names.
 - The clone on the other machine replaced with a fresh one after the history
   rewrite. The old commits on GitHub are left for its garbage collection.
 - The photograph notes no longer offer "ashore" under way or out of reach of

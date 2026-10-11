@@ -449,6 +449,13 @@ zoomable, with a checkbox per day, and three things beside it.
 - **The poster**, for download as PDF or PNG, copied in from `out/` when it has
   been rendered.
 
+**Hosting.** The built folder is uploaded to Cloudflare Pages as it stands, with
+`wrangler pages deploy site_build`. Nothing is built from this repository there:
+the photographs are not in it, so a push here changes nothing on the site until
+the folder is built and uploaded again. The site asks search engines to stay away
+(`robots.txt`, the `_headers` file Pages honours, and the page's own meta tag),
+and its address is given to the crew's families rather than printed here.
+
 ## Next
 
 **Cay names.** Every label the interactive chart draws was checked against the
