@@ -140,7 +140,9 @@ def render(im, spec):
     copy = im.copy()
     copy.thumbnail((spec["px"], spec["px"]), Image.LANCZOS)
     buf = io.BytesIO()
-    # No exif=, no icc_profile=: this is where metadata stops.
+    # No exif=, no icc_profile=: this is where metadata stops. The encoder also
+    # writes a JPEG comment out of info if it finds one there, so info goes too.
+    copy.info = {}
     copy.save(buf, "JPEG", quality=spec["quality"], optimize=True,
               progressive=spec["progressive"], subsampling="4:2:0")
     return buf.getvalue()
@@ -249,7 +251,12 @@ def stale(photos, dest, manifest_path=None):
 
     None if there is no media folder to be wrong -- nothing has been rendered,
     which is a build without pictures, not a build with the wrong ones. Cheap:
-    it reads the record and stats the files, and renders nothing.
+    it reads the record and lists the files, and renders nothing.
+
+    A derivative nothing in the index asks for counts too, and so does a .part
+    file from a killed run: a photograph taken out of the archive leaves every
+    remaining id and fingerprint as it was, and its picture would otherwise go
+    on being published at an address that is easy to guess. Only run() sweeps.
     """
     if not any(_count(os.path.join(dest, s["name"])) for s in (THUMB, VIEW)):
         return None
@@ -265,7 +272,17 @@ def stale(photos, dest, manifest_path=None):
                     or not _exists(os.path.join(dest, spec["name"], f"{p['id']}.jpg"))):
                 out.append(p["id"])
                 break
-    return out
+    wanted = {p["id"] for p in photos if not p.get("unreadable")}
+    extra = set()
+    for spec in (THUMB, VIEW):
+        folder = os.path.join(dest, spec["name"])
+        for name in (os.listdir(folder) if os.path.isdir(folder) else ()):
+            m = _DERIVED.match(name)
+            if m and m.group(1) not in wanted:
+                extra.add(m.group(1))
+            elif name.endswith(".jpg.part"):
+                extra.add(name)
+    return out + sorted(extra)
 
 
 def fail_on_errors(result):

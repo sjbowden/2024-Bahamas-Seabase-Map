@@ -86,9 +86,15 @@ def parse_file(path):
                 )
             except ValueError:
                 continue
-            lat = dm_to_deg(f[3], f[4])
-            lon = dm_to_deg(f[5], f[6])
+            # A checksum says the bytes arrived as sent, not that they are numbers.
+            try:
+                lat = dm_to_deg(f[3], f[4])
+                lon = dm_to_deg(f[5], f[6])
+            except ValueError:
+                continue
             if lat is None or lon is None:
+                continue
+            if not (abs(lat) <= 90.0 and abs(lon) <= 180.0):
                 continue
             try:
                 sog = float(f[7]) if f[7] else 0.0

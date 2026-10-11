@@ -324,7 +324,9 @@ function refreshPhotos() {
   // opened from the tray leaves state.at null, and the rebuild leaves it alone.
   const openId = ($('#viewer').hidden || state.at == null || !state.shown)
     ? null : (state.shown[state.at] || {}).id;
-  state.shown = state.onChart.filter((p) => state.days.has(p.day));
+  // As in the tray: a photograph with no day has no checkbox to answer to, and
+  // one that knows where it was but not when would otherwise be in neither.
+  state.shown = state.onChart.filter((p) => !p.day || state.days.has(p.day));
   state.indexById = new Map(state.shown.map((p, i) => [p.id, i]));
   const src = map.getSource('photos');
   if (src) src.setData(photoFC(state.shown));
@@ -450,7 +452,12 @@ function refreshStories() {
   for (const s of state.stories) {
     s.el.style.display = (on && state.days.has(s.p.day)) ? '' : 'none';
   }
-  if (state.storyPopup && !on) state.storyPopup.remove();
+  // An open popup goes with its stories: one left over a chart that no longer
+  // shows its day is the filter not having filtered.
+  if (state.storyPopup &&
+      (!on || (state.storyPopupOf || []).some((o) => o.el.style.display === 'none'))) {
+    state.storyPopup.remove();
+  }
   drawClusterCounts();      // a dot that has just appeared may be under a bubble
 }
 
@@ -472,6 +479,7 @@ function openStory(s) {
     `<p class="story-more"><a href="journal.html#${esc(daySlug(here[0].p.day))}">` +
     `Read ${esc(here[0].p.day)} in the journal</a></p>`;
   if (state.storyPopup) state.storyPopup.remove();
+  state.storyPopupOf = here;
   state.storyPopup = new maplibregl.Popup({ offset: 14, maxWidth: '21rem', className: 'story-popup' })
     .setLngLat(s.lngLat).setHTML(html).addTo(map);
 }

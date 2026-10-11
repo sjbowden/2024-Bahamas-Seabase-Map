@@ -817,7 +817,7 @@ def test_nothing_published_carries_metadata(placed):
         meta, big = [], []
         for n in names:
             im = Image.open(os.path.join(d, n))
-            if im.getexif() or im.info.get("icc_profile"):
+            if im.getexif() or im.info.get("icc_profile") or im.info.get("comment"):
                 meta.append(n)
             if max(im.size) > edge:
                 big.append((n, im.size))
@@ -1233,8 +1233,96 @@ def test_site_build():
           "app.js must fetch only from this folder")
 
 
+def test_edges():
+    """Inputs this trip's data does not contain, each of which once went wrong."""
+    import io
+    import random
+    import tempfile
+    from datetime import timezone
+    from PIL import Image
+    from shapely.geometry import box
+    import parse_nmea
+    from trip import shoal
+    from map import derive as D
+    from map.photo_index import _merge
+    section("edges the data does not reach")
+
+    b = io.BytesIO()
+    Image.new("RGB", (8, 8), "red").save(b, "JPEG", comment=b"GPS 26.5,-77.0")
+    out = Image.open(io.BytesIO(D.render(D.prepare(b.getvalue()), D.THUMB)))
+    check("a JPEG comment does not survive rendering", not out.info.get("comment"),
+          str(out.info.get("comment")))
+
+    with tempfile.TemporaryDirectory() as t:
+        dest, man = os.path.join(t, "media"), os.path.join(t, "derived.json")
+        ph = [dict(id=f"p{i:05d}", src=dict(archive="mine", member=f"{i}.jpg",
+                                            crc=i, size=i)) for i in range(2)]
+        for s in (D.THUMB, D.VIEW):
+            os.makedirs(os.path.join(dest, s["name"]))
+            for p in ph:
+                with open(os.path.join(dest, s["name"], p["id"] + ".jpg"), "wb") as fh:
+                    fh.write(b"x")
+        D._save_manifest(man, dest, {p["id"]: {s["name"]: D.fingerprint(p, s)
+                                               for s in (D.THUMB, D.VIEW)} for p in ph})
+        check("media that matches its index is not stale", D.stale(ph, dest, man) == [])
+        check("a photograph dropped from the end of the index leaves stale media",
+              D.stale(ph[:1], dest, man) == ["p00001"], str(D.stale(ph[:1], dest, man)))
+        with open(os.path.join(dest, "view", "p00000.jpg.part"), "wb") as fh:
+            fh.write(b"x")
+        check("and so does a half-written file",
+              D.stale(ph, dest, man) == ["p00000.jpg.part"])
+
+        def nmea(body):
+            ck = 0
+            for ch in body:
+                ck ^= ord(ch)
+            return f"${body}*{ck:02X}\n"
+        log = os.path.join(t, "GPS_x.log")
+        with open(log, "w") as fh:
+            for lat in ("xxxx", "9930.000", "2630.000"):
+                fh.write(nmea(f"GPRMC,12000{len(lat)}.00,A,{lat},N,07700.000,W,"
+                              "1.0,0.0,250324,,,A"))
+        rows = parse_nmea.parse_file(log)
+        check("a malformed or impossible coordinate costs one fix, not the log",
+              [(r[1], r[2]) for r in rows] == [(26.5, -77.0)], str(rows))
+
+    far = shoal(box(10, 0, 11, 1), 0.1)
+    shoal(box(0, 0, 1, 1), 0.1)
+    check("two coastlines of the same area get their own shoals",
+          shoal(box(10, 0, 11, 1), 0.1) is far and far.bounds[0] > 9, str(far.bounds))
+
+    # 100 coincidences at -4 h that the receiver never saw, 80 at +4 h that it did.
+    r, t0 = random.Random(442), datetime(2024, 3, 23, tzinfo=timezone.utc)
+    cam = sorted(t0 + timedelta(seconds=r.uniform(0, 6 * 86400)) for _ in range(100))
+    h4, m1 = timedelta(hours=4), timedelta(seconds=60)
+    f = C.correlate_offset(cam, [c - h4 for c in cam] + [c + h4 for c in cam[:80]],
+                           sorted((c + h4 - m1, c + h4 + m1) for c in cam))
+    check("the fit takes the offset the receiver supports, not the bigger raw peak",
+          f["accepted"] and f["offset_min"] == 240.0, str(f))
+
+    def copy(arch, size, **tags):
+        return dict(archive=arch, member=arch, size=size, crc=1, ext=".jpg", tags=tags)
+    when = "2024:03:24 10:00:00"
+    m = _merge("a.jpg", "cam", [
+        copy("mine", 9, time_local=when, px=[1, 1]),
+        copy("crew", 5, time_local=when, gps=[26.5, -77.0], tz_offset="-04:00",
+             gps_utc="2024-03-24T14:00:00Z")], collections.Counter())
+    check("a smaller copy lends its position and GPS time, and not its timezone",
+          (m["gps"], m["gps_utc"], m["tz_offset"])
+          == ([26.5, -77.0], "2024-03-24T14:00:00Z", None), str(m))
+    m = _merge("a.jpg", "cam", [copy("mine", 9, error="bad"),
+                                copy("crew", 5, px=[1, 1])], collections.Counter())
+    check("a copy that will not decode is not the one the pixels come from",
+          m["src"]["archive"] == "crew" and not m["unreadable"], str(m["src"]))
+
+    raw = sum(len(read_fixes(d["file"])[0]) for d in DAYS)
+    check("placement reads the track less its spikes", len(P.track()) < raw,
+          f"{raw - len(P.track())} dropped")
+
+
 def main():
     test_units()
+    test_edges()
     spans = test_coverage()
     test_stories()
     test_derive_cache()

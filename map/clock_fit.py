@@ -254,8 +254,19 @@ def correlate_offset(local_times, reference_utc, spans, search_h=SEARCH_H):
         return sum(covered(datetime.fromtimestamp(t + off, UTC), spans)
                    for t in cam) / len(cam)
 
+    # The winner is the best by the score it is then judged on, coincidences
+    # times coverage, the same as its rival. Taking the top raw count instead
+    # could pick a peak the receiver never saw, refuse it for that, and stop --
+    # with the offset that does explain the camera sitting there as the rival.
+    # Coverage is at most 1, so the walk down `order` ends as in strongest_rival.
     order = np.argsort(counts)[::-1]
-    best = int(order[0])
+    best, top = int(order[0]), -1.0
+    for i in order:
+        if float(counts[i]) <= top:
+            break
+        s = float(counts[i]) * cov_frac(float(grid[i]))
+        if s > top:
+            best, top = int(i), s
     coarse = float(grid[best])
 
     # Refine to the second. The coincidence count is a step function, so the

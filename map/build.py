@@ -178,8 +178,9 @@ def main():
             print("[derive] skipped — pass --media for the 920 MB step")
         elif stale:
             raise SystemExit(
-                f"[derive] {len(stale)} photographs no longer match the media on "
-                f"disk (e.g. {', '.join(stale[:3])}) — run again with --media")
+                f"[derive] {len(stale)} photographs or leftover files do not match "
+                f"the media on disk (e.g. {', '.join(stale[:3])}) — run again "
+                f"with --media")
         else:
             print(f"[derive] skipped — the media on disk matches all "
                   f"{len(photos)} photographs")

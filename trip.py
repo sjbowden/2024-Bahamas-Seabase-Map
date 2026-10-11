@@ -21,6 +21,7 @@ module exists to prevent:
                 position out of it is meaningless.
 """
 import csv
+import hashlib
 import math
 import os
 from datetime import datetime, timedelta, timezone
@@ -665,9 +666,11 @@ def shoal(land, buf):
     Keyed on the land as well as the distance. It used to key on the distance
     alone, which was safe only while one coastline existed: the poster buffers its
     own bbox at full resolution and the map buffers a wider one, so a process that
-    drew both would have been handed whichever ring was built first.
+    drew both would have been handed whichever ring was built first. And on the
+    land itself, not its area and how many pieces it is in, which two different
+    coastlines can share.
     """
-    key = (buf, round(land.area, 9), len(getattr(land, "geoms", [land])))
+    key = (buf, hashlib.sha1(land.wkb).digest())
     if key not in _SHOAL_CACHE:
         _SHOAL_CACHE[key] = land.buffer(buf, join_style=1).buffer(
             -buf * 0.15, join_style=1)

@@ -39,7 +39,7 @@ import re
 from datetime import datetime, timedelta, timezone
 
 from trip import (ANCHORAGES, DAYS, HOTEL, MARINA, MOVING_KN, PLACES, haversine,
-                  in_chart, read_fixes, read_inreach)
+                  in_chart, read_inreach, recorded_fixes)
 from map import clock_fit as C
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -107,11 +107,15 @@ def day_for(utc=None, local=None):
 
 
 def track():
-    """Every fix from every day, one time-ordered stream, at full cadence."""
+    """Every fix from every day, one time-ordered stream, at full cadence.
+
+    Less the residual spikes, as read_fixes() asks of anything placing objects:
+    a photograph taken on one of those would be put up to 1.5 km from the boat.
+    """
     fixes = []
     for d in DAYS:
-        day, _ = read_fixes(d["file"])
-        fixes += [(t, lat, lon, sog, d["label"]) for t, lat, lon, sog in day]
+        fixes += [(t, lat, lon, sog, d["label"])
+                  for t, lat, lon, sog in recorded_fixes(d["file"])]
     fixes.sort(key=lambda f: f[0])
     return fixes
 

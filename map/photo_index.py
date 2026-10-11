@@ -235,8 +235,17 @@ def index(archives=ARCHIVES, progress=None):
 
 def _merge(name, cam, group, stats, suffix=False):
     """Fold every copy of one photograph into a single record."""
-    # Pixels come from the largest copy: re-encoding only ever cost detail.
-    src = max(group, key=lambda c: c["size"])
+    # Pixels come from the largest copy that can be read: re-encoding only ever
+    # cost detail, but a copy that will not decode has none to offer.
+    src = max(group, key=lambda c: ("error" not in c["tags"], c["size"]))
+
+    def satellite(k):
+        # Position and GPS time are the satellites' and not the camera's, so a
+        # copy that kept them can lend them to one that was re-saved without.
+        # The clock fields are not borrowed: the copies can disagree about the
+        # time, and one copy's timezone on the other's clock is neither.
+        return src["tags"].get(k) or next(
+            (c["tags"][k] for c in group if c["tags"].get(k)), None)
     times = {c["archive"]: c["tags"].get("time_local") for c in group}
     distinct = {t for t in times.values() if t}
     rec = dict(
@@ -249,8 +258,8 @@ def _merge(name, cam, group, stats, suffix=False):
         time_local=src["tags"].get("time_local"),
         tz_offset=src["tags"].get("tz_offset"),
         subsec=src["tags"].get("subsec"),
-        gps=src["tags"].get("gps"),
-        gps_utc=src["tags"].get("gps_utc"),
+        gps=satellite("gps"),
+        gps_utc=satellite("gps_utc"),
         unreadable="error" in src["tags"],
     )
     if len(distinct) > 1:
