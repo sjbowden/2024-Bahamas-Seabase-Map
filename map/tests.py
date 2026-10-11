@@ -247,6 +247,21 @@ def test_track_notes():
     fri = P._track_note(t, 5.0, 26.4700, -77.0200, 50, day=DAYS[0]["label"])
     check("and so is any fix before the crew had boarded",
           "ashore" in fri and "boat" not in fri and "under way" not in fri, fri)
+    # A stop took the nearest of eight labels, so the afternoon at the Pelican
+    # Cays was captioned "off Tilloo Cay" and the snorkel at Sandy Cay had no
+    # name at all.
+    for what, lat, lon, want in (
+            ("the Pelican Cays", 26.42169, -76.98400, "the Pelican Cays"),
+            ("Sandy Cay", 26.4000, -76.9925, "Sandy Cay"),
+            ("Tilloo Pond", 26.4488, -76.9900, "Tilloo Pond"),
+            ("Hope Town's harbour", 26.5385, -76.9600, "Hope Town"),
+            ("Tahiti Beach", 26.50169, -76.98744, "Tahiti Beach"),
+            ("the first night's anchorage", 26.55462, -77.08319, "Outer Point Cay"),
+            ("Fishers Bay", 26.6600, -77.1150, "Great Guana Cay")):
+        got = P.nearest_named(lat, lon)
+        check(f"a stop at {what} is named for it", bool(got) and got[0] == want, str(got))
+    check("a stop in open water is given no name",
+          P.nearest_named(26.5700, -77.1000) is None)
 
 
 def test_journal():

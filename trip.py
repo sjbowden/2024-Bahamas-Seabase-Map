@@ -122,6 +122,16 @@ PLACES = [
     (-76.9400, 26.4780, "A T L A N T I C\nO C E A N", "water", "center", "center"),
 ]
 
+# Stops the photograph captions name that have no label of their own to go by.
+# The first night's anchorage is 1.7 km west of Outer Point Cay, which is what
+# the day's route calls it, and a little nearer to Grunt Cay, which nobody did.
+# Tahiti Beach is the sandbar at Elbow Cay's south end; the nearest island with a
+# name on the map is Cooper Jacks Cay, and the crew were not there for that.
+STOPS = [
+    (-77.0832, 26.5546, "Outer Point Cay"),
+    (-76.9850, 26.5009, "Tahiti Beach"),
+]
+
 # Cays the map names and the printed sheet does not. The poster is one fixed
 # frame at one scale and its labels are placed by hand against the whole
 # composition; the map can afford more names because they only appear once

@@ -249,17 +249,96 @@ def spread_m(fixes, times, t, half_window_s):
     return worst
 
 
-def nearest_named(lat, lon, limit_m=4000.0):
-    """The nearest anchorage or settlement worth naming, or None."""
-    named = [(la, lo, txt) for lo, la, txt, *_ in ANCHORAGES] + \
-            [(la, lo, txt.replace("\n", " ").strip())
-             for lo, la, txt, kind, *_ in PLACES if kind in ("town", "isle")]
+# How near a stop has to be to count as at one of the trip's own anchorages, at
+# a settlement, or beside an island.
+ANCHORAGE_M = 700.0
+TOWN_M = 3000.0
+ISLAND_M = 1000.0
+# A label this close to an island's shore is that island's name.
+ON_ISLAND_M = 150.0
+# Great Abaco is one piece of land 120 km long. Being beside it says nothing, so
+# anything this big is passed over and the nearest name is used instead.
+MAINLAND_KM2 = 100.0
+
+_NAMES = None
+
+
+def _say(name):
+    """A chart label as a caption says it: Hope Town, the Pelican Cays."""
+    name = name.replace("\n", " ").strip()
+    if name.isupper():
+        name = name.title()
+    return f"the {name}" if name.endswith("Cays") else name
+
+
+def _names():
+    """Every name a stop can be given, and the island each one belongs to."""
+    global _NAMES
+    if _NAMES is None:
+        from trip import MAP_CAYS, MAP_LABEL_NUDGE
+        shore_m(0.0, 0.0)                     # builds the land index
+        tree, parts, _ = _SHORE
+        from shapely.geometry import Point
+        towns = [(la, lo, _say(t)) for lo, la, t, kind, *_ in PLACES if kind == "town"]
+        # The island names where the map has them, which is on their islands.
+        isles = []
+        for lo, la, t, kind, *_ in PLACES:
+            if kind == "isle":
+                dx, dy = MAP_LABEL_NUDGE.get(t, (0.0, 0.0))
+                isles.append((la + dy, lo + dx, _say(t)))
+        isles += [(la, lo, _say(t)) for lo, la, t, _z in MAP_CAYS]
+        owner = {}
+        for la, lo, t in isles:
+            pt = Point(lo, la)
+            i = int(tree.nearest(pt))
+            q = parts[i].exterior.interpolate(parts[i].exterior.project(pt))
+            if parts[i].contains(pt) or haversine(la, lo, q.y, q.x) <= ON_ISLAND_M:
+                owner.setdefault(i, []).append((la, lo, t))
+        from trip import STOPS
+        anch = [(la, lo, t) for lo, la, t, *_ in list(ANCHORAGES) + list(STOPS)]
+        _NAMES = (anch, towns, isles, owner)
+    return _NAMES
+
+
+def _closest(lat, lon, named, limit_m):
     best, best_d = None, limit_m
     for la, lo, txt in named:
         d = haversine(lat, lon, la, lo)
         if d < best_d:
             best, best_d = txt, d
     return (best, round(best_d)) if best else None
+
+
+def nearest_named(lat, lon, limit_m=2000.0):
+    """The name for a spot on the water, or None.
+
+    This took the nearest of eight labels, which named the stop at the Pelican
+    Cays after Tilloo Pond, 3 km up the coast, and gave the one at Sandy Cay no
+    name at all. A stop is now named, in order, for the anchorage it is at, the
+    settlement it is off, the island it is beside, and only then the nearest
+    name of any kind.
+    """
+    anch, towns, isles, owner = _names()
+    hit = _closest(lat, lon, anch, ANCHORAGE_M) or _closest(lat, lon, towns, TOWN_M)
+    if hit:
+        return hit
+    from shapely.geometry import Point
+    from shapely.ops import nearest_points
+    tree, parts, _ = _SHORE
+    pt = Point(lon, lat)
+    best = None
+    for i in tree.query(pt.buffer(0.03)):
+        g = parts[int(i)]
+        # Square degrees to km2 at this latitude.
+        if g.area * 111.0 * 99.4 > MAINLAND_KM2:
+            continue
+        q = nearest_points(g, pt)[0]
+        d = 0.0 if g.contains(pt) else haversine(lat, lon, q.y, q.x)
+        if d <= ISLAND_M and (best is None or d < best[0]):
+            best = (d, int(i))
+    if best and best[1] in owner:
+        return _closest(lat, lon, owner[best[1]], float("inf"))
+    return _closest(lat, lon, anch + towns + isles, limit_m)
 
 
 def place(photos, per_photo, cameras, fixes=None):
