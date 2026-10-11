@@ -25,10 +25,6 @@ Everything built so far is committed and the site is hosted; these are loose end
   track by time. The owners would need to turn on location sharing for the
   album, or send their originals. The keeper's own originals were checked
   and add nothing: all 512 camera positions are already in the build.
-- [ ] **Two figures to confirm.** The viewer says a step has landed at a
-  different spot when it is more than 250 m from the last photograph, and a
-  click on a photograph count opens the viewer, rather than zooming, once the
-  count would not break up before zoom 16.
 - [ ] **Names wanting local confirmation.** Little Ambergris Cay is in
   OpenStreetMap and nowhere else. Four cays carry only the GeoNames gazetteer's
   name, where the charts draw the island unnamed: Pond Apple, Push, Lower Hill
@@ -73,6 +69,10 @@ still sit on a name.
 
 ## Done since this list was first written
 
+- Two figures confirmed on 10 October: the viewer says a step has landed at a
+  different spot past 250 m, and a click on a photograph count opens the viewer
+  once the count would not break up before zoom 16. The site's address stays
+  out of the README, which is public.
 - The site hosted on Cloudflare Pages, unlisted, by uploading the built folder.
   The live copy was checked against the local one: pages, data, the poster, and
   a sample of fifty photographs byte for byte.
