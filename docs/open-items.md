@@ -69,13 +69,14 @@ A story dot under a photograph count now moves to the count's rim.
 
 ## Optional
 
-- [ ] **Retire the two broader credentials.** Uploads have their own token now
-  (see Done). Wrangler's browser sign-in is still active on this machine and
-  can do far more than upload this site: `npx wrangler logout` ends it. The
-  account's global key was used for the first uploads and should be rolled in
-  the Cloudflare dashboard.
+Nothing is open here.
 
 ## Done since this list was first written
+
+- The two broader credentials retired on 11 October. Wrangler's browser sign-in
+  on this machine was ended, and the Pages token alone was then found to reach
+  the project. The account's global key, used for the first uploads, was rolled
+  in the Cloudflare dashboard by its keeper.
 
 - A narrower key for uploads, made on 11 October: an API token limited to
   Cloudflare Pages, kept outside the repository. The README's hosting section
