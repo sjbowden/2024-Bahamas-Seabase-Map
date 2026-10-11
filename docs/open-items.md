@@ -52,11 +52,32 @@ against every other label and every story dot on screen, and none overlapped.
 On 11 October, with 160 labels, every pair was measured in headless Chrome at
 each tenth of a zoom from 8 to 18, at a desktop width and a phone's, comparing
 the lines of text themselves. The only overlap is the one already known: MARSH
-HARBOUR and HOPE TOWN, 19 by 5 px at z9 and gone by z9.3. Story dots were not
-part of this pass.
+HARBOUR and HOPE TOWN, 19 by 5 px at z9 and gone by z9.3.
 
-A story dot under a photograph count now moves to the count's rim. A dot can
-still sit on a name.
+The 21 story dots were then measured against every name the same way. Eighteen
+dot-and-name pairs cross at some zoom, nearly all of them only while the chart
+is zoomed well out. Two stay crossed at every zoom, because the story is set at
+the place the name is for: Little Harbour on LITTLE HARBOUR, and Boarding the
+Adonai on Marina. Four more last past z11: the three Hope Town stories on HOPE
+TOWN, to z12.4 at most, and Fishing for Megalodon on SEA OF ABACO, to z11.2.
+Stories start switched off, so none of this shows until they are turned on.
+
+Those three names were then changed, the same day, to start beside their dots
+and not straddle them: LITTLE HARBOUR, Marina and HOPE TOWN each begin a fixed
+few pixels to the right of the story set at that place, at every zoom, which is
+also how the sheet sets the two towns. HOPE TOWN came back from 700 m east to do
+it. Measured again: no two names overlap at any zoom, MARSH HARBOUR and HOPE
+TOWN included, and twelve dot-and-name pairs are left, all clear by z11.3. Four
+of the twelve are still crossed where the chart opens: Fishing for Megalodon on
+SEA OF ABACO (to z11.2), The outer reef on Man-O-War Cay (to z11), “Dad…” on
+Tilloo Cay (to z10.4) and The barge wreck on Lubbers Quarters (to z10.2).
+Clearing those would mean moving island names placed on 10 October.
+
+Both measurements are now part of `python -m map.tests`, in
+`map/browser_check.js`: it fails if two names overlap at any zoom, or if a
+story dot is on a name from z11.5 in.
+
+A story dot under a photograph count now moves to the count's rim.
 
 ## Optional
 

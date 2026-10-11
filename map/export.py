@@ -268,8 +268,11 @@ def places_layer():
             (AIRPORT[0], AIRPORT[1], AIRPORT[3], "airport", 12),
             (HOTEL[0], HOTEL[1], "Hotel", "hotel", 13),
             (MARINA[0], MARINA[1], "Marina", "marina", 12)):
+        props = dict(label=label, kind=kind, minzoom=minzoom)
+        if label in MAP_LABEL_ANCHOR:
+            props["anchor"] = MAP_LABEL_ANCHOR[label]
         feats.append(dict(type="Feature",
-                          properties=dict(label=label, kind=kind, minzoom=minzoom),
+                          properties=props,
                           geometry=dict(type="Point", coordinates=[round(lon, 5),
                                                                    round(lat, 5)])))
     return _fc(feats)

@@ -117,11 +117,11 @@ from `site_build/data/places.geojson`, so this is what actually ships.
 | ☑ | **Anna Cay** | cay | 26.54987 | -76.96089 | 26° 32.992′ N | 76° 57.653′ W | land | 15 | yes | map only | ANNA CAY |
 | ☑ | **Big Cay** | cay | 26.54697 | -77.06805 | 26° 32.818′ N | 77° 04.083′ W | land | 15 | yes | map only | BIG CAY |
 | ☑ | **Grunt Cay** | cay | 26.54694 | -77.06976 | 26° 32.816′ N | 77° 04.186′ W | land | 15 | yes | map only | GRUNT CAY, lettered about 100 m west of the islet the label is on |
-| — | **Marina** | marina | 26.54688 | -77.05192 | 26° 32.813′ N | 77° 03.115′ W | land | 12 | yes | poster + map | not a chart name; from the track |
+| — | **Marina** | marina | 26.54688 | -77.05192 | 26° 32.813′ N | 77° 03.115′ W | land | 12 | yes | poster + map | not a chart name; from the track; on the map the name starts just right of this point, clear of the story dot drawn on it |
 | — | **Hotel** | hotel | 26.54522 | -77.04891 | 26° 32.713′ N | 77° 02.935′ W | land | 13 | yes | poster + map | not a chart name; from a photograph's EXIF |
 | ☑ | **Mouth of Harbour Cay** | cay | 26.54230 | -76.96250 | 26° 32.538′ N | 76° 57.750′ W | land | 15 | yes | map only | MOUTH OF HARBOUR CAY, lettered on the land west of the harbour entrance; the coastline joins it to Elbow Cay |
 | ☐ | **Little Potato Cay** | cay | 26.54139 | -77.14539 | 26° 32.483′ N | 77° 08.723′ W | land | 14 | yes | map only | GeoNames gazetteer name, placed after correcting its offset; the chart draws the island unnamed |
-| ☑ | **HOPE TOWN** | town | 26.54070 | -76.95240 | 26° 32.442′ N | 76° 57.144′ W | water | 9 | yes | poster + map | HOPE TOWN; on the map the name sits 700 m east of the sheet's position, clear of the story dots |
+| ☑ | **HOPE TOWN** | town | 26.54010 | -76.95880 | 26° 32.406′ N | 76° 57.528′ W | land | 9 | yes | poster + map | HOPE TOWN; on the map the name starts just right of this point, where the story set in the town has its dot, so it stands clear of the dot at every zoom; the sheet's own point is 26.54070, -76.95940 |
 | ☑ | **Parrot Cays** | cay | 26.53958 | -76.97794 | 26° 32.375′ N | 76° 58.676′ W | land | 13 | yes | map only | PARROT CAYS |
 | ☐ | **Little Pelican Bush** | cay | 26.53589 | -77.37213 | 26° 32.153′ N | 77° 22.328′ W | land | 13 | — | map only | GeoNames gazetteer name, placed after correcting its offset; no chart names anything in the Marls; a group name, set on the island its point falls on |
 | ☐ | **Man-O-War Bush** | cay | 26.53552 | -77.16221 | 26° 32.131′ N | 77° 09.733′ W | land | 14 | yes | map only | GeoNames gazetteer name, placed after correcting its offset; no chart names anything in the Marls |
@@ -169,7 +169,7 @@ from `site_build/data/places.geojson`, so this is what actually ships.
 | ☑ | **Bridges Cay** | cay | 26.35121 | -77.00092 | 26° 21.073′ N | 77° 00.055′ W | land | 13 | yes | map only | BRIDGES CAY |
 | ☑ | **Goole Cay** | cay | 26.34431 | -76.98544 | 26° 20.659′ N | 76° 59.126′ W | land | 14 | yes | map only | GOOLE CAY |
 | ☑ | **Riding Cays** | cay | 26.34202 | -77.02289 | 26° 20.521′ N | 77° 01.373′ W | land | 13.5 | yes | map only | RIDING CAYS |
-| ☑ | **LITTLE HARBOUR** | town | 26.32420 | -77.00020 | 26° 19.452′ N | 77° 00.012′ W | land | 9 | yes | poster + map | LITTLE HARBOUR |
+| ☑ | **LITTLE HARBOUR** | town | 26.32420 | -77.00020 | 26° 19.452′ N | 77° 00.012′ W | land | 9 | yes | poster + map | LITTLE HARBOUR; on the map the name starts just right of this point, clear of the story dot drawn on it, as the sheet sets it |
 | ☑ | **Mangrove Cay** | cay | 26.29829 | -77.06623 | 26° 17.897′ N | 77° 03.974′ W | land | 13.5 | yes | map only | MANGROVE CAY (OpenStreetMap: Cormorant Cay) |
 | ☑ | **Noah Bethel Cays** | cay | 26.29462 | -77.05570 | 26° 17.677′ N | 77° 03.342′ W | land | 13 | — | map only | NOAH BETHEL CAYS |
 | ☑ | **Cherokee Sound** | spot | 26.29460 | -77.07120 | 26° 17.676′ N | 77° 04.272′ W | water | 11 | — | map only | CHEROKEE SOUND |

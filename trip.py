@@ -436,9 +436,19 @@ MAP_LABEL_NUDGE = {"Lynyard Cay": (0.0020, 0.0080),
                    # Man-O-War Cay and Tilloo Cay.
                    "S E A   O F   A B A C O": (-0.0200, 0.0265),
                    "A T L A N T I C\nO C E A N": (0.0450, 0.0),
-                   "HOPE TOWN": (0.0070, 0.0)}
+                   # Onto the dot of the story set in the town, which the name
+                   # then starts beside: see MAP_LABEL_ANCHOR.
+                   "HOPE TOWN": (0.0006, -0.0006)}
 
-MAP_LABEL_ANCHOR = {"Lubbers\nQuarters": "right"}
+# A name that ends at its point ("right") or starts there ("left") instead of
+# straddling it. Lubbers Quarters ends at its island's western shore. The other
+# three each have a story set at the very place they name, and a name centred on
+# that place sits under the story's dot at every zoom; started beside the dot, it
+# stands a fixed few pixels clear at every zoom, as the sheet sets the two towns.
+# Moving the name away in degrees clears the dot only once the chart is zoomed
+# in: HOPE TOWN was 700 m east of its place and still under a dot until z12.4.
+MAP_LABEL_ANCHOR = {"Lubbers\nQuarters": "right",
+                    "HOPE TOWN": "left", "LITTLE HARBOUR": "left", "Marina": "left"}
 
 # The cay labels that belong in water. Two are groups: Pelican Cays names a chain
 # of four islets, so it sits off them rather than on any one, and Angel Cays is

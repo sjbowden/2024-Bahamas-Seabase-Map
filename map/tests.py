@@ -1267,7 +1267,7 @@ def test_browser():
     lines = [json.loads(l) for l in run.stdout.splitlines() if l.startswith("{")]
     for r in lines:
         check(r["name"], r["ok"], r["detail"])
-    check("the browser check ran to the end", run.returncode == 0 and len(lines) >= 8,
+    check("the browser check ran to the end", run.returncode == 0 and len(lines) >= 10,
           run.stderr.strip()[-300:])
 
 
