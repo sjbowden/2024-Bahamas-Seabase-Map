@@ -60,10 +60,11 @@ still sit on a name.
   where the chart's lettering is rather than on an island.
 - [ ] **Two unnamed mangrove islands** on the Great Abaco shore, listed in a
   comment in `trip.py`. Neither the charts nor the gazetteer names them.
-- [ ] **About fifty more gazetteer names**, most of them in the Marls. They were
-  left off because the gazetteer's points run up to 400 m east of the charts,
-  and each of these has two or more islands that could answer to the name.
-  Set aside for later on 10 October.
+- [ ] **Decide which of 55 more gazetteer names to add.** The work is done and
+  written up in `docs/gazetteer-candidates.md`; nothing has been added. The
+  gazetteer's points turned out to be offset by a steady 380 m, and with that
+  corrected 6 names have a second source, 24 land on one island on the
+  gazetteer's word alone, 14 are unsettled and 11 do not belong on the map.
 - [ ] **A narrower key for uploads.** The site was uploaded with the account's
   global key; a token limited to Pages would do the same job.
 
