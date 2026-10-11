@@ -107,8 +107,9 @@ still sit on a name.
   tiles over the Marls were read too: the Explorer sheets do not reach them,
   and the base chart names nothing there.
 - The drive home on 28 March cut at the Hillsboro exit, and old poster renders
-  removed, in every commit. A backup of the history as it was is kept outside
-  the repository, as is the reference material that was parked in `out/`.
+  removed, in every commit. The backup of the history as it was has since been
+  deleted; the reference material that was parked in `out/` is kept outside the
+  repository.
 - The poster re-rendered and found identical; the published photographs checked
   for metadata, and both pages for broken links and script errors.
 - The journal published as a page of the site, lightly edited; the poster offered
