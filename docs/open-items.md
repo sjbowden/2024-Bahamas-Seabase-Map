@@ -9,14 +9,6 @@ Everything built so far is committed and the site is hosted; these are loose end
   engines to stay away, and anyone with the address can read it. The stories
   carry the crew's first names, alongside their photographs; two of the sixteen
   scouts were 18 and the rest were minors.
-- [ ] **Read the published journal through** (`journal.html`) for anything that
-  should not be public. It is live in the repository as `map/journal.md` and on
-  the site.
-- [ ] **Locations for about 1,040 of the crew's phone photographs.** Google
-  Photos removed them from the shared album, so these are placed from the
-  track by time. The owners would need to turn on location sharing for the
-  album, or send their originals. The keeper's own originals were checked
-  and add nothing: all 512 camera positions are already in the build.
 
 ## The journal
 
@@ -73,6 +65,17 @@ Nothing is open here.
 
 ## Done since this list was first written
 
+- Locations for about 1,040 of the crew's phone photographs given up on
+  11 October: the crew will not be asked. Google Photos removed the locations
+  from the shared album, so these stay placed from the track by time. The
+  keeper's own originals were checked and add nothing: all 512 camera
+  positions are already in the build.
+- The published journal scanned on 11 October for anything that should not be
+  public, and the passages found listed for its keeper: a scout's injury told
+  by name, another troop's missing waivers, a conch taken near the park, a
+  birthday, and family and home details. The keeper chose to keep all of
+  them, so `map/journal.md` is unchanged. The item was closed on the scan
+  and that decision, not on a separate read-through.
 - The two broader credentials retired on 11 October. Wrangler's browser sign-in
   on this machine was ended, and the Pages token alone was then found to reach
   the project. The account's global key, used for the first uploads, was rolled
