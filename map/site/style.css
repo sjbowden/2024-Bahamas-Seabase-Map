@@ -302,6 +302,9 @@ html, body {
   font: 700 .68rem/1 var(--sans);
   cursor: pointer;
   box-shadow: 0 0 0 1px rgba(46, 58, 66, .35);
+  /* Above the photograph counts (#clusters, z-index 1): the dot takes the click
+     wherever the two touch, so it should be the one that shows. */
+  z-index: 2;
 }
 /* No transform here: MapLibre positions a marker by transforming this very
    element, so scaling it on hover would throw it across the chart. */

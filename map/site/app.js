@@ -397,7 +397,7 @@ async function addStories() {
     const s = { p, lngLat: f.geometry.coordinates, el };
     // A marker swallows the click, so the map never hears it: open from here.
     el.addEventListener('click', (e) => { e.stopPropagation(); openStory(s); });
-    new maplibregl.Marker({ element: el, anchor: 'center' })
+    s.marker = new maplibregl.Marker({ element: el, anchor: 'center' })
       .setLngLat(s.lngLat).addTo(map);
     return s;
   });
@@ -413,6 +413,7 @@ function refreshStories() {
     s.el.style.display = (on && state.days.has(s.p.day)) ? '' : 'none';
   }
   if (state.storyPopup && !on) state.storyPopup.remove();
+  drawClusterCounts();      // a dot that has just appeared may be under a bubble
 }
 
 /* Several things happened at the same anchorage, and their markers sit on top of
@@ -760,8 +761,10 @@ function drawClusterCounts() {
     host.innerHTML = '';
     countEls = [];            // those nodes are gone; forgetting that kept the
                               // counts invisible after the layer came back on
+    seatStories([]);
     return;
   }
+  if (!map.getLayer('clusters')) return;
   const feats = map.queryRenderedFeatures({ layers: ['clusters'] });
   // Reuse the DOM nodes: this runs on every frame of a pan.
   while (countEls.length < feats.length) {
@@ -771,6 +774,7 @@ function drawClusterCounts() {
     countEls.push(el);
   }
   const w = map.getCanvas().clientWidth, h = map.getCanvas().clientHeight;
+  const bubbles = [];
   let used = 0;
   for (const f of feats) {
     const pt = map.project(f.geometry.coordinates);
@@ -784,8 +788,47 @@ function drawClusterCounts() {
     el.style.height = `${2 * r}px`;
     el.style.transform = `translate(-50%, -50%) translate3d(${pt.x}px, ${pt.y}px, 0)`;
     el.style.display = '';
+    bubbles.push({ x: pt.x, y: pt.y, r });
   }
   for (let i = used; i < countEls.length; i++) countEls[i].style.display = 'none';
+  seatStories(bubbles);
+}
+
+/* A story and the photographs taken there are at the same spot, so the count
+ * bubble landed on the story's dot: the dot was hidden and still took the click,
+ * and the bubble showed and could not be opened. A dot under a bubble moves out
+ * to the bubble's rim, on the side it was already on, like a badge. */
+const STORY_R = 11;
+function seatStories(bubbles) {
+  if (!state.stories) return;
+  for (const s of state.stories) {
+    let dx = 0, dy = 0;
+    if (s.el.style.display !== 'none') {
+      const at = map.project(s.lngLat);
+      let x = at.x, y = at.y;
+      // Clearing one bubble can land the dot on its neighbour, so go round a
+      // few times; in a real pile-up the last pass simply stands.
+      for (let pass = 0; pass < 4; pass++) {
+        let hit = false;
+        for (const b of bubbles) {
+          const ox = x - b.x, oy = y - b.y;
+          const d = Math.hypot(ox, oy), clear = b.r + STORY_R;
+          if (d >= clear - 0.5) continue;
+          // Dead centre has no side to keep to, so it goes up and to the right.
+          const ux = d > 0.5 ? ox / d : Math.SQRT1_2, uy = d > 0.5 ? oy / d : -Math.SQRT1_2;
+          x = b.x + ux * clear;
+          y = b.y + uy * clear;
+          hit = true;
+        }
+        if (!hit) break;
+      }
+      dx = Math.round(x - at.x); dy = Math.round(y - at.y);
+    }
+    if (s.dx !== dx || s.dy !== dy) {
+      s.dx = dx; s.dy = dy;
+      s.marker.setOffset([dx, dy]);
+    }
+  }
 }
 
 // The transparent canvas layer's circle-radius stops, so the drawn bubble and

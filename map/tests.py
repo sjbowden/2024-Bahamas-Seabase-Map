@@ -1136,6 +1136,11 @@ def test_site_build():
     # it covers -- names never hide, and never show through a bubble either.
     # (An earlier fix hid any name a bubble touched, which cost the opening
     # view HOPE TOWN entirely; covering beats vanishing.)
+    # The photographs taken at a story's spot cluster on the story's own dot. The
+    # bubble covered the dot, and the dot underneath still took the click.
+    check("a story's dot moves out from under a photograph count",
+          "function seatStories" in app and "s.marker.setOffset" in app
+          and "seatStories(bubbles)" in app)
     check("the cluster bubble is HTML above the names, not canvas below them",
           "'circle-opacity': 0" in app and "occludePlaces" not in app)
     check("and the tray explains each tier it lists",
