@@ -1,6 +1,6 @@
 # Labels on the chart
 
-All 159 labels the interactive chart draws, north to south. Generated
+All 160 labels the interactive chart draws, north to south. Generated
 from `site_build/data/places.geojson`, so this is what actually ships.
 
 - **Source** — `poster + map` labels are shared with the printed sheet, so moving
@@ -15,9 +15,9 @@ from `site_build/data/places.geojson`, so this is what actually ships.
   Explorer chartbook sheets for Abaco (AB 11–AB 24, Lewis Offshore, 2022–2025
   editions) as shown in the i-Boating web viewer. ☑ means the chart letters the same
   name on the feature the label sits on or beside; ☐ means the note says what
-  differs, which for thirty-one cays is that the name comes from the GeoNames gazetteer
+  differs, which for thirty-two cays is that the name comes from the GeoNames gazetteer
   (the Bahamas file, from the national topographic sheets) and not from a chart:
-  four added on 10 October and twenty-seven on 11 October, the working for the
+  four added on 10 October and twenty-eight on 11 October, the working for the
   latter in `docs/gazetteer-candidates.md`; — means the label is not something a chart names.
 
 | ✓ | Name | Kind | Latitude | Longitude | Lat (DMS) | Lon (DMS) | On | From z | In frame | Source | Against the Explorer charts |
@@ -148,6 +148,7 @@ from `site_build/data/places.geojson`, so this is what actually ships.
 | ☑ | **Cormorant Cay** | cay | 26.46375 | -77.05039 | 26° 27.825′ N | 77° 03.023′ W | land | 13 | yes | map only | CORMORANT CAY |
 | ☑ | **Tilloo Cay** | isle | 26.46270 | -76.98880 | 26° 27.762′ N | 76° 59.328′ W | land | 9.6 | yes | poster + map | TILLOO CAY; on the map the name sits on the island; the sheet sets it off the ocean shore at 26.46300, -76.98600 (moved up from 26.440 on 10 October 2026) |
 | ☑ | **Angel Cays** | cay | 26.45940 | -77.04430 | 26° 27.564′ N | 77° 02.658′ W | water | 13 | yes | map only | ANGEL CAYS, lettered offshore along the chain from Cormorant Cay to Snake Cay |
+| ☐ | **Bunks Cay** | cay | 26.45969 | -77.05467 | 26° 27.581′ N | 77° 03.280′ W | land | 14.5 | yes | map only | GeoNames gazetteer name, classed there as a peninsula and placed after correcting its offset; a second listing puts the name 50 m away; the chart draws the land as shore |
 | ☑ | **Snake Cay** | cay | 26.45610 | -77.05230 | 26° 27.366′ N | 77° 03.138′ W | land | 14 | yes | map only | SNAKE CAY; the coastline joins it to Great Abaco |
 | ☑ | **T H E   M A R L S** | region | 26.45000 | -77.32000 | 26° 27.000′ N | 77° 19.200′ W | water | 10 | — | map only | base chart: THE MARLS |
 | ☑ | **Tilloo Pond** | anchorage | 26.44880 | -76.99070 | 26° 26.928′ N | 76° 59.442′ W | water | 11.5 | yes | poster + map | TILLOO POND |

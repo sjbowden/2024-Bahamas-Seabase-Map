@@ -2,9 +2,13 @@
 
 Worked up on 10 October 2026. **On 11 October the thirty names in the first two
 classes below were added to the map**, in `MAP_CAYS` in `trip.py`, at the proposed
-points. The fourteen unsettled names and the eleven that do not belong were not.
-`python -m map.build --candidates` marks the unsettled ones that have a point in
-red, for looking at locally. The source is the GeoNames gazetteer for the Bahamas
+points. The fourteen unsettled names and the eleven that do not belong were not,
+except Bunks Cay, which was added later the same day and has its own section below.
+Six more were dropped from the unsettled names the same day, each with its reason
+under Not for the map: Wood Cay, Long Bay Cay, Dunc Cays, Burnt Cay, Potato Cays and
+Meal Cay. The seven still unsettled have no point to show.
+`python -m map.build --candidates` marks any unsettled name that has a point in
+red, for looking at locally; none does now. The source is the GeoNames gazetteer for the Bahamas
 (geonames.org, CC BY 4.0): every island, island group and peninsula it lists inside
 the map whose name the map does not already carry. There are 55.
 
@@ -82,20 +86,19 @@ Woolendean), marked ☐ in `docs/map-labels.md`.
 
 | Name | Kind | Gazetteer point | Corrected by | Proposed label point | Island | Note |
 |---|---|---|---|---|---|---|
-| Long Bay Cay | island | 26.77250, -77.31981 | 101 m W, 3 m N | 26.77289, -77.32275 | 0.2 ha | The offset fades out at this latitude, so the correction is uncertain. The nearest islet is 171 m from the corrected point and 277 m from the raw one; the chart draws it on the reef off Green Turtle Cay, unnamed. |
 | Thurston Islet | island | 26.70478, -77.30693 | 236 m W, 3 m N | none | — | The coastline draws no island. The chart draws a speck 130 m north-west of the corrected point, off Sandbank Landing, unnamed. |
-| Dunc Cays | group | 26.61466, -77.36571 | 407 m W, 64 m N | 26.61449, -77.37010 | 26.8 ha | A group name, and two large islands 170 m apart could both belong to it. |
 | Leaf Cay | island | 26.60403, -77.34774 | 407 m W, 64 m N | none | — | Corrected, the point is on the island OpenStreetMap calls Lockhart Cay, where the chart draws a separate island the coastline does not. Uncorrected, it is 48 m from a 0.4 ha islet. |
-| Burnt Cay | peninsula | 26.57572, -77.24117 | 391 m W, 4 m N | 26.57668, -77.24453 | 40.0 ha | The gazetteer classes it as a peninsula, but the corrected point is on a 40 ha island beside Wills Cay. |
 | Daniel’s Cay | island | 26.57218, -77.11117 | 391 m W, 45 m N | none | — | Corrected, the point is on the islet the chart letters CISTERN CAY. |
-| Potato Cays | group | 26.55200, -77.21971 | 391 m W, 56 m N | 26.55305, -77.22313 | 60.2 ha | A group name; the point is on a 60 ha island with a 47 ha one 300 m south. 8 km from Big Potato Cay, so possibly a different Potato. |
-| Meal Cay | island | 26.51860, -77.35629 | 407 m W, 64 m N | 26.51871, -77.35956 | 1.4 ha | Three islets within 75 m of the corrected point; this is the largest. |
 | Sparrowhawk Cay | island | 26.51409, -77.34871 | 407 m W, 64 m N | none | — | Lands on an island either way: uncorrected on a 0.25 ha islet, corrected on a 10 ha island 400 m west. |
 | Big Crab Cay | island | 26.46846, -77.27289 | 396 m W, 64 m N | none | — | The only island near is 265 m off and 2 ha, a ninth the size of Little Crab Cay next door. |
-| Bunks Cay | peninsula | 26.45912, -77.05080 | 396 m W, 60 m N | 26.45969, -77.05467 | 2.0 ha | The gazetteer classes it as a peninsula. The corrected point is on a 2 ha piece of land the chart draws as part of the shore at Snake Cay. |
 | New Current Cay | island | 26.42544, -77.04338 | 398 m W, 49 m N | none | — | The chart draws the corrected point on a large island; the coastline draws only specks there. |
 | Johnies Cays | group | 26.42138, -77.04733 | 398 m W, 39 m N | none | — | A group name; the chart draws the point on one of a dozen islets, and the coastline's nearest is 170 m off. |
-| Wood Cay | island | 26.36494, -77.27780 | 396 m W, 69 m N | 26.36815, -77.28265 | 45.2 ha | OpenStreetMap puts Wood Cay 3 km to the south. |
+
+## Unsettled, then added
+
+| Name | Kind | Gazetteer point | Corrected by | Proposed label point | Island | Note |
+|---|---|---|---|---|---|---|
+| Bunks Cay | peninsula | 26.45912, -77.05080 | 396 m W, 60 m N | 26.45969, -77.05467 | 2.0 ha | The gazetteer classes it as a peninsula. The corrected point is on a 2 ha piece of land the chart draws as part of the shore at Snake Cay. Added on 11 October: a second listing of the name, source not recorded, gives 26°27′35″N 77°03′15″W, 50 m from the corrected point and 340 m from the gazetteer's own. It calls the place an islet, which is not relied on; whether it is an islet or a spit is still open. |
 
 ## Not for the map
 
@@ -112,6 +115,12 @@ Woolendean), marked ☐ in `docs/map-labels.md`.
 | Minus Cay | island | 26.56365, -77.13641 | No island near; probably a second spelling of Minos Cay, 3 km away. |
 | Abaco Island | island | 26.46504, -77.13432 | Great Abaco itself. |
 | John Keys Cay | island | 26.42957, -77.04752 | The point is on Deep Sea Cay, already named from the chart. |
+| Wood Cay | island | 26.36494, -77.27780 | Dropped on 11 October, having been unsettled: corrected, the point is on a 45 ha island at 26.36815, -77.28265, but OpenStreetMap puts Wood Cay 3 km to the south, nothing decides between them, and it is far from anywhere the trip went. |
+| Long Bay Cay | island | 26.77250, -77.31981 | Dropped on 11 October, having been unsettled: a 0.2 ha islet near 26.77289, -77.32275, and no second source for the name was found. The offset fades out at this latitude, so the correction is uncertain. The nearest islet is 171 m from the corrected point and 277 m from the raw one; the chart draws it on the reef off Green Turtle Cay, unnamed. |
+| Dunc Cays | group | 26.61466, -77.36571 | Dropped on 11 October, having been unsettled: a group name in the Marls, and a second listing (also known as Thatch Cays) gives 26°31′N 77°22′W, 11 km south of the corrected point at 26.61449, -77.37010. Neither picks out an island. A group name, and two large islands 170 m apart could both belong to it. |
+| Burnt Cay | peninsula | 26.57572, -77.24117 | Dropped on 11 October, having been unsettled: no second source was found; the one other listing repeats the gazetteer's own point. The gazetteer classes it as a peninsula, but the corrected point is on a 40 ha island beside Wills Cay. |
+| Potato Cays | group | 26.55200, -77.21971 | Dropped on 11 October, having been unsettled, with no second source. A group name; the point is on a 60 ha island with a 47 ha one 300 m south. 8 km from Big Potato Cay, so possibly a different Potato. |
+| Meal Cay | island | 26.51860, -77.35629 | Dropped on 11 October, having been unsettled, with no second source: the one other listing is the gazetteer's point rounded to the minute. Three islets within 75 m of the corrected point; this is the largest. |
 
 ## If more are added
 

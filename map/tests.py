@@ -1147,7 +1147,7 @@ def test_site_build():
         got = json.load(open(os.path.join(tmp, "data", "candidates.geojson")))["features"]
     kinds = {f["properties"]["verdict"] for f in got}
     check("the candidate preview shows only the names still undecided, each with a point",
-          n == len(got) >= 5 and kinds == {"Unsettled"}
+          n == len(got) and kinds <= {"Unsettled"}
           and all(26.2 < f["geometry"]["coordinates"][1] < 27.1 for f in got), f"{n} {kinds}")
     check("this built folder is not carrying the candidate preview",
           "candidates" not in meta_early and

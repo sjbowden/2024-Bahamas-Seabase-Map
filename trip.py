@@ -350,6 +350,11 @@ MAP_CAYS = [
     (-77.28628, 26.47483, "Little Crab Cay", 13.0),
     (-77.04546, 26.43111, "John Doctor Cay", 14.0),
     (-77.29510, 26.28378, "Big Mangrove", 14.0),
+    # One of the unsettled names, added the same day. The gazetteer classes Bunks
+    # Cay as a peninsula and the chart draws the land as shore, which is why it
+    # was held back; a second listing of the name gives a point 50 m from the
+    # corrected one, and the name reads the same on an islet or a spit.
+    (-77.05467, 26.45969, "Bunks Cay", 14.5),
 ]
 
 # Settlements, points and bays: named places that are not islands, so they get their
