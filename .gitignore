@@ -66,3 +66,6 @@ out/review_poster_*
 
 # the NTFS "downloaded from the internet" stream, which WSL shows as a file
 *:Zone.Identifier
+
+# the upload tool's cache: which Cloudflare account the site was last sent to
+.wrangler/
