@@ -71,7 +71,8 @@ TOWN included, and twelve dot-and-name pairs are left, all clear by z11.3. Four
 of the twelve are still crossed where the chart opens: Fishing for Megalodon on
 SEA OF ABACO (to z11.2), The outer reef on Man-O-War Cay (to z11), “Dad…” on
 Tilloo Cay (to z10.4) and The barge wreck on Lubbers Quarters (to z10.2).
-Clearing those would mean moving island names placed on 10 October.
+Clearing those would mean moving island names placed on 10 October, and they
+are accepted as they are.
 
 Both measurements are now part of `python -m map.tests`, in
 `map/browser_check.js`: it fails if two names overlap at any zoom, or if a
@@ -81,20 +82,22 @@ A story dot under a photograph count now moves to the count's rim.
 
 ## Optional
 
-- [ ] **Two readings to check by eye**, both in Cherokee Sound: North Cay and
-  Chicken Cay are lettered over mangrove with no shore drawn, so each label is
-  where the chart's lettering is rather than on an island.
-- [ ] **Two unnamed mangrove islands** on the Great Abaco shore, listed in a
-  comment in `trip.py`. Neither the charts nor the gazetteer names them.
-- [ ] **Seven gazetteer names left unsettled**, where more than one island
-  fits or the sources disagree. `docs/gazetteer-candidates.md` has each one.
-  None has a best-guess point, so `python -m map.build --candidates` now marks
-  nothing.
-- [ ] **A narrower key for uploads.** The site was uploaded with the account's
-  global key; a token limited to Pages would do the same job.
+- [ ] **A narrower key for uploads, and the old one rolled.** Uploads now go
+  through wrangler's own browser sign-in, not the account's global key, but
+  that sign-in can do far more than upload this site. A token limited to
+  "Cloudflare Pages: Edit", made in the dashboard and given to wrangler as
+  `CLOUDFLARE_API_TOKEN`, would do the same job. The global key was used for
+  the first uploads and should be rolled in the dashboard either way.
 
 ## Done since this list was first written
 
+- Three optional items closed on 11 October. The seven gazetteer names still
+  unsettled were dropped: none had one island to go on, and OpenStreetMap,
+  searched that day, has none of them. The two unnamed mangrove islands on the
+  Great Abaco shore stay unnamed: the charts, the gazetteer and OpenStreetMap
+  all leave them so. North Cay and Chicken Cay in Cherokee Sound stay where the
+  chart letters them, over mangrove with no shore drawn; OpenStreetMap has
+  neither name, and the by-eye check against the chart was not made.
 - Bunks Cay added on 11 October, the first of the unsettled names: a second
   listing puts it 50 m from the corrected point. The map now draws 160 labels.
   Its spacing was then measured with every other label's; see Label overlaps.

@@ -396,7 +396,8 @@ MAP_REGIONS = [
 # Islands the coastline draws in the trip area that are still unnamed here, with
 # the size and length the geometry gives them. The Explorer charts settled most
 # of the list this began as, and the gazetteer one more (Pond Apple Cay, the
-# 40 ha island west of Armstrong Cay). Neither source names these two:
+# 40 ha island west of Armstrong Cay). Neither source names these two, nor does
+# OpenStreetMap as of 11 October 2026, so they stay unnamed:
 #
 #   26.35872 -77.02272   22 ha  0.9 km
 #   26.33446 -77.02760   20 ha  1.5 km
