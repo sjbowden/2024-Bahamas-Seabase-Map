@@ -412,6 +412,24 @@ html, body {
 #viewer-when { font-size: .95rem; letter-spacing: .04em; }
 #viewer-note { font-size: .81rem; color: #C9D2D7; }
 #viewer-meta { font-size: .72rem; color: #94A3AA; letter-spacing: .06em; }
+#viewer-spot { font-size: .72rem; color: #94A3AA; letter-spacing: .06em; }
+/* Said once, over the photograph, when a step lands somewhere else: the arrows
+   walk every photograph in the order they were taken, so the next one after the
+   last at an anchorage is a mile away and looks, for a moment, like more of the
+   same. */
+#viewer figure { position: relative; }
+#viewer-moved {
+  position: absolute; top: .8rem; left: 50%; transform: translateX(-50%);
+  margin: 0; padding: .4rem .9rem;
+  background: var(--paper); color: var(--ink);
+  border: 1px solid var(--rule); border-radius: 3px;
+  font-family: var(--sans); font-size: .8rem; font-weight: 700; letter-spacing: .05em;
+  white-space: nowrap; pointer-events: none;
+  box-shadow: 0 2px 14px rgba(0, 0, 0, .45);
+  animation: moved 2.6s ease-out forwards;
+}
+#viewer-moved[hidden] { display: none; }
+@keyframes moved { 0%, 70% { opacity: 1; } 100% { opacity: 0; } }
 
 #viewer button {
   position: absolute; z-index: 11;

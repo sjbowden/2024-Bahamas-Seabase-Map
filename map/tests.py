@@ -1136,6 +1136,12 @@ def test_site_build():
     # it covers -- names never hide, and never show through a bubble either.
     # (An earlier fix hid any name a bubble touched, which cost the opening
     # view HOPE TOWN entirely; covering beats vanishing.)
+    # The arrows walk every photograph in time order, so the one after the last
+    # at an anchorage is somewhere else and nothing said so.
+    page = open(os.path.join(out, "index.html")).read()
+    check("the viewer says when a step lands at a different spot",
+          'id="viewer-moved"' in page and 'id="viewer-spot"' in page
+          and "function announceMove" in app and "announceMove(from, i)" in app)
     # The photographs taken at a story's spot cluster on the story's own dot. The
     # bubble covered the dot, and the dot underneath still took the click.
     check("a story's dot moves out from under a photograph count",

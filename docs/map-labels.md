@@ -125,7 +125,7 @@ from `site_build/data/places.geojson`, so this is what actually ships.
 | ☑ | **Deep Sea Cay** | cay | 26.43816 | -77.05019 | 26° 26.290′ N | 77° 03.011′ W | land | 12.5 | yes | map only | DEEP SEA CAY |
 | ☑ | **Mocking Bird Cay** | cay | 26.43464 | -77.04568 | 26° 26.078′ N | 77° 02.741′ W | land | 13.5 | yes | map only | MOCKING BIRD CAY (unnamed in OpenStreetMap) |
 | ☑ | **Iron Cay** | cay | 26.42317 | -77.04139 | 26° 25.390′ N | 77° 02.483′ W | land | 13 | yes | map only | IRON CAY |
-| ☑ | **Pelican Cays** | cay | 26.41900 | -76.97650 | 26° 25.140′ N | 76° 58.590′ W | water | 13 | yes | map only | PELICAN CAYS, lettered along the chain |
+| ☑ | **Pelican Cays** | cay | 26.41220 | -76.97970 | 26° 24.732′ N | 76° 58.782′ W | water | 13 | yes | map only | PELICAN CAYS, lettered along the chain; on the map the name sits mid-chain, between the second and third islets |
 | ☑ | **Channel Cay** | cay | 26.41404 | -76.99656 | 26° 24.842′ N | 76° 59.794′ W | land | 11 | yes | map only | CHANNEL CAY |
 | ☑ | **G R E A T   A B A C O** | big | 26.41200 | -77.12050 | 26° 24.720′ N | 77° 07.230′ W | land | 8.5 | yes | poster + map | GREAT ABACO ISLAND |
 | ☑ | **Gaulding Cay** | cay | 26.40767 | -77.00273 | 26° 24.460′ N | 77° 00.164′ W | land | 13.5 | yes | map only | GAULDING CAY |
@@ -175,7 +175,7 @@ interior point from a coordinate you supplied.
 
 **Channel Cay** — Labelled Pelican Cays for one build. That is the name of the whole group of cays here, so the island got its own name instead.
 
-**Pelican Cays** — A group label for the four islets between Tilloo Cay and Sandy Cay, set in the water on the ocean side, off the two northern islets, where Explorer Chart AB 23 letters the name. The crew landed on the northernmost on Tuesday 26 March.
+**Pelican Cays** — A group label for the four islets between Tilloo Cay and Sandy Cay, set in the water in the middle of the chain, between the second and third islets, so the southern pair off Sandy Cay read as part of the group. Explorer Chart AB 23 letters the name on the ocean side, off the two northern islets, and the label stood there until 10 October 2026. The crew landed on the northernmost on Tuesday 26 March.
 
 **Lynyard Cay** — Nudged 0.9 km north and 0.2 km east on the map only, to the middle of the 4.3 km cay. The poster draws this label too and places its day badges around it, so the shared coordinate is untouched.
 

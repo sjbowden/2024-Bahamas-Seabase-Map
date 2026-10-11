@@ -174,11 +174,12 @@ MAP_CAYS = [
     # The group, not an island: the four islets strung along the barrier between
     # Tilloo Cay and Sandy Cay, 26.399 to 26.426 N. The crew landed on the
     # northernmost on Tuesday afternoon and the captain called it Pelican Cay, but
-    # no chart names the islets singly, so the label names them all. It sits where
-    # Explorer Chart AB 23 letters the name: on the ocean side, off the two northern
-    # islets, 330 m from the nearest shore. Held to z13 because Channel Cay's label
-    # is 2 km to the west.
-    (-76.97650, 26.41900, "Pelican Cays", 13.0),
+    # no chart names the islets singly, so the label names them all. It sits in
+    # the middle of the chain, in the gap between the second and third islets, so
+    # the southern pair off Sandy Cay read as part of the group too; it stood off
+    # the two northern islets, where Explorer Chart AB 23 letters the name. Held
+    # to z13 because Channel Cay's label is 1.7 km to the west.
+    (-76.97970, 26.41220, "Pelican Cays", 13.0),
     (-77.37152, 26.83119, "Manjack Cay", 11.0),   # OSM spells it Nunjack Cay
     (-77.47842, 26.90338, "Powell Cay", 11.0),
     (-77.53761, 26.94675, "Spanish Cay", 11.0),

@@ -871,6 +871,10 @@ function openViewer(id) {
 function showAt(i, { pan = true } = {}) {
   const p = state.shown[i];
   if (!p) return;
+  // Where the viewer was, if it was open on a neighbour: only a step with the
+  // arrows can be said to have moved on.
+  const from = (!$('#viewer').hidden && state.at != null && Math.abs(state.at - i) === 1)
+    ? state.shown[state.at] : null;
   state.at = i;
   const img = $('#viewer-img');
   // Same photograph, new index: renumbering the caption must not reload the image.
@@ -884,6 +888,11 @@ function showAt(i, { pan = true } = {}) {
   $('#viewer-meta').textContent =
     [p.camera, p.uncertainty_m != null ? `± ${fmtDistance(p.uncertainty_m)}` : null]
       .filter(Boolean).join('  ·  ');
+  const [a, b] = spotAround(i);
+  $('#viewer-spot').textContent = b > a
+    ? `${i - a + 1} of ${b - a + 1} ${/under way/.test(p.note || '') ? 'along this stretch' : 'at this spot'}`
+    : '';
+  announceMove(from, i);
   revealViewer();
 
   map.getSource('uncertainty').setData(
@@ -899,6 +908,40 @@ function showAt(i, { pan = true } = {}) {
   if (pan && !map.getBounds().contains([p.lon, p.lat])) {
     map.easeTo({ center: [p.lon, p.lat], duration: 400 });
   }
+}
+
+/* The arrows walk every photograph in the order it was taken, not the stack that
+ * was opened, so the one after the last at an anchorage is somewhere else. A spot
+ * is a run of photographs each within SPOT_M of the one before -- a stack at an
+ * anchorage, or an unbroken stretch under way. */
+const SPOT_M = 250;
+
+function metresApart(p, q) {
+  const k = Math.cos((p.lat + q.lat) * Math.PI / 360);
+  return Math.hypot((p.lon - q.lon) * 111320 * k, (p.lat - q.lat) * 110540);
+}
+
+function spotAround(i) {
+  const s = state.shown;
+  let a = i, b = i;
+  while (a > 0 && metresApart(s[a - 1], s[a]) <= SPOT_M) a--;
+  while (b < s.length - 1 && metresApart(s[b], s[b + 1]) <= SPOT_M) b++;
+  return [a, b];
+}
+
+function announceMove(from, i) {
+  const el = $('#viewer-moved');
+  const p = state.shown[i];
+  const d = from ? metresApart(from, p) : 0;
+  if (d <= SPOT_M) { el.hidden = true; return; }
+  const [a, b] = spotAround(i);
+  const n = b - a + 1;
+  el.textContent = `A different spot · ${fmtDistance(Math.round(d))} away` +
+    (n > 1 ? ` · ${n} photographs here` : '');
+  // Hidden and shown again so the fade restarts when two moves follow at once.
+  el.hidden = true;
+  void el.offsetWidth;
+  el.hidden = false;
 }
 
 function whenText(p) {
@@ -1066,6 +1109,8 @@ function openOffChart(p) {
   $('#viewer-when').textContent = whenText(p);
   $('#viewer-note').textContent = p.note || '';
   $('#viewer-meta').textContent = p.camera || '';
+  $('#viewer-spot').textContent = '';
+  $('#viewer-moved').hidden = true;
   $('#viewer-prev').hidden = true;
   $('#viewer-next').hidden = true;
   revealViewer();
