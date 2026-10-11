@@ -450,7 +450,14 @@ zoomable, with a checkbox per day, and three things beside it.
   been rendered.
 
 **Hosting.** The built folder is uploaded to Cloudflare Pages as it stands, with
-`wrangler pages deploy site_build`. Nothing is built from this repository there:
+`wrangler pages deploy site_build`. The upload uses an API token that can edit
+Pages projects and nothing else. It is kept outside this repository, in
+`~/.config/bahamas/cloudflare.env` beside the account id, and read into the
+shell before uploading:
+
+    set -a; . ~/.config/bahamas/cloudflare.env; set +a
+
+Nothing is built from this repository there:
 the photographs are not in it, so a push here changes nothing on the site until
 the folder is built and uploaded again. The site asks search engines to stay away
 (`robots.txt`, the `_headers` file Pages honours, and the page's own meta tag),

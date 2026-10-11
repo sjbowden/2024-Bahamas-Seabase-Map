@@ -1,18 +1,10 @@
 # Open items
 
-What is left to do on the chart, the poster and the journal, as of 10 October 2026.
+What is left to do on the chart, the poster and the journal, as of 11 October 2026.
 Everything built so far is committed and the site is hosted; these are loose ends.
 
 ## Needs a person
 
-- [ ] **Look over the interactive chart on a real screen and a phone.** It is
-  hosted (see the README), or run `python -m map.build` then
-  `python -m map.serve` and open http://127.0.0.1:8123/. Everything below has
-  been checked by measuring the page in a headless browser, which cannot show
-  how the chart looks. Changed on 10 October and not yet judged by eye: the
-  island names set on their islands and the two water legends moved clear of
-  them, Pelican Cays' name in the middle of its chain, story dots seated beside
-  the photograph counts, and the viewer's notice on a step to a different spot.
 - [ ] **Decide who gets the link.** The site is hosted, unlisted: it asks search
   engines to stay away, and anyone with the address can read it. The stories
   carry the crew's first names, alongside their photographs; two of the sixteen
@@ -25,11 +17,6 @@ Everything built so far is committed and the site is hosted; these are loose end
   track by time. The owners would need to turn on location sharing for the
   album, or send their originals. The keeper's own originals were checked
   and add nothing: all 512 camera positions are already in the build.
-- [ ] **Names wanting local confirmation.** Little Ambergris Cay is in
-  OpenStreetMap and nowhere else. Twenty-nine cays carry only the GeoNames
-  gazetteer's name, where the charts draw the island unnamed or do not reach;
-  they are marked ☐ in `docs/map-labels.md`. Goliath Cay is where the chart letters it; the gazetteer
-  puts it 900 m further east. `docs/map-labels.md` has the detail for each.
 
 ## The journal
 
@@ -82,15 +69,25 @@ A story dot under a photograph count now moves to the count's rim.
 
 ## Optional
 
-- [ ] **A narrower key for uploads, and the old one rolled.** Uploads now go
-  through wrangler's own browser sign-in, not the account's global key, but
-  that sign-in can do far more than upload this site. A token limited to
-  "Cloudflare Pages: Edit", made in the dashboard and given to wrangler as
-  `CLOUDFLARE_API_TOKEN`, would do the same job. The global key was used for
-  the first uploads and should be rolled in the dashboard either way.
+- [ ] **Retire the two broader credentials.** Uploads have their own token now
+  (see Done). Wrangler's browser sign-in is still active on this machine and
+  can do far more than upload this site: `npx wrangler logout` ends it. The
+  account's global key was used for the first uploads and should be rolled in
+  the Cloudflare dashboard.
 
 ## Done since this list was first written
 
+- A narrower key for uploads, made on 11 October: an API token limited to
+  Cloudflare Pages, kept outside the repository. The README's hosting section
+  says how it is used.
+- Local confirmation of names given up on 11 October: there is no one to ask.
+  The names stay as they are and the doubt stays recorded. Little Ambergris
+  Cay is in OpenStreetMap and nowhere else; twenty-nine cays carry only the
+  GeoNames gazetteer's name and are marked ☐ in `docs/map-labels.md`; Goliath
+  Cay is where the chart letters it, 900 m west of the gazetteer's point.
+- The interactive chart looked over by its keeper on a computer screen and a
+  phone on 11 October, after that day's changes were live. Until then it had
+  only been measured in a headless browser, which cannot show how it looks.
 - Three optional items closed on 11 October. The seven gazetteer names still
   unsettled were dropped: none had one island to go on, and OpenStreetMap,
   searched that day, has none of them. The two unnamed mangrove islands on the
