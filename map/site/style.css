@@ -426,10 +426,8 @@ html, body {
   font-family: var(--sans); font-size: .8rem; font-weight: 700; letter-spacing: .05em;
   white-space: nowrap; pointer-events: none;
   box-shadow: 0 2px 14px rgba(0, 0, 0, .45);
-  animation: moved 2.6s ease-out forwards;
 }
 #viewer-moved[hidden] { display: none; }
-@keyframes moved { 0%, 70% { opacity: 1; } 100% { opacity: 0; } }
 
 #viewer button {
   position: absolute; z-index: 11;

@@ -873,8 +873,12 @@ function showAt(i, { pan = true } = {}) {
   if (!p) return;
   // Where the viewer was, if it was open on a neighbour: only a step with the
   // arrows can be said to have moved on.
-  const from = (!$('#viewer').hidden && state.at != null && Math.abs(state.at - i) === 1)
+  const open = !$('#viewer').hidden;
+  const from = (open && state.at != null && Math.abs(state.at - i) === 1)
     ? state.shown[state.at] : null;
+  // The same photograph shown again -- a day toggle renumbering the sequence --
+  // is not a step, and must not take down a notice that has only just gone up.
+  const same = open && state.at === i;
   state.at = i;
   const img = $('#viewer-img');
   // Same photograph, new index: renumbering the caption must not reload the image.
@@ -892,7 +896,7 @@ function showAt(i, { pan = true } = {}) {
   $('#viewer-spot').textContent = b > a
     ? `${i - a + 1} of ${b - a + 1} ${/under way/.test(p.note || '') ? 'along this stretch' : 'at this spot'}`
     : '';
-  announceMove(from, i);
+  if (!same) announceMove(from, i);
   revealViewer();
 
   map.getSource('uncertainty').setData(
@@ -929,19 +933,24 @@ function spotAround(i) {
   return [a, b];
 }
 
+// How long the notice stays. Timed here rather than by a CSS animation: the
+// stylesheet cuts every animation to nothing for a reader who has asked for
+// reduced motion, and the notice went with it in a blink.
+const MOVED_MS = 3500;
+let movedTimer = 0;
+
 function announceMove(from, i) {
   const el = $('#viewer-moved');
   const p = state.shown[i];
   const d = from ? metresApart(from, p) : 0;
+  clearTimeout(movedTimer);
   if (d <= SPOT_M) { el.hidden = true; return; }
   const [a, b] = spotAround(i);
   const n = b - a + 1;
   el.textContent = `A different spot · ${fmtDistance(Math.round(d))} away` +
     (n > 1 ? ` · ${n} photographs here` : '');
-  // Hidden and shown again so the fade restarts when two moves follow at once.
-  el.hidden = true;
-  void el.offsetWidth;
   el.hidden = false;
+  movedTimer = setTimeout(() => { el.hidden = true; }, MOVED_MS);
 }
 
 function whenText(p) {
@@ -984,6 +993,7 @@ function revealViewer() {
 function closeViewer() {
   const wasOpen = !$('#viewer').hidden;
   $('#viewer').hidden = true;
+  $('#viewer-moved').hidden = true;
   document.body.classList.remove('viewing');
   for (const sel of BEHIND_VIEWER) { const el = $(sel); if (el) el.inert = false; }
   if (wasOpen) {
