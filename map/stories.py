@@ -106,10 +106,11 @@ STORIES = [
               "then jump into the water to rinse off."),
     # The launch is the one story with a fact added from outside the journal, which
     # took the two bright objects for two boosters. It was a Falcon 9 with a single
-    # booster, which lifted off at 7:42 pm EDT from Cape Canaveral, so the time is
-    # that. The crew's photographs catch its entry burn at 7:48 pm, two minutes
-    # before it landed, so the story says "on its way down" and not "landing".
-    dict(day="Mon 25 Mar", time="19:42", lon=-76.98492, lat=26.35683,
+    # booster, which lifted off at 7:42 pm EDT from Cape Canaveral. The crew's
+    # photographs of it begin at 7:45 pm, so the time is that, and they catch its
+    # entry burn at 7:48 pm, two minutes before it landed, so the story says "on
+    # its way down" and not "landing".
+    dict(day="Mon 25 Mar", time="19:45", lon=-76.98492, lat=26.35683,
          title="A rocket over the water",
          text="As we reboarded the ship we saw a plume in the sky. At first we thought "
               "it was a jet contrail, but it kept going. We then saw two bright "
