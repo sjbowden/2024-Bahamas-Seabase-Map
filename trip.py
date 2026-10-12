@@ -605,17 +605,22 @@ def read_fixes(stem):
     return fixes, dropped
 
 
-def recorded_fixes(stem, max_kn=30.0):
+def recorded_fixes(stem, max_kn=30.0, road_split=None):
     """Every fix the receiver recorded, at full cadence, less the spikes.
 
     What to ask when the question is about the *receiver* -- when it was running,
     where it was at a given moment -- rather than about the drawing. load_day()
     answers the second and thins stationary stretches away entirely, so its last
-    point can be hours before the receiver stopped. The spike rule is load_day's.
+    point can be hours before the receiver stopped. The spike rule is load_day's,
+    and like load_day's it stops at `road_split`: 30 kn is a spike on a boat and
+    an ordinary speed in a van, so the fixes after it are all kept.
     """
     raw, _ = read_fixes(stem)
     if not raw:
         return []
+    raw, road = _split_at(raw, road_split) if road_split else (raw, [])
+    if not raw:
+        return road
     kept, prev = [raw[0]], raw[0]
     for p in raw[1:]:
         dt = (p[0] - prev[0]).total_seconds()
@@ -624,7 +629,7 @@ def recorded_fixes(stem, max_kn=30.0):
             continue
         kept.append(p)
         prev = p
-    return kept
+    return kept + road
 
 
 def _split_at(pts, iso):

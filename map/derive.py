@@ -223,23 +223,35 @@ def _save_manifest(path, dest, manifest):
     os.replace(tmp, path)
 
 
+def _orphans(dest, keep):
+    """What the index no longer asks for, as (path, what to call it).
+
+    Only this module's own names: pNNNNN.jpg for an id not in `keep`, called by
+    its id, and the .part files a killed run leaves behind, called by their file
+    names. `keep` of None spares every derivative and leaves only the debris.
+    The one rule for both _sweep(), which removes these, and stale(), which
+    refuses to publish beside them.
+    """
+    for spec in (THUMB, VIEW):
+        folder = os.path.join(dest, spec["name"])
+        for name in (sorted(os.listdir(folder)) if os.path.isdir(folder) else ()):
+            m = _DERIVED.match(name)
+            if name.endswith(".jpg.part"):
+                yield os.path.join(folder, name), name
+            elif m and keep is not None and m.group(1) not in keep:
+                yield os.path.join(folder, name), m.group(1)
+
+
 def _sweep(dest, keep):
     """Remove what the index no longer asks for. Returns how many files went.
 
-    Only this module's own names are touched: pNNNNN.jpg for an id not in `keep`,
-    and the .part files a killed run leaves behind. `keep` of None means a sample
-    run, which sweeps the debris and leaves every derivative alone.
+    `keep` of None means a sample run, which sweeps the debris and leaves every
+    derivative alone.
     """
     gone = 0
-    for spec in (THUMB, VIEW):
-        folder = os.path.join(dest, spec["name"])
-        for name in os.listdir(folder):
-            m = _DERIVED.match(name)
-            stale = (name.endswith(".jpg.part")
-                     or (m and keep is not None and m.group(1) not in keep))
-            if stale:
-                os.remove(os.path.join(folder, name))
-                gone += 1
+    for path, _ in list(_orphans(dest, keep)):
+        os.remove(path)
+        gone += 1
     legacy = os.path.join(dest, LEGACY_MANIFEST)
     if os.path.exists(legacy):
         os.remove(legacy)
@@ -273,16 +285,7 @@ def stale(photos, dest, manifest_path=None):
                 out.append(p["id"])
                 break
     wanted = {p["id"] for p in photos if not p.get("unreadable")}
-    extra = set()
-    for spec in (THUMB, VIEW):
-        folder = os.path.join(dest, spec["name"])
-        for name in (os.listdir(folder) if os.path.isdir(folder) else ()):
-            m = _DERIVED.match(name)
-            if m and m.group(1) not in wanted:
-                extra.add(m.group(1))
-            elif name.endswith(".jpg.part"):
-                extra.add(name)
-    return out + sorted(extra)
+    return out + sorted({what for _, what in _orphans(dest, wanted)})
 
 
 def fail_on_errors(result):

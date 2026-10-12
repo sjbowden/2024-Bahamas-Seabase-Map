@@ -32,8 +32,12 @@ def dm_to_deg(val, hemi):
     if not val:
         return None
     dot = val.find(".")
+    if dot < 0:
+        dot = len(val)
     deg = float(val[: dot - 2])
     minutes = float(val[dot - 2 :])
+    if not 0.0 <= minutes < 60.0:
+        raise ValueError(f"minutes out of range in {val!r}")
     d = deg + minutes / 60.0
     return -d if hemi in ("S", "W") else d
 

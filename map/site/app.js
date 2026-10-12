@@ -118,11 +118,6 @@ async function start() {
                               ['stories', addStories]]) {
     try { await load(); } catch (e) { console.error(e); lost.push(what); }
   }
-  // A local preview only: `map.build --candidates` sets the flag, and an
-  // ordinary build clears it, so the hosted chart never asks for the file.
-  if (meta.candidates) {
-    try { await addCandidates(); } catch (e) { console.error(e); }
-  }
   buildPanel(meta);
   wirePanel();
   if (lost.length) {
@@ -385,39 +380,6 @@ async function addPlaces() {
   tick();
 }
 
-/* ------------------------------------------------------------- candidates --- */
-// Names from the gazetteer that are not on the chart yet, shown for deciding
-// which to add. A red dot at every zoom says where to look; the name joins it
-// from CANDIDATE_NAME_ZOOM. A hollow dot is one the write-up calls unsettled.
-const CANDIDATE_NAME_ZOOM = 12.5;
-
-async function addCandidates() {
-  const fc = await json('data/candidates.geojson');
-  const els = [];
-  for (const f of fc.features) {
-    const p = f.properties;
-    const el = document.createElement('div');
-    el.className = 'candidate' + (p.verdict === 'Unsettled' ? ' candidate-open' : '');
-    el.title = `${p.label} — ${p.verdict}. ${p.note}`;
-    const name = document.createElement('span');
-    name.textContent = p.label + (p.verdict === 'Unsettled' ? ' ?' : '');
-    el.appendChild(name);
-    new maplibregl.Marker({ element: el, anchor: 'center' })
-      .setLngLat(f.geometry.coordinates).addTo(map);
-    els.push(name);
-  }
-  const tick = () => {
-    const show = map.getZoom() >= CANDIDATE_NAME_ZOOM;
-    for (const n of els) n.hidden = !show;
-  };
-  map.on('zoom', tick);
-  tick();
-  const note = document.createElement('p');
-  note.id = 'candidate-note';
-  note.textContent = `Preview: ${fc.features.length} gazetteer names not yet on the chart, in red`;
-  document.body.appendChild(note);
-}
-
 /* ---------------------------------------------------------------- stories --- */
 // What happened where, in the journal's own words. HTML markers for the same
 // reason the place names are: no glyph server, and a marker that carries a number
@@ -453,10 +415,14 @@ function refreshStories() {
     s.el.style.display = (on && state.days.has(s.p.day)) ? '' : 'none';
   }
   // An open popup goes with its stories: one left over a chart that no longer
-  // shows its day is the filter not having filtered.
-  if (state.storyPopup &&
-      (!on || (state.storyPopupOf || []).some((o) => o.el.style.display === 'none'))) {
-    state.storyPopup.remove();
+  // shows its day is the filter not having filtered. A popup can hold stories
+  // from two days at one anchorage, and unticking one day costs it that story
+  // and not the other.
+  if (state.storyPopup) {
+    const were = state.storyPopupOf || [];
+    const left = were.filter((o) => o.el.style.display !== 'none');
+    if (!left.length) state.storyPopup.remove();
+    else if (left.length < were.length) showStories(left, state.storyPopup.getLngLat());
   }
   drawClusterCounts();      // a dot that has just appeared may be under a bubble
 }
@@ -472,6 +438,10 @@ function openStory(s) {
     const q = map.project(o.lngLat);
     return Math.hypot(q.x - at.x, q.y - at.y) <= STORY_NEAR_PX;
   }).sort((a, b) => a.p.n - b.p.n);
+  showStories(here, s.lngLat);
+}
+
+function showStories(here, lngLat) {
   const html = here.map((o) =>
     `<article class="story-text"><h3><span class="story-n" style="background:${esc(o.p.color)}">` +
     `${esc(o.p.n)}</span>${esc(o.p.title)}</h3>` +
@@ -479,9 +449,14 @@ function openStory(s) {
     `<p class="story-more"><a href="journal.html#${esc(daySlug(here[0].p.day))}">` +
     `Read ${esc(here[0].p.day)} in the journal</a></p>`;
   if (state.storyPopup) state.storyPopup.remove();
+  const popup = new maplibregl.Popup({ offset: 14, maxWidth: '21rem', className: 'story-popup' })
+    .setLngLat(lngLat).setHTML(html).addTo(map);
+  // Closed by hand or replaced, it no longer answers for any story.
+  popup.on('close', () => {
+    if (state.storyPopup === popup) { state.storyPopup = null; state.storyPopupOf = null; }
+  });
+  state.storyPopup = popup;
   state.storyPopupOf = here;
-  state.storyPopup = new maplibregl.Popup({ offset: 14, maxWidth: '21rem', className: 'story-popup' })
-    .setLngLat(s.lngLat).setHTML(html).addTo(map);
 }
 
 // The journal page's anchor for a day: 'Sun 24 Mar' -> 'sun-24-mar'. The same

@@ -111,11 +111,13 @@ def track():
 
     Less the residual spikes, as read_fixes() asks of anything placing objects:
     a photograph taken on one of those would be put up to 1.5 km from the boat.
+    The van to the airport is not a spike, so the rule stops where the road starts.
     """
     fixes = []
     for d in DAYS:
         fixes += [(t, lat, lon, sog, d["label"])
-                  for t, lat, lon, sog in recorded_fixes(d["file"])]
+                  for t, lat, lon, sog in recorded_fixes(
+                      d["file"], road_split=d.get("road_split"))]
     fixes.sort(key=lambda f: f[0])
     return fixes
 

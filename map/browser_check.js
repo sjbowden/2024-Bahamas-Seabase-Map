@@ -16,12 +16,20 @@ const { chromium } = require('playwright-core');
 const say = (name, ok, detail = '') => console.log(JSON.stringify({ name, ok: !!ok, detail }));
 
 (async () => {
-  const browser = await chromium.launch({
-    ...(process.env.CHROME ? { executablePath: process.env.CHROME } : { channel: 'chrome' }),
-    // MapLibre wants WebGL, and a headless machine has no GPU to give it.
-    args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader',
-           '--ignore-gpu-blocklist'],
-  });
+  let browser;
+  try {
+    browser = await chromium.launch({
+      ...(process.env.CHROME ? { executablePath: process.env.CHROME } : { channel: 'chrome' }),
+      // MapLibre wants WebGL, and a headless machine has no GPU to give it.
+      args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader',
+             '--ignore-gpu-blocklist'],
+    });
+  } catch (e) {
+    // The driver without a browser to drive is a machine that cannot run this,
+    // not a chart that failed it.
+    console.log(JSON.stringify({ skip: String(e.message || e).split('\n')[0] }));
+    return;
+  }
   const page = await browser.newPage({ viewport: { width: 1400, height: 900 } });
   const errors = [];
   page.on('pageerror', (e) => errors.push(String(e)));
@@ -116,7 +124,11 @@ const say = (name, ok, detail = '') => console.log(JSON.stringify({ name, ok: !!
   const day = await openFirstStory();
   say('a story opens in a popup', await popups() === 1, day);
   await page.uncheck(`#days input[data-day="${day}"]`);
-  say('unticking its day closes the popup', await popups() === 0);
+  // Closed, or left holding another day's story from the same spot.
+  say('unticking its day takes its stories out of the popup', await page.evaluate(
+    (d) => !(state.storyPopupOf || []).some((o) => o.p.day === d)
+      && ![...document.querySelectorAll('.story-popup .popup-route')]
+        .some((e) => e.textContent.includes(d)), day));
   await page.check(`#days input[data-day="${day}"]`);
   await openFirstStory();
   await page.click('#days-none');
@@ -130,6 +142,34 @@ const say = (name, ok, detail = '') => console.log(JSON.stringify({ name, ok: !!
   });
   await page.uncheck(`#days input[data-day="${other}"]`);
   say('unticking some other day leaves it open', await popups() === 1, other);
+
+  // Two days' stories at one anchorage share a popup, and each leaves with its
+  // own day. Zoomed out until the nearest such pair is one tap.
+  await page.click('#days-all');
+  const pair = await page.evaluate(() => {
+    map.jumpTo({ zoom: 10 });
+    for (const s of state.stories) {
+      openStory(s);
+      const days = [...new Set(state.storyPopupOf.map((o) => o.p.day))];
+      if (days.length > 1) return { days, n: state.storyPopupOf.length };
+    }
+    return null;
+  });
+  if (pair) {
+    await page.uncheck(`#days input[data-day="${pair.days[0]}"]`);
+    const left = await page.evaluate(() => ({
+      of: state.storyPopupOf.map((o) => o.p.day),
+      drawn: document.querySelectorAll('.story-popup .story-text').length }));
+    say('a popup of two days keeps the story whose day is still ticked',
+        await popups() === 1 && left.of.length && left.drawn === left.of.length
+        && !left.of.includes(pair.days[0]), JSON.stringify(left));
+    await page.click('.story-popup .maplibregl-popup-close-button');
+    say('and a popup closed by hand answers for no story',
+        await page.evaluate(() => !state.storyPopup && !state.storyPopupOf));
+  } else {
+    say('a popup of two days keeps the story whose day is still ticked', false,
+        'no two stories of different days share a tap at z10');
+  }
 
   // A photograph that knows where and not when answers to no day's checkbox.
   await page.click('#days-all');

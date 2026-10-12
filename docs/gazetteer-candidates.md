@@ -8,7 +8,8 @@ Six more were dropped from the unsettled names the same day, each with its reaso
 under Not for the map: Wood Cay, Long Bay Cay, Dunc Cays, Burnt Cay, Potato Cays and
 Meal Cay. The last seven, which never had one island to point at, were dropped that
 evening after OpenStreetMap was searched for each and had none of them, so nothing
-is unsettled now and `python -m map.build --candidates` marks nothing. The source is the GeoNames gazetteer for the Bahamas
+is unsettled now, and the local preview that marked these names in red has been
+removed from the build. The source is the GeoNames gazetteer for the Bahamas
 (geonames.org, CC BY 4.0): every island, island group and peninsula it lists inside
 the map whose name the map does not already carry. There are 55.
 

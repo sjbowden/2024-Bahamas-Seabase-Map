@@ -218,10 +218,7 @@ def index(archives=ARCHIVES, progress=None):
 
     photos = []
     for name, copies in found.items():
-        # Same name, different camera: a genuine collision, not one photograph.
-        by_cam = collections.OrderedDict()
-        for c in copies:
-            by_cam.setdefault(camera_key(c["tags"]), []).append(c)
+        by_cam = by_camera(copies)
         if len(by_cam) > 1:
             stats["name_collisions"] += 1
         for cam, group in by_cam.items():
@@ -233,19 +230,47 @@ def index(archives=ARCHIVES, progress=None):
     return photos, stats
 
 
+def by_camera(copies):
+    """The copies sharing one file name, grouped by the camera that took them.
+
+    Same name, different camera: a genuine collision, not one photograph. A copy
+    that will not decode names no camera at all, so on its own it would collide
+    with its readable twin and be listed as a second, unreadable photograph. It
+    goes with the readable copies when they are all one camera's, which is the
+    only case where there is no doubt whose copy it is.
+    """
+    by_cam, bad = collections.OrderedDict(), []
+    for c in copies:
+        if "error" in c["tags"]:
+            bad.append(c)
+        else:
+            by_cam.setdefault(camera_key(c["tags"]), []).append(c)
+    if bad:
+        home = next(iter(by_cam)) if len(by_cam) == 1 else camera_key({})
+        by_cam.setdefault(home, []).extend(bad)
+    return by_cam
+
+
 def _merge(name, cam, group, stats, suffix=False):
     """Fold every copy of one photograph into a single record."""
     # Pixels come from the largest copy that can be read: re-encoding only ever
     # cost detail, but a copy that will not decode has none to offer.
     src = max(group, key=lambda c: ("error" not in c["tags"], c["size"]))
 
+    # Position and GPS time are the satellites' and not the camera's, so a copy
+    # that kept them can lend them to one that was re-saved without. Only a copy
+    # that agrees with this one about when it was taken, though: a name and a
+    # camera model are shared by two crew with the same phone, and a different
+    # time is the one sign that these are two photographs. Both fields come from
+    # the one lender. The clock fields are not borrowed at all: one copy's
+    # timezone on the other's clock is neither.
+    when = src["tags"].get("time_local")
+    lender = next((c for k in ("gps", "gps_utc") for c in group
+                   if c is not src and c["tags"].get(k)
+                   and c["tags"].get("time_local") in (None, when)), None)
+
     def satellite(k):
-        # Position and GPS time are the satellites' and not the camera's, so a
-        # copy that kept them can lend them to one that was re-saved without.
-        # The clock fields are not borrowed: the copies can disagree about the
-        # time, and one copy's timezone on the other's clock is neither.
-        return src["tags"].get(k) or next(
-            (c["tags"][k] for c in group if c["tags"].get(k)), None)
+        return src["tags"].get(k) or (lender["tags"].get(k) if lender else None)
     times = {c["archive"]: c["tags"].get("time_local") for c in group}
     distinct = {t for t in times.values() if t}
     rec = dict(

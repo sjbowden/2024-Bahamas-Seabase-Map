@@ -1062,7 +1062,6 @@ def test_site_build():
     check("every file the page asks for is present", not missing, str(missing))
 
     app = open(os.path.join(out, "app.js")).read()
-    meta_early = json.load(open(os.path.join(out, "data", "meta.json")))
     # A nudge is a distance on the ground: 2 km is a finger's width at the opening
     # view and four screens away at z15. Lubbers Quarters was there to be read at
     # z10 and nowhere to be found by anyone who had zoomed in on the island.
@@ -1137,22 +1136,6 @@ def test_site_build():
     # it covers -- names never hide, and never show through a bubble either.
     # (An earlier fix hid any name a bubble touched, which cost the opening
     # view HOPE TOWN entirely; covering beats vanishing.)
-    # The red dots for names not yet added are a local preview. A folder built
-    # with them must not be the one uploaded, so a test run says so loudly.
-    from map import build as B
-    import tempfile
-    with tempfile.TemporaryDirectory() as tmp:
-        os.makedirs(os.path.join(tmp, "data"))
-        n = B.candidates(tmp)
-        got = json.load(open(os.path.join(tmp, "data", "candidates.geojson")))["features"]
-    kinds = {f["properties"]["verdict"] for f in got}
-    check("the candidate preview shows only the names still undecided, each with a point",
-          n == len(got) and kinds <= {"Unsettled"}
-          and all(26.2 < f["geometry"]["coordinates"][1] < 27.1 for f in got), f"{n} {kinds}")
-    check("this built folder is not carrying the candidate preview",
-          "candidates" not in meta_early and
-          not os.path.exists(os.path.join(out, "data", "candidates.geojson")),
-          "built with --candidates: rebuild without it before uploading")
     # The arrows walk every photograph in time order, so the one after the last
     # at an anchorage is somewhere else and nothing said so.
     page = open(os.path.join(out, "index.html")).read()
@@ -1233,6 +1216,9 @@ def test_site_build():
           "app.js must fetch only from this folder")
 
 
+BROWSER_TIMEOUT_S = 300
+
+
 def test_browser():
     """What only a click can show, in a real browser. See map/browser_check.js."""
     import functools
@@ -1261,10 +1247,20 @@ def test_browser():
     try:
         run = subprocess.run(
             ["node", script, f"http://127.0.0.1:{httpd.server_address[1]}/"],
-            cwd=C.HERE, capture_output=True, text=True, timeout=300)
+            cwd=C.HERE, capture_output=True, text=True, timeout=BROWSER_TIMEOUT_S)
+    except subprocess.TimeoutExpired:
+        # One failed check, and the rest of the suite still reports.
+        check("the browser check ran to the end", False,
+              f"no answer in {BROWSER_TIMEOUT_S} s")
+        return
     finally:
         httpd.shutdown()
+        httpd.server_close()
     lines = [json.loads(l) for l in run.stdout.splitlines() if l.startswith("{")]
+    skipped = [r["skip"] for r in lines if "skip" in r]
+    if skipped:
+        print(f"  SKIP  no browser to drive ({skipped[0]})")
+        return
     for r in lines:
         check(r["name"], r["ok"], r["detail"])
     check("the browser check ran to the end", run.returncode == 0 and len(lines) >= 10,
@@ -1282,7 +1278,8 @@ def test_edges():
     import parse_nmea
     from trip import shoal
     from map import derive as D
-    from map.photo_index import _merge
+    from map.photo_index import _merge, by_camera
+    from trip import recorded_fixes
     section("edges the data does not reach")
 
     b = io.BytesIO()
@@ -1317,12 +1314,14 @@ def test_edges():
             return f"${body}*{ck:02X}\n"
         log = os.path.join(t, "GPS_x.log")
         with open(log, "w") as fh:
-            for lat in ("xxxx", "9930.000", "2630.000"):
-                fh.write(nmea(f"GPRMC,12000{len(lat)}.00,A,{lat},N,07700.000,W,"
+            for i, lat in enumerate(("xxxx", "9930.000", "2699.000", "2630.000", "2630")):
+                fh.write(nmea(f"GPRMC,12000{i}.00,A,{lat},N,07700.000,W,"
                               "1.0,0.0,250324,,,A"))
         rows = parse_nmea.parse_file(log)
         check("a malformed or impossible coordinate costs one fix, not the log",
-              [(r[1], r[2]) for r in rows] == [(26.5, -77.0)], str(rows))
+              [(r[1], r[2]) for r in rows] == [(26.5, -77.0)] * 2, str(rows))
+        check("and minutes are read the same with no decimal point",
+              parse_nmea.dm_to_deg("2630", "N") == 26.5)
 
     far = shoal(box(10, 0, 11, 1), 0.1)
     shoal(box(0, 0, 1, 1), 0.1)
@@ -1353,9 +1352,72 @@ def test_edges():
     check("a copy that will not decode is not the one the pixels come from",
           m["src"]["archive"] == "crew" and not m["unreadable"], str(m["src"]))
 
+    # Two crew with the same phone share a name and a model; the time is what
+    # tells their photographs apart.
+    m = _merge("a.jpg", "cam", [
+        copy("mine", 9, time_local=when, px=[1, 1]),
+        copy("crew", 5, time_local="2024:03:25 16:30:00", gps=[26.4, -77.1],
+             gps_utc="2024-03-25T20:30:00Z")], collections.Counter())
+    check("a copy taken at another time lends nothing",
+          (m["gps"], m["gps_utc"]) == (None, None), str(m))
+    m = _merge("a.jpg", "cam", [
+        copy("mine", 9, time_local=when, px=[1, 1]),
+        copy("crew", 5, time_local=when, gps=[26.5, -77.0]),
+        copy("crew", 4, time_local=when, gps=[26.6, -77.2],
+             gps_utc="2024-03-24T14:00:00Z")], collections.Counter())
+    check("position and GPS time come from one lender, not one from each",
+          (m["gps"], m["gps_utc"]) == ([26.5, -77.0], None), str(m))
+    g = by_camera([copy("mine", 9, error="bad"),
+                   copy("crew", 5, make="Apple", model="iPhone 14", px=[1, 1])])
+    check("a copy that will not decode goes with its readable twin",
+          list(g) == ["Apple iPhone 14"] and len(g["Apple iPhone 14"]) == 2, str(list(g)))
+    g = by_camera([copy("mine", 9, error="bad"),
+                   copy("crew", 5, make="Apple", model="iPhone 14"),
+                   copy("crew", 6, make="Google", model="Pixel 7a")])
+    check("but not when two cameras could each be its twin",
+          sorted(len(v) for v in g.values()) == [1, 1, 1], str(list(g)))
+
+    # The spike rule is for a boat. Thursday ends in a van at up to 46 kn, and
+    # every one of those fixes is where the receiver was.
     raw = sum(len(read_fixes(d["file"])[0]) for d in DAYS)
-    check("placement reads the track less its spikes", len(P.track()) < raw,
-          f"{raw - len(P.track())} dropped")
+    lost = sum(len(read_fixes(d["file"])[0]) - len(recorded_fixes(d["file"]))
+               for d in DAYS)
+    check("placement keeps every fix from the road to the airport",
+          len(P.track()) == raw and lost > 0,
+          f"{raw - len(P.track())} dropped; {lost} would be without the road split")
+
+    # The browser check is one failed check or one skip, never a traceback that
+    # takes the rest of the suite's verdict with it.
+    import contextlib
+    import shutil
+    import subprocess
+    real, before = subprocess.run, (len(_fail), _pass)
+    script = os.path.join(C.HERE, "map", "browser_check.js")
+
+    def late(cmd, **kw):
+        if script in cmd:
+            raise subprocess.TimeoutExpired(cmd, kw.get("timeout"))
+        return real(cmd, **kw)
+    subprocess.run, said, raised = late, io.StringIO(), None
+    try:
+        with contextlib.redirect_stdout(said):
+            test_browser()
+    except subprocess.TimeoutExpired as e:
+        raised = e
+    finally:
+        subprocess.run = real
+    ran = "SKIP" not in said.getvalue()
+    recorded = _fail[before[0]:] == ["the browser check ran to the end"]
+    del _fail[before[0]:]
+    if ran:
+        check("a browser check that never answers is one failed check",
+              raised is None and recorded,
+              "" if recorded else said.getvalue().strip()[-200:])
+        skip = subprocess.run(["node", script, "http://127.0.0.1:9/"], cwd=C.HERE,
+                              capture_output=True, text=True, timeout=60,
+                              env=dict(os.environ, CHROME="/nonexistent/chrome"))
+        check("a machine with the driver and no browser skips it",
+              skip.returncode == 0 and '"skip"' in skip.stdout, skip.stdout[-200:])
 
 
 def main():
