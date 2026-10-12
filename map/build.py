@@ -150,14 +150,15 @@ def main():
 
     print(f"\nbuilt {a.out} in {time.time() - t0:.0f}s")
     if a.serve:
+        # map/serve.py's handler and its address: this machine only, since the
+        # folder holds the crew's photographs, and nothing cached.
+        import functools
         import http.server
-        import socketserver
-        os.chdir(a.out)
-        print("serving http://localhost:8000/  (ctrl-c to stop)")
-        socketserver.TCPServer.allow_reuse_address = True
-        with socketserver.TCPServer(("", 8000),
-                                    http.server.SimpleHTTPRequestHandler) as s:
-            s.serve_forever()
+        from map import serve
+        print("serving http://127.0.0.1:8000/  (ctrl-c to stop)")
+        http.server.ThreadingHTTPServer(
+            ("127.0.0.1", 8000),
+            functools.partial(serve.Handler, directory=a.out)).serve_forever()
 
 
 if __name__ == "__main__":

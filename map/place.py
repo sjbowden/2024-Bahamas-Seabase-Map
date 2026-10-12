@@ -52,8 +52,10 @@ MAX_GAP_S = 120.0
 # Sailing days. A photograph resolved to a UTC outside every receiver window is
 # `unplaced` if it falls in this range — the receiver was merely off — and
 # `travel` if it falls outside, because then the crew was not in Abaco at all.
-SAIL_LO = datetime(2024, 3, 22, tzinfo=UTC)
-SAIL_HI = datetime(2024, 3, 29, tzinfo=UTC)
+# Midnight to midnight where the days are counted, which is EDT: at midnight UTC
+# on the 22nd it was still Thursday evening and the crew was over Texas.
+SAIL_LO = datetime(2024, 3, 22, 4, tzinfo=UTC)
+SAIL_HI = datetime(2024, 3, 29, 4, tzinfo=UTC)
 
 # What a position from the satellite communicator is worth. corroborate.py
 # measures it against the handheld at the same instants: median 10 m apart, worst

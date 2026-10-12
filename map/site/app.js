@@ -266,6 +266,12 @@ async function addTracks(meta) {
   // reading the legend without leaving the chart.
   for (const id of ['track-afloat', 'track-ashore']) {
     map.on('click', id, (e) => {
+      // A photograph placed from the track sits on the line, and a click on it
+      // is for the photograph. Where two of these layers overlap, one popup.
+      const photos = ['clusters', 'photo-points'].filter((l) => map.getLayer(l));
+      if (photos.length && map.queryRenderedFeatures(e.point, { layers: photos }).length) return;
+      if (e.originalEvent._trackPopup) return;
+      e.originalEvent._trackPopup = true;
       const p = e.features[0].properties;
       const bits = [];
       if (p.nm) bits.push(`${Number(p.nm).toFixed(1)} nm`);
@@ -984,7 +990,12 @@ function whenText(p) {
   const edt = new Date(d.getTime() - 4 * 3600 * 1000);
   const hh = String(edt.getUTCHours()).padStart(2, '0');
   const mm = String(edt.getUTCMinutes()).padStart(2, '0');
-  return `${day || ''} · ${hh}:${mm}`.trim();
+  if (day) return `${day} · ${hh}:${mm}`;
+  // Off the trip's days -- Portland, an airport -- there is no day to name, and
+  // a bare clock time says neither which date nor whose clock.
+  const date = edt.toLocaleDateString('en-GB', {
+    weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' }).replace(',', '');
+  return `${date} · ${hh}:${mm} Bahamas time`;
 }
 
 function fmtDistance(m) {
@@ -1117,9 +1128,11 @@ function buildTray() {
         btn.title = what;
         btn.setAttribute('aria-label', `Open photograph: ${what}`);
         const img = document.createElement('img');
-        img.src = p.thumb;
+        // Before src: Safari and Firefox start the fetch when src is set, and
+        // a flag that arrives afterwards is too late to make it lazy.
         img.loading = 'lazy';            // only what is on screen is fetched
         img.decoding = 'async';
+        img.src = p.thumb;
         img.alt = '';                    // the button carries the name
         btn.append(img);
         btn.addEventListener('click', () => openOffChart(p));

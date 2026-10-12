@@ -185,7 +185,10 @@ def track_layer(depth_days=None):
                                 title=d["title"], route=d["route"],
                                 n=d.get("n"), sail=bool(d.get("sail")),
                                 nm=round(t["nm"], 1) if mode == "afloat" else None,
-                                **((depth_days or {}).get(d["label"]) or {})),
+                                # Water under the keel, so only where there was
+                                # a keel: not the walk, and not the van.
+                                **((depth_days or {}).get(d["label"]) or {}
+                                   if mode == "afloat" else {})),
                 geometry=dict(type="LineString",
                               coordinates=_round([(p[2], p[1]) for p in pts]))))
 

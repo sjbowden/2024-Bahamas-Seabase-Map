@@ -181,6 +181,42 @@ const say = (name, ok, detail = '') => console.log(JSON.stringify({ name, ok: !!
   await page.evaluate(() => openViewer('pTEST'));
   say('and opens in the viewer',
       await page.evaluate(() => !document.querySelector('#viewer').hidden));
+  await page.click('#viewer-close');
+
+  // Off the trip's days a caption has no day to lead with, and says the date.
+  const when = await page.evaluate(() => whenText({ utc: '2024-03-20T05:38:26Z', day: null }));
+  say('a photograph off the trip\'s days is captioned with its date',
+      when === 'Wed 20 Mar · 01:38 Bahamas time', when);
+
+  // A photograph placed from the track sits on the line. A click on it opens
+  // the photograph and does not leave the day's popup underneath.
+  await page.click('#days-all');
+  const spot = await page.evaluate(async () => {
+    const idle = () => new Promise((r) => map.once('idle', r));
+    for (const p of state.shown.filter((q) => q.tier === 'calibrated').slice(0, 200)) {
+      map.jumpTo({ center: [p.lon, p.lat], zoom: 17 });
+      await idle();
+      const at = map.project([p.lon, p.lat]);
+      const on = (layers) => map.queryRenderedFeatures([at.x, at.y], { layers }).length;
+      if (on(['clusters', 'photo-points']) && on(['track-afloat'])) {
+        const box = map.getCanvas().getBoundingClientRect();
+        return { x: box.left + at.x, y: box.top + at.y, id: p.id };
+      }
+    }
+    return null;
+  });
+  if (spot) {
+    await page.mouse.click(spot.x, spot.y);
+    await page.waitForTimeout(600);
+    const after = await page.evaluate(() => ({
+      viewer: !document.querySelector('#viewer').hidden,
+      popups: document.querySelectorAll('.maplibregl-popup:not(.story-popup)').length }));
+    say('a click on a photograph on the track opens no day popup',
+        after.viewer && after.popups === 0, JSON.stringify({ ...after, id: spot.id }));
+  } else {
+    say('a click on a photograph on the track opens no day popup', false,
+        'no calibrated photograph was found drawn on the track');
+  }
 
   say('the page raised no errors', errors.length === 0, errors.join('; '));
   await browser.close();

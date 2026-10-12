@@ -712,6 +712,13 @@ def test_gaps(photos, placed):
     check("the second receiver places the evenings the handheld missed",
           len(moored) > 50, f"{len(moored)} placed across a gap")
 
+    # "The receiver was off" is a claim about a day of the trip. The evening of
+    # 21 March EDT is already the 22nd in UTC, and the crew was over Texas.
+    lost = [r["id"] for r in placed if r["tier"] == "unplaced" and r.get("utc")
+            and not r.get("day")]
+    check("a photograph the receiver missed was taken on a day of the trip",
+          not lost, f"{len(lost)} with no day, e.g. {lost[:3]}")
+
     # Every one of them must be bounded by the rule that justified it: the fixes
     # either side are close enough that the gap's length does not matter.
     fixes = P.both_receivers()
@@ -1131,6 +1138,18 @@ def test_site_build():
     # nothing unless the page reads it where a person sees the day claimed.
     check("the viewer hedges a day guessed from a filename",
           "day_provisional" in app)
+    # Safari and Firefox fetch when src is set; a lazy flag set after is too late.
+    tray = app[app.index("function buildTray"):]
+    check("a tray thumbnail is marked lazy before it is given its address",
+          0 < tray.find("img.loading = 'lazy'") < tray.find("img.src = "))
+    tracks = json.load(open(os.path.join(out, "data", "tracks.geojson")))["features"]
+    wet = [f["properties"]["mode"] for f in tracks if "shallowest_m" in f["properties"]]
+    check("only a track afloat carries a depth of water",
+          wet and set(wet) == {"afloat"}, str(sorted(set(wet))))
+    build_src = open(os.path.join(C.HERE, "map", "build.py")).read()
+    check("the build's own preview is served to this machine only",
+          "serve.Handler" in build_src and '("", 8000)' not in build_src
+          and '("127.0.0.1", 8000)' in build_src)
     # Place names are HTML and always paint above the canvas, so the bubble is
     # HTML too: drawn in #clusters, which stacks above the names, it covers what
     # it covers -- names never hide, and never show through a bubble either.
