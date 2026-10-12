@@ -55,7 +55,9 @@ are accepted as they are.
 
 Both measurements are now part of `python -m map.tests`, in
 `map/browser_check.js`: it fails if two names overlap at any zoom, or if a
-story dot is on a name from z11.5 in.
+story dot is on a name from z11.5 in. Until 12 October it ran them at a desktop
+width only; it now runs them at a phone's as well, with the panel and the
+photograph viewer.
 
 A story dot under a photograph count now moves to the count's rim.
 

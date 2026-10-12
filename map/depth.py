@@ -90,6 +90,12 @@ BANDS = [
 # int16 and compress to a fraction of the 33 MB of ASCII it arrived as.
 CLIP_DEEP_M = 400.0
 CLIP_HIGH_M = -60.0          # land above this is just "land"
+# A cell with no data at all. In the cache it is a value no clipped depth can
+# take; read back it is NO_DEPTH_M, which is not above zero, so everything that
+# asks "is there water here, and how much" passes it by as it passes land by,
+# and the cleaner fills it from its neighbours like any other cell it distrusts.
+MISSING_DM = -32768
+NO_DEPTH_M = -1.0
 
 
 def fetch(which="wide", force=False):
@@ -117,12 +123,26 @@ def fetch(which="wide", force=False):
         else:
             rows.append(line)
     grid = np.array([[float(v) for v in r.split()] for r in rows], dtype=np.float64)
+    want = (int(hdr["nrows"]), int(hdr["ncols"]))
+    if grid.shape != want:
+        raise SystemExit(f"GMRT sent {grid.shape[0]}x{grid.shape[1]} rows and columns "
+                         f"under a header promising {want[0]}x{want[1]}")
+    # A cell the service has nothing for comes as the header's NODATA value,
+    # which is a number like -9999 and not an elevation. Negated and clipped
+    # with the rest it would be 400 m of water, measured, in the cache for good.
+    nodata = hdr.get("nodata_value")
+    missing = (grid == nodata) if nodata is not None else np.zeros(grid.shape, bool)
+    missing |= ~np.isfinite(grid)
     # GMRT topo is elevation: negative is water. Store positive metres of water,
     # negative for land, clipped at both ends.
-    depth = np.clip(-grid, CLIP_HIGH_M, CLIP_DEEP_M)
+    depth = np.clip(-np.where(missing, 0.0, grid), CLIP_HIGH_M, CLIP_DEEP_M)
+    dm = np.rint(depth * 10).astype(np.int16)
+    dm[missing] = MISSING_DM
+    if missing.any():
+        print(f"  {int(missing.sum())} cells have no data and are kept as unknown")
     os.makedirs(os.path.dirname(dest), exist_ok=True)
     np.savez_compressed(
-        dest, depth_dm=np.rint(depth * 10).astype(np.int16),
+        dest, depth_dm=dm,
         x0=hdr["xllcorner"], y0=hdr["yllcorner"], cell=hdr["cellsize"],
         nrows=int(hdr["nrows"]), ncols=int(hdr["ncols"]))
     print(f"cached {dest} — {grid.shape[1]}x{grid.shape[0]} cells, "
@@ -138,7 +158,10 @@ class Grid:
         z = np.load(path or cache_path(which))
         self.which = which
         self.minzoom = GRIDS[which]["minzoom"] if which in GRIDS else None
-        self.depth = z["depth_dm"].astype(np.float32) / 10.0
+        dm = z["depth_dm"]
+        self.depth = dm.astype(np.float32) / 10.0
+        self.missing = int((dm == MISSING_DM).sum())
+        self.depth[dm == MISSING_DM] = NO_DEPTH_M
         self.x0, self.y0 = float(z["x0"]), float(z["y0"])
         self.cell = float(z["cell"])
         self.nrows, self.ncols = int(z["nrows"]), int(z["ncols"])

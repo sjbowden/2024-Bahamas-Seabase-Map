@@ -1285,7 +1285,7 @@ def test_browser():
     if not shutil.which("node") or subprocess.run(
             ["node", "-e", "require.resolve('playwright-core')"], cwd=C.HERE,
             capture_output=True).returncode:
-        print("  SKIP  no browser driver (npm install --no-save playwright-core)")
+        print("  SKIP  no browser driver (npm install --no-save playwright-core@1.64.0)")
         return
     class Quiet(serve.Handler):
         def log_message(self, *args):
@@ -1318,6 +1318,7 @@ def test_browser():
 
 def test_edges():
     """Inputs this trip's data does not contain, each of which once went wrong."""
+    import contextlib
     import io
     import random
     import tempfile
@@ -1661,9 +1662,53 @@ def test_edges():
           [_dms((26, 30, 0), r) for r in ("N", "S", None, "?")] == [26.5, -26.5, None, None]
           and _dms((26, 75, 0), "N") is None and _dms((26, float("nan"), 0), "N") is None)
 
+    # Two files of one name in one archive are two photographs; one in each
+    # archive is one photograph twice, even with the clock corrected in one.
+    from map.photo_index import same_photograph
+
+    def member(arch, path, crc, when):
+        return dict(archive=arch, member=path, size=crc, crc=crc, ext=".jpg",
+                    tags=dict(time_local=when, make="Apple", model="iPhone 14"))
+    two = same_photograph([member("crew", "a/IMG_1.JPG", 1, "2024:03:24 10:00:00"),
+                           member("crew", "b/IMG_1.JPG", 2, "2024:03:25 16:00:00"),
+                           member("mine", "IMG_1.JPG", 3, "2024:03:25 16:00:00")])
+    fuji = same_photograph([member("crew", "DSCF1.JPG", 1, "2024:03:24 10:00:00"),
+                            member("mine", "DSCF1.JPG", 2, "2024:03:25 02:15:00")])
+    dupe = same_photograph([member("crew", "a/IMG_1.JPG", 1, "2024:03:24 10:00:00"),
+                            member("crew", "b/IMG_1.JPG", 1, "2024:03:24 10:00:00")])
+    check("two files of one name in one archive are kept as two photographs",
+          [sorted(c["member"] for c in part) for part in two]
+          == [["a/IMG_1.JPG"], ["IMG_1.JPG", "b/IMG_1.JPG"]], str(two))
+    check("one in each archive is one photograph, whatever their clocks say",
+          len(fuji) == 1 and len(fuji[0]) == 2 and len(dupe) == 1)
+
+    # A cell the depth service has nothing for is not 400 m of water.
+    import numpy as np
+    real_open, real_path = DP.urllib.request.urlopen, DP.cache_path
+
+    class Reply(io.BytesIO):
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+    ascii_grid = ("ncols 2\nnrows 2\nxllcorner -77.0\nyllcorner 26.0\ncellsize 0.5\n"
+                  "NODATA_value -9999\n-2 -9999\n-4 1\n")
+    with tempfile.TemporaryDirectory() as t:
+        DP.urllib.request.urlopen = lambda *a, **k: Reply(ascii_grid.encode())
+        DP.cache_path = lambda which="wide": os.path.join(t, "g.npz")
+        try:
+            with contextlib.redirect_stdout(io.StringIO()):
+                DP.fetch("wide", force=True)
+            g = DP.Grid("wide", path=os.path.join(t, "g.npz"))
+        finally:
+            DP.urllib.request.urlopen, DP.cache_path = real_open, real_path
+    check("a depth cell with no data is kept as unknown, not as deep water",
+          g.depth.tolist() == [[2.0, DP.NO_DEPTH_M], [4.0, -1.0]] and g.missing == 1,
+          f"{g.depth.tolist()} {g.missing}")
+
     # The browser check is one failed check or one skip, never a traceback that
     # takes the rest of the suite's verdict with it.
-    import contextlib
     import shutil
     import subprocess
     real, before = subprocess.run, (len(_fail), _pass)

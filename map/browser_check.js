@@ -6,7 +6,7 @@
  * Run by `python -m map.tests`, which serves site_build for it and skips this
  * when the driver is not installed. It is not a dependency of the build:
  *
- *     npm install --no-save playwright-core      # node_modules is ignored
+ *     npm install --no-save playwright-core@1.64.0      # node_modules is ignored
  *
  * Uses the Chrome already on the machine; CHROME=/path/to/chrome names another.
  * Prints one JSON object per check: {"name": ..., "ok": ..., "detail": ...}.
@@ -74,7 +74,7 @@ const say = (name, ok, detail = '') => console.log(JSON.stringify({ name, ok: !!
   // compared, not the padded box around them. Names are HTML, the same size at
   // every zoom, so this is a question about positions and the zoom each name
   // first shows at -- which is what changes when a name is added.
-  const laid = await page.evaluate(() => {
+  const sweep = (pg) => pg.evaluate(() => {
     const name = (el) => el.textContent.replace(/\s+/g, ' ').trim();
     const lines = (el) => {
       const r = document.createRange();
@@ -117,8 +117,10 @@ const say = (name, ok, detail = '') => console.log(JSON.stringify({ name, ok: !!
       }
     }
     map.jumpTo(was);
-    return { names, dots, labels: state.placeMarkers.length, top: map.getMaxZoom() };
+    return { names, dots, labels: state.placeMarkers.length, top: map.getMaxZoom(),
+             shown: state.placeMarkers.filter((pm) => shown(pm.el)).length };
   });
+  const laid = await sweep(page);
   const span = ([k, [a, b]]) => `${k} z${a}-${b}`;
   const crossed = Object.entries(laid.names);
   say('no two names overlap at any zoom', crossed.length === 0,
@@ -262,6 +264,60 @@ const say = (name, ok, detail = '') => console.log(JSON.stringify({ name, ok: !!
   }
 
   say('the page raised no errors', errors.length === 0, errors.join('; '));
+
+  // The same again at the size of a phone, which is how most of the crew will
+  // open it: its own stylesheet rules, its own opening zoom, the panel as a
+  // sheet at the foot of the screen, and a finger and not a pointer.
+  const PHONE = { width: 390, height: 844 };
+  const phone = await browser.newPage({
+    viewport: PHONE, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+  const phoneErrors = [];
+  phone.on('pageerror', (e) => phoneErrors.push(String(e)));
+  await phone.goto(process.argv[2], { waitUntil: 'load' });
+  await phone.waitForFunction(
+    () => typeof state !== 'undefined' && state.stories && state.onChart, null, { timeout: 60000 });
+  const shut = await phone.evaluate(() => document.querySelector('#panel').hidden);
+  await phone.tap('#panel-toggle');
+  const sheet = await phone.evaluate(() => {
+    const p = document.querySelector('#panel'), r = p.getBoundingClientRect();
+    return { hidden: p.hidden, left: r.left, right: r.right, top: r.top, bottom: r.bottom,
+             expanded: document.querySelector('#panel-toggle').getAttribute('aria-expanded') };
+  });
+  say('on a phone the panel starts shut and opens as a sheet inside the screen',
+      shut && !sheet.hidden && sheet.expanded === 'true' && sheet.left >= 0
+      && sheet.right <= PHONE.width && sheet.top >= PHONE.height * 0.4
+      && sheet.bottom <= PHONE.height, JSON.stringify(sheet));
+  await phone.check('#chart-layers input[data-layer="stories"]');
+  const small = await sweep(phone);
+  const smallCrossed = Object.entries(small.names);
+  say('on a phone no two names overlap at any zoom', smallCrossed.length === 0,
+      smallCrossed.map(span).join('; ') || `${small.shown} of ${small.labels} names shown`);
+  const smallLate = Object.entries(small.dots).filter(([, z]) => z[1] >= CLEAR_BY);
+  say(`on a phone no story dot is on a name from z${CLEAR_BY} in`, smallLate.length === 0,
+      smallLate.map(span).join('; '));
+  await phone.check('#chart-layers input[data-layer="photos"]');
+  await phone.tap('#photos-browse');
+  await phone.waitForFunction(() => {
+    const i = document.querySelector('#viewer-img');
+    return i.complete && i.naturalWidth > 0;
+  }, null, { timeout: 30000 });
+  const seen = await phone.evaluate(() => {
+    const box = (s) => document.querySelector(s).getBoundingClientRect();
+    const img = box('#viewer-img'), x = box('#viewer-close'), cap = box('#viewer figcaption');
+    return { open: !document.querySelector('#viewer').hidden,
+             img: [Math.round(img.left), Math.round(img.right)],
+             close: [Math.round(x.left), Math.round(x.top), Math.round(x.right)],
+             caption: [Math.round(cap.left), Math.round(cap.right)],
+             wide: document.documentElement.scrollWidth };
+  });
+  say('on a phone a photograph opens with its picture, caption and close button on screen',
+      seen.open && seen.img[0] >= 0 && seen.img[1] <= PHONE.width
+      && seen.img[1] - seen.img[0] > PHONE.width / 2
+      && seen.close[0] >= 0 && seen.close[1] >= 0 && seen.close[2] <= PHONE.width
+      && seen.caption[0] >= 0 && seen.caption[1] <= PHONE.width && seen.wide <= PHONE.width,
+      JSON.stringify(seen));
+  say('the page raised no errors on a phone', phoneErrors.length === 0, phoneErrors.join('; '));
+  await phone.close();
 
   // The chart's own data failing has to be said on the page, not in a console.
   const broken = await browser.newPage({ viewport: { width: 1400, height: 900 } });

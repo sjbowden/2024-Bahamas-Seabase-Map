@@ -229,8 +229,14 @@ def index(archives=ARCHIVES, progress=None):
         if len(by_cam) > 1:
             stats["name_collisions"] += 1
         for cam, group in by_cam.items():
-            photos.append(_merge(name, cam, group, stats,
-                                 suffix=len(by_cam) > 1))
+            parts = same_photograph(group)
+            if len(parts) > 1:
+                stats["same_archive_splits"] += 1
+            for k, part in enumerate(parts):
+                rec = _merge(name, cam, part, stats, suffix=len(by_cam) > 1)
+                if k:
+                    rec["name"] += f"~{k + 1}"
+                photos.append(rec)
     photos.sort(key=lambda p: (p["time_local"] or "9999", p["name"]))
     for i, p in enumerate(photos):
         p["id"] = f"p{i:05d}"
@@ -256,6 +262,40 @@ def by_camera(copies):
         home = next(iter(by_cam)) if len(by_cam) == 1 else camera_key({})
         by_cam.setdefault(home, []).extend(bad)
     return by_cam
+
+
+def same_photograph(group):
+    """Split one name-and-camera group where it holds more than one photograph.
+
+    The two archives are copies of each other, so one file from each is one
+    photograph twice, whatever their clocks say: one camera here had its clock
+    corrected in one archive and not the other. Two files of the same name
+    inside *one* archive are something else. Nobody put the same picture in
+    twice under one name and two folders; those are two phones of one model, or
+    a counter that came round again, and folding them together throws one away.
+
+    So a group is split only when an archive repeats in it. Each of the
+    repeated archive's files becomes its own photograph, taking a file from
+    another archive only if the two agree to the second about when they were
+    taken. Files that are byte for byte the same stay one photograph.
+    """
+    seen = collections.Counter(c["archive"] for c in group)
+    if max(seen.values()) < 2:
+        return [group]
+    parts = []
+    for c in group:
+        when = c["tags"].get("time_local")
+        for part in parts:
+            twin = any((o["crc"], o["size"]) == (c["crc"], c["size"]) for o in part)
+            fits = (when is not None
+                    and all(o["tags"].get("time_local") == when for o in part)
+                    and all(o["archive"] != c["archive"] for o in part))
+            if twin or fits:
+                part.append(c)
+                break
+        else:
+            parts.append([c])
+    return parts
 
 
 def _merge(name, cam, group, stats, suffix=False):

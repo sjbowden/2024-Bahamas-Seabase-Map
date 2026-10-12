@@ -1,0 +1,16 @@
+# What the charts, the poster and the site were last built and tested with.
+# Python 3.14. Newer versions will most likely work; these are the ones known
+# to give the same poster, the same thumbnails byte for byte, and passing tests.
+#
+#     python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+#
+# The browser test also needs Node and a driver, which is not a Python package:
+#
+#     npm install --no-save playwright-core@1.64.0     # with Chrome installed
+#
+# The fonts the poster sets in are a system matter; see the README.
+shapely==2.2.0
+matplotlib==3.11.2
+numpy==2.5.3
+pillow==12.3.0
+pillow_heif==1.8.0
