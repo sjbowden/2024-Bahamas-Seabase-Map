@@ -235,8 +235,15 @@ mattering. Four hours on a mooring is still a mooring.
 So placement takes a second pass over what the handheld missed, asking both
 receivers and accepting only where they bracket the moment within **50 m**. That
 recovered 97 of the 222 photographs previously marked "the receiver was not
-recording at this moment", at 37–84 m of uncertainty — the movement across the
-gap, plus 35 m for the inReach's own disagreement with the handheld.
+recording at this moment", at 22–62 m of uncertainty — the movement across the
+gap, plus 35 m for the inReach's own disagreement with the handheld, or 10 m
+where two of the handheld's own fixes bracket it.
+
+That 10 m is on every photograph placed from the handheld's track. Its figure
+was once only how far the boat moved across the clock's timing window, which
+for a boat at anchor is nothing, and 559 photographs said "± 0 m". The receiver
+is not that good and the camera was somewhere else on a 17 m boat, so the
+figure is now that movement plus 10 m.
 
 | where they landed | |
 |---|---|

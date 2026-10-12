@@ -83,7 +83,9 @@ THUMB = dict(name="thumb", px=256, quality=72, progressive=False)
 VIEW = dict(name="view", px=1600, quality=82, progressive=True)
 # Bump when prepare() or render() changes what comes out for the same settings,
 # so derivatives made the old way are not mistaken for current ones.
-RENDER_VERSION = 1
+# 2: render() stopped copying a JPEG comment through (11 October 2026). Files
+# made before that must not pass for current, whatever their source.
+RENDER_VERSION = 2
 MANIFEST = os.path.join(HERE, "out", "derived.json")
 LEGACY_MANIFEST = ".derived.json"      # once kept inside the published folder
 _DERIVED = re.compile(r"^(p\d+)\.jpg$")
@@ -271,7 +273,9 @@ def stale(photos, dest, manifest_path=None):
     on being published at an address that is easy to guess. Only run() sweeps.
     """
     if not any(_count(os.path.join(dest, s["name"])) for s in (THUMB, VIEW)):
-        return None
+        # Nothing finished -- but a run killed before its first rename leaves a
+        # .part behind, and that is a picture in the folder all the same.
+        return sorted({what for _, what in _orphans(dest, set())}) or None
     manifest = _load_manifest(manifest_path or MANIFEST, dest)
     out = []
     for p in photos:

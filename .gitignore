@@ -69,3 +69,7 @@ out/review_poster_*
 
 # the upload tool's cache: which Cloudflare account the site was last sent to
 .wrangler/
+
+# Code review reports are working papers, kept on this machine and not in the
+# repository.
+docs/code-review-*.md

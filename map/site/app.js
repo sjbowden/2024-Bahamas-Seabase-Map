@@ -329,6 +329,8 @@ function refreshPhotos() {
   // one that knows where it was but not when would otherwise be in neither.
   state.shown = state.onChart.filter((p) => !p.day || state.days.has(p.day));
   state.indexById = new Map(state.shown.map((p, i) => [p.id, i]));
+  $('#photos-browse').disabled = !state.shown.length;
+  $('#photos-browse-count').textContent = `(${state.shown.length})`;
   const src = map.getSource('photos');
   if (src) src.setData(photoFC(state.shown));
   // A photograph whose day just went away should not stay open over a chart that
@@ -1059,6 +1061,11 @@ function wireViewer() {
     if ($('#viewer').hidden || state.at == null) return;
     if (e.key === 'ArrowLeft') showAt(Math.max(0, state.at - 1));
     if (e.key === 'ArrowRight') showAt(Math.min(state.shown.length - 1, state.at + 1));
+  });
+  // The dots and counts are drawn on a canvas and open on a click, which leaves
+  // a keyboard nowhere to start. This is the start; the arrows do the rest.
+  $('#photos-browse').addEventListener('click', () => {
+    if (state.shown.length) openViewer(state.shown[0].id);
   });
   $('#tray-open').addEventListener('click', () => {
     $('#tray').hidden = false;

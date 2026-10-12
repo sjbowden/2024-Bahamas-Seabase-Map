@@ -62,6 +62,13 @@ SAIL_HI = datetime(2024, 3, 29, 4, tzinfo=UTC)
 # 34 m, and all 150 of its reports within 50 m of the handheld's path.
 INREACH_M = 35.0
 
+# What a position from the handheld is worth before the clock comes into it. The
+# two receivers sat a median 10 m apart at the same instants, and the camera was
+# somewhere on a 17 m boat with the receiver somewhere else on it. Without this a
+# boat at anchor through the timing window made the claim "± 0 m", which is how
+# far the boat moved and not how well anyone knows where the photograph was taken.
+RECEIVER_M = 10.0
+
 # A photograph in a gap can be placed only if the boat did not go anywhere while
 # the gap lasted, and then the gap's length stops mattering — four hours on a
 # mooring is still a mooring. corroborate.py measures each night's entire path at
@@ -130,6 +137,8 @@ def at(fixes, times, t):
     Between the bracketing fixes, not the nearest one: at 5 kn the nearest fix is
     needlessly ~10 m out, and interpolation costs a subtraction.
     """
+    if not times:
+        return None
     i = bisect.bisect_left(times, t)
     if i == 0:
         return None if t < times[0] else (fixes[0][1], fixes[0][2], fixes[0][3], fixes[0][4])
@@ -362,13 +371,18 @@ def place(photos, per_photo, cameras, fixes=None):
     fixes = fixes if supplied else track()
     times = [f[0] for f in fixes]
 
-    # Timing uncertainty per camera: half the fit's peak width, or a couple of
-    # seconds where the UTC came from satellites or a tag.
-    half = {}
+    # Timing uncertainty: half the fit's peak width for a photograph whose time
+    # came from its camera's fit, and a couple of seconds where it came from
+    # satellites or a tag -- by photograph, because a camera can have both kinds
+    # and a fit says nothing about a time it was not used to find.
+    fitted = {}
     for cam, r in cameras.items():
         f = r.get("fit") or {}
-        half[cam] = (f.get("peak_width_s", 0.0) or C.COARSE_S) / 2.0 \
-            if f.get("accepted") else 2.0
+        if f.get("accepted"):
+            fitted[cam] = (f.get("peak_width_s", 0.0) or C.COARSE_S) / 2.0
+
+    def half_window(camera, method):
+        return 2.0 if method in ("gps_utc", "tz_tag") else fitted.get(camera, 2.0)
 
     out = []
     for p in photos:
@@ -442,11 +456,11 @@ def place(photos, per_photo, cameras, fixes=None):
             out.append(_finish(rec, p))
             continue
         lat, lon, sog, day = pos
-        u = spread_m(fixes, times, t, half.get(p["camera"], 2.0))
+        u = spread_m(fixes, times, t, half_window(p["camera"], v["method"]))
         rec.update(lat=lat, lon=lon, day=day or day_for(t)[0],
                    tier="calibrated" if v["method"] in ("gps_utc", "tz_tag")
                    else "inferred",
-                   uncertainty_m=None if u is None else round(u))
+                   uncertainty_m=None if u is None else round(u + RECEIVER_M))
         rec["note"] = _track_note(t, sog, lat, lon, u, rec["day"])
         out.append(rec)
 
@@ -464,7 +478,8 @@ def place(photos, per_photo, cameras, fixes=None):
         t = C._utc(rec["utc"])
         # The same timing window the first pass used: a fitted clock is no
         # better known in a gap than out of one.
-        got = moored_through(both, bt, t, half.get(rec["camera"], 2.0))
+        got = moored_through(both, bt, t,
+                             half_window(rec["camera"], rec["time_method"]))
         if got is None:
             continue
         lat, lon, moved, gap, who = got
@@ -472,11 +487,12 @@ def place(photos, per_photo, cameras, fixes=None):
             continue
         # The 35 m is the inReach's measured disagreement with the handheld, so
         # it is owed only when an inReach report is one of the brackets. Two
-        # handheld fixes 4 m apart are a 4 m claim, and the note says exactly that.
+        # handheld fixes 4 m apart are the handheld's own allowance and 4 m more.
         rec.update(lat=lat, lon=lon,
                    tier=("calibrated" if rec["time_method"] in ("gps_utc", "tz_tag")
                          else "inferred"),
-                   uncertainty_m=round(moved + (INREACH_M if "inreach" in who else 0.0)),
+                   uncertainty_m=round(moved + (INREACH_M if "inreach" in who
+                                                else RECEIVER_M)),
                    day=rec["day"] or day_for(t)[0])
         rec["note"] = _moored_note(t, lat, lon, moved, gap, who)
     return out

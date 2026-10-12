@@ -188,6 +188,19 @@ const say = (name, ok, detail = '') => console.log(JSON.stringify({ name, ok: !!
   say('a photograph off the trip\'s days is captioned with its date',
       when === 'Wed 20 Mar · 01:38 Bahamas time', when);
 
+  // The dots open on a click; a keyboard gets in by the panel.
+  await page.click('#days-all');
+  await page.focus('#photos-browse');
+  await page.keyboard.press('Enter');
+  const first = await page.evaluate(() => ({
+    open: !document.querySelector('#viewer').hidden, at: state.at,
+    count: document.querySelector('#photos-browse-count').textContent }));
+  await page.keyboard.press('ArrowRight');
+  say('a keyboard can open the chart\'s photographs and step through them',
+      first.open && first.at === 0 && await page.evaluate(() => state.at === 1)
+      && /\(\d+\)/.test(first.count), JSON.stringify(first));
+  await page.keyboard.press('Escape');
+
   // A photograph placed from the track sits on the line. A click on it opens
   // the photograph and does not leave the day's popup underneath.
   await page.click('#days-all');

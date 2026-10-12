@@ -659,6 +659,10 @@ def load_day(stem, min_step_m=22.0, max_kn=30.0, walk_split=None, road_split=Non
     # opposite halves, so an absent split must default the opposite way.
     walk_raw, raw = _split_at(raw, walk_split) if walk_split else ([], raw)
     raw, road_raw = _split_at(raw, road_split) if road_split else (raw, [])
+    if not raw:
+        # Every fix was on foot or on the road: a day ashore, which is still a day.
+        return dict(afloat=[], nm=0.0, max_kn=0.0, fixes=n_raw, dropped=dropped,
+                    walk=_thin(walk_raw), road=_thin(road_raw))
     kept, dist, prev = [raw[0]], 0.0, raw[0]
     for p in raw[1:]:
         dt = (p[0] - prev[0]).total_seconds()

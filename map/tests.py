@@ -714,6 +714,10 @@ def test_gaps(photos, placed):
 
     # "The receiver was off" is a claim about a day of the trip. The evening of
     # 21 March EDT is already the 22nd in UTC, and the crew was over Texas.
+    exact = [r["id"] for r in placed if r["tier"] in ("calibrated", "inferred")
+             and r["uncertainty_m"] is not None and r["uncertainty_m"] < P.RECEIVER_M]
+    check("no photograph placed from a receiver claims to beat the receiver",
+          not exact, f"{len(exact)} under {P.RECEIVER_M:.0f} m, e.g. {exact[:3]}")
     lost = [r["id"] for r in placed if r["tier"] == "unplaced" and r.get("utc")
             and not r.get("day")]
     check("a photograph the receiver missed was taken on a day of the trip",
@@ -1425,6 +1429,79 @@ def test_edges():
     grown = DP._grow_into(vals, region, trusted)
     check("the grid's north edge is not a neighbour of its south edge",
           (grown[4] == -1.0).all(), str(grown[4]))
+
+    # A tag that is trusted becomes a UTC nothing else checks.
+    check("a malformed timezone tag is not an offset",
+          [C._tz_minutes(s) for s in ("x04:00", "+99:99", "-04:60", "-4:00", None)]
+          == [None] * 5 and C._tz_minutes("-04:00") == -240
+          and C._tz_minutes("+05:30") == 330)
+
+    with tempfile.TemporaryDirectory() as t:
+        os.makedirs(os.path.join(t, "view"))
+        os.makedirs(os.path.join(t, "thumb"))
+        check("an empty media folder has nothing to be wrong",
+              D.stale([], t, os.path.join(t, "m.json")) is None)
+        with open(os.path.join(t, "view", "p00001.jpg.part"), "wb") as fh:
+            fh.write(b"x")
+        check("but one holding only a half-written file does",
+              D.stale([], t, os.path.join(t, "m.json")) == ["p00001.jpg.part"])
+    check("derivatives from before comments were stripped are not current",
+          D.RENDER_VERSION >= 2)
+
+    # No fixes at all is no position, and a day spent wholly ashore is a day.
+    noon = datetime(2024, 3, 25, 16, tzinfo=timezone.utc)
+    check("an empty track places nothing and raises nothing",
+          P.at([], [], noon) is None)
+    import trip
+    real_read = trip.read_fixes
+    trip.read_fixes = lambda stem: ([(noon, 26.5, -77.0, 0.0),
+                                     (noon + timedelta(seconds=30), 26.5001, -77.0, 2.0)], 0)
+    try:
+        ashore = trip.load_day("x", walk_split="2024-03-25T17:00:00Z")
+        driven = trip.load_day("x", road_split="2024-03-25T15:00:00Z")
+    finally:
+        trip.read_fixes = real_read
+    check("a day whose every fix is on foot or on the road still loads",
+          (ashore["afloat"], len(ashore["walk"]), driven["afloat"], len(driven["road"]))
+          == ([], 2, [], 2), f"{ashore} {driven}")
+
+    # One camera, one photograph timed by satellite, on a boat doing 2 m/s. Its
+    # uncertainty is the two seconds either side and the receiver's own error,
+    # whether or not the camera's other photographs needed a fit 20 minutes wide.
+    run = [(noon + timedelta(seconds=10 * k), 26.5 + k * 0.00018, -77.0, 3.9, "Mon 25 Mar")
+           for k in range(400)]
+    still = [(f[0], 26.5, -77.0, 0.0, f[4]) for f in run]
+    shot = [dict(id="p1", name="a.jpg", camera="cam", ext=".jpg", gps=None, px=[4, 3])]
+    when = {"p1": dict(utc="2024-03-25T16:30:00Z", method="gps_utc")}
+    wide = {"cam": dict(fit=dict(accepted=True, peak_width_s=1200.0))}
+    plain = P.place(shot, when, {"cam": {}}, fixes=run)[0]["uncertainty_m"]
+    fit = P.place(shot, when, wide, fixes=run)[0]["uncertainty_m"]
+    check("a photograph timed by satellite keeps its own two-second window",
+          plain == fit and plain < 30, f"{plain} m alone, {fit} m beside a fit")
+    moored = P.place(shot, when, {"cam": {}}, fixes=still)[0]["uncertainty_m"]
+    check("a boat that never moved is still only known to the receiver's error",
+          moored == P.RECEIVER_M, f"{moored} m")
+
+    # The chart is drawn with degrees true, and the vessel does not undo it.
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    fig = plt.figure(figsize=poster.SHEET_IN, dpi=50)
+    ax = fig.add_axes(poster.HERO_RECT)
+    w, e, s, n = poster.true_extent(trip.EXTENT, poster.HERO_RECT, poster.SHEET_IN)
+    ax.set_xlim(w, e)
+    ax.set_ylim(s, n)
+    ax.set_aspect(poster.ASPECT)
+    poster.draw_vessel(ax, (w + e) / 2, (s + n) / 2, 0.03)
+    fig.canvas.draw()
+    o, east, north = ax.transData.transform(
+        [(w, s), (w + 0.01 * poster.ASPECT, s), (w, s + 0.01)])
+    ratio = (east[0] - o[0]) / (north[1] - o[1])
+    box = ax.get_position()
+    plt.close(fig)
+    check("a hundredth of a degree north is as long as its equal east, vessel and all",
+          abs(ratio - 1) < 1e-3 and abs(box.width - poster.HERO_RECT[2]) < 1e-4,
+          f"ratio {ratio:.5f}, frame width {box.width:.5f}")
 
     # The browser check is one failed check or one skip, never a traceback that
     # takes the rest of the suite's verdict with it.

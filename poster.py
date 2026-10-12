@@ -454,6 +454,24 @@ def vessel_rgba(margin=12):
     return _VESSEL_CACHE["img"]
 
 
+def true_extent(extent, rect, figsize):
+    """Widen `extent` until degrees are true in an axes of this shape.
+
+    draw_chart holds the chart to ASPECT, and a frame that is not exactly the
+    shape of its extent would then be letterboxed inside its neatline. The frame
+    is the page's design, so the extent gives way: whichever span is short takes
+    a little more sea either side, and nothing drawn at a position moves.
+    """
+    w, e, s, n = extent
+    shape = (rect[2] * figsize[0]) / (rect[3] * figsize[1])    # width over height
+    lon_span = shape * (n - s) * ASPECT
+    if lon_span >= e - w:
+        pad = (lon_span - (e - w)) / 2
+        return (w - pad, e + pad, s, n)
+    pad = ((e - w) / ASPECT / shape - (n - s)) / 2
+    return (w, e, s - pad, n + pad)
+
+
 def draw_vessel(ax, lon, lat, width_deg, alpha=1.0, zorder=4):
     """Drop the engraving into open water, sized so it keeps its own aspect
     once the map's longitude stretch is accounted for."""
@@ -463,6 +481,9 @@ def draw_vessel(ax, lon, lat, width_deg, alpha=1.0, zorder=4):
     ax.imshow(img, extent=(lon - width_deg / 2, lon + width_deg / 2,
                            lat - height_deg / 2, lat + height_deg / 2),
               aspect="auto", zorder=zorder, alpha=alpha, interpolation="bilinear")
+    # imshow's aspect is the whole axes', not the image's: left at "auto" it
+    # stretched the chart to its frame, 1.1% on the sheet and 3.7% on the square.
+    ax.set_aspect(ASPECT)
 
 
 def draw_airport(ax, lw_scale=1.0, label=True, text=None, nudge=(0.0, 0.0)):
@@ -857,6 +878,11 @@ def fit_fontsize(fig, txt, fp, size, avail, floor=8.5, step=0.25, pad=0.006):
     return size
 
 
+# The sheet, and the frame its hero chart is drawn in, as fractions of it.
+SHEET_IN = (18, 24)
+HERO_RECT = [0.065, 0.225, 0.545, 0.685]
+
+
 def build(dpi, out_png, out_pdf=None, spread=True, depth=False):
     tracks = {d["file"]: load_day(d["file"], walk_split=d.get("walk_split"),
                                   road_split=d.get("road_split"))
@@ -868,13 +894,13 @@ def build(dpi, out_png, out_pdf=None, spread=True, depth=False):
     max_kn = max(tracks[d["file"]]["max_kn"] for d in DAYS if d["sail"])
     dropped = sum(tracks[d["file"]]["dropped"] for d in DAYS)
 
-    extent = EXTENT
+    extent = true_extent(EXTENT, HERO_RECT, SHEET_IN)
     land = land_polygons(LAND_BBOX)
     # Worked out once and handed to both charts on the sheet; it takes about half a
     # minute and neither of them should pay for it twice.
     bands = depth_bands(land) if depth else None
 
-    fig = plt.figure(figsize=(18, 24), dpi=dpi)
+    fig = plt.figure(figsize=SHEET_IN, dpi=dpi)
     fig.patch.set_facecolor(C_PAPER)
 
     # ---- title block
@@ -890,7 +916,7 @@ def build(dpi, out_png, out_pdf=None, spread=True, depth=False):
                                 transform=fig.transFigure, color=C_RULE, lw=1.4))
 
     # ---- hero map
-    ax = fig.add_axes([0.065, 0.225, 0.545, 0.685])
+    ax = fig.add_axes(HERO_RECT)
     # Lynyard Cay's name is left where it is, though it sits only 89 m off the
     # track. The square page moves it 1.2 km east, which clears by 502 m — but this
     # sheet has the compass rose at 26.352, and the rose's W reaches to lon -76.971,
@@ -1130,12 +1156,15 @@ def photobook(dpi, out_png, depth=False, title=True):
               for d in DAYS}
     land = land_polygons(LAND_BBOX)
     bands = depth_bands(land) if depth else None
-    extent = photobook_extent(tracks)
+    # Room at the top for a title, and a hair all round for the neatline. The
+    # frame is then not quite the square photobook_extent() frames for, so the
+    # extent takes the difference.
+    rect = [0.055, 0.052, 0.890, 0.858 if title else 0.896]
+    extent = true_extent(photobook_extent(tracks), rect, (8, 8))
 
     fig = plt.figure(figsize=(8, 8), dpi=dpi)
     fig.patch.set_facecolor(C_PAPER)
-    # Room at the top for a title, and a hair all round for the neatline.
-    ax = fig.add_axes([0.055, 0.052, 0.890, 0.858 if title else 0.896])
+    ax = fig.add_axes(rect)
     # 0.8 rather than 1.0: this frame is about half the poster's scale, so the same
     # line weights would read as heavier here than they do on the sheet.
     #

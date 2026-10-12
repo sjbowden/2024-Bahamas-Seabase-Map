@@ -63,6 +63,7 @@ import argparse
 import collections
 import json
 import os
+import re
 from datetime import datetime, timedelta, timezone
 
 import numpy as np
@@ -119,14 +120,22 @@ def _utc(s):
     return datetime.strptime(s, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=UTC)
 
 
+_TZ = re.compile(r"^([+-])(\d{2}):(\d{2})$")
+
+
 def _tz_minutes(s):
-    """'-04:00' -> -240. Returns None for anything that isn't an offset."""
-    try:
-        sign = -1 if s[0] == "-" else 1
-        h, m = s[1:].split(":")
-        return sign * (int(h) * 60 + int(m))
-    except (ValueError, IndexError, TypeError):
+    """'-04:00' -> -240. Returns None for anything that isn't an offset.
+
+    Strictly: a tag this trusts becomes a UTC nothing else checks, so 'x04:00'
+    and '+99:99' are not offsets. No zone is further than 14 hours from UTC.
+    """
+    m = _TZ.match(s) if isinstance(s, str) else None
+    if not m:
         return None
+    h, mins = int(m.group(2)), int(m.group(3))
+    if h > 14 or mins > 59:
+        return None
+    return (-1 if m.group(1) == "-" else 1) * (h * 60 + mins)
 
 
 # --------------------------------------------------------------- coverage ---
