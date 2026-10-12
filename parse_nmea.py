@@ -10,7 +10,7 @@ import math
 import os
 from datetime import datetime, timezone
 
-from trip import utc_text
+from trip import second_of, utc_text
 
 SRC = os.path.join(os.path.dirname(__file__), "GPSFILES")
 OUT = os.path.join(os.path.dirname(__file__), "tracks")
@@ -100,7 +100,7 @@ def quality_at(qual, when, line):
 
 
 def parse_file(path):
-    rows = []
+    rows, loose = [], []
     qual = parse_gga(path)
     with open(path, "r", encoding="ascii", errors="replace") as fh:
         for n, line in enumerate(fh):
@@ -121,7 +121,8 @@ def parse_file(path):
                 # fraction that is not digits is no fraction; the fix is still
                 # a fix, in that second.
                 frac = hhmmss[7:] if hhmmss[6:7] == "." else ""
-                if not (frac.isascii() and frac.isdigit()):
+                unread = bool(hhmmss[6:]) and not (frac.isascii() and frac.isdigit())
+                if unread:
                     frac = ""
                 ts = datetime(
                     2000 + int(datestr[4:6]),
@@ -157,7 +158,7 @@ def parse_file(path):
             if not math.isfinite(sog) or (f[8] and not math.isfinite(cog)):
                 continue
             gq, gsat, ghdop = quality_at(qual, hhmmss, n)
-            rows.append((ts, lat, lon, sog, cog, gq, gsat, ghdop))
+            (loose if unread else rows).append((ts, lat, lon, sog, cog, gq, gsat, ghdop))
     rows.sort(key=lambda r: r[0])
     # drop exact-duplicate timestamps
     out, last = [], None
@@ -165,6 +166,16 @@ def parse_file(path):
         if r[0] != last:
             out.append(r)
             last = r[0]
+    if loose:
+        # A fix whose fraction could not be read is somewhere in its second. It
+        # is that second's fix if the second has no other; beside one whose time
+        # is known it could only be put before or after it by guessing.
+        taken = {second_of(r[0]) for r in out}
+        for r in loose:
+            if r[0] not in taken:
+                taken.add(r[0])
+                out.append(r)
+        out.sort(key=lambda r: r[0])
     return out
 
 

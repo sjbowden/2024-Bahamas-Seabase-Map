@@ -68,7 +68,7 @@ from datetime import datetime, timedelta, timezone
 
 import numpy as np
 
-from trip import DAYS, read_fixes, read_utc, utc_second
+from trip import DAYS, read_fixes, read_utc, second_of, utc_second
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -153,20 +153,14 @@ def coverage(max_gap_s=120.0):
         if not fixes:
             continue
         prev = fixes[0][0]
-        start = prev.replace(microsecond=0)
+        start = second_of(prev)
         for t, *_ in fixes[1:]:
             if (t - prev).total_seconds() > max_gap_s:
                 spans.append((start, prev))
-                start = t.replace(microsecond=0)
+                start = second_of(t)
             prev = t
         spans.append((start, prev))
     return sorted(spans)
-
-
-# A photograph's time is a whole second and a fix's is not: a time less than
-# this before a fix is in that fix's second. coverage() says the same thing of
-# its spans; place.at() says it with this.
-SAME_SECOND = timedelta(seconds=1)
 
 
 def covered(t, spans):
@@ -491,7 +485,7 @@ def fit(photos):
         t, method = direct.get(p["id"], (None, None))
         # The second that is written down is the one coverage is asked about,
         # as it is the one placement will ask the track about.
-        t = t and t.replace(microsecond=0)
+        t = t and second_of(t)
         per_photo[p["id"]] = dict(
             utc=utc_second(t) if t else None,
             method=method,

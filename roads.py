@@ -61,7 +61,7 @@ def metres(a, b):
 
 # Bump when the router changes what it returns for the same roads and endpoints,
 # so a route cached the old way is not mistaken for a current one.
-ROUTE_VERSION = 3
+ROUTE_VERSION = 4
 
 
 def directions(tags, walking=False):
@@ -116,9 +116,9 @@ def _source_digest(allowed):
     return h.hexdigest()[:10]
 
 
-def network(g):
-    """The roads a drive can use: the largest set of points each reachable from
-    every other.
+def networks(g):
+    """The road networks in a graph: each a set of points every one of which can
+    be reached from every other.
 
     Having a way out is not enough. A lane joined to the rest only by a private
     road is still in the graph, with ways in and out of its own two ends, and so
@@ -145,7 +145,7 @@ def network(g):
     for n, outs in g.items():
         for m, _ in outs:
             back[m].append(n)
-    best, seen = set(), set()
+    parts, seen = [], set()
     for root in reversed(order):
         if root in seen:
             continue
@@ -157,23 +157,57 @@ def network(g):
                     seen.add(m)
                     part.add(m)
                     todo.append(m)
-        if len(part) > len(best):
-            best = part
-    return best
+        parts.append(part)
+    return parts
 
 
-# The airport, the hotel and the marina are each within 60 m of the road they
-# are on. A place further than this from the network has no road in it -- another
-# island's, or one outside the roads fetched -- and a line drawn from there to the
-# nearest road that is would cross the water without saying so.
+# The airport, the hotel and the marina are each within 60 m of a road. A place
+# further than this from a network has no road of that network in it -- another
+# island's, or one outside the roads fetched -- and a line drawn from there to
+# the nearest road that is would cross the water without saying so.
 SNAP_M = 250.0
 
 
+def off_road(g, part, lat, lon):
+    """Metres from a place to the nearest stretch of road in one network.
+
+    To the road and not to the points it is drawn with: a long straight one has
+    a point at each end and passes a good many doors in between.
+    """
+    k = math.cos(math.radians(lat))
+    best = float("inf")
+    for a in part:
+        ax, ay = (a[1] - lon) * k, a[0] - lat
+        best = min(best, math.hypot(ax, ay))
+        for b, _ in g[a]:
+            if b not in part:
+                continue
+            dx, dy = (b[1] - a[1]) * k, b[0] - a[0]
+            f = max(0.0, min(1.0, -(ax * dx + ay * dy) / (dx * dx + dy * dy)))
+            best = min(best, math.hypot(ax + f * dx, ay + f * dy))
+    return math.radians(best) * 6371000.0
+
+
 def nearest(nodes, lat, lon):
-    n = min(nodes, key=lambda n: metres(n, (lat, lon)))
-    if metres(n, (lat, lon)) > SNAP_M:
-        raise SystemExit(f"no road within {SNAP_M:.0f} m of ({lat}, {lon})")
-    return n
+    return min(nodes, key=lambda n: metres(n, (lat, lon)))
+
+
+def snap(g, start, end):
+    """The points a route runs between: each end's nearest, on one network.
+
+    The network is the one lying nearest both ends together, so a drive on a
+    cay's own roads is that cay's, and a lane behind a private road loses to the
+    road outside it unless the drive is along the lane.
+    """
+    best = None
+    for part in networks(g):
+        off = off_road(g, part, *start), off_road(g, part, *end)
+        if best is None or sum(off) < sum(best[0]):
+            best = off, part
+    if best is None or max(best[0]) > SNAP_M:
+        raise SystemExit(f"no one road network comes within {SNAP_M:.0f} m "
+                         f"of both {start} and {end}")
+    return nearest(best[1], *start), nearest(best[1], *end)
 
 
 def route(start, end, walking=False):
@@ -188,10 +222,7 @@ def route(start, end, walking=False):
         return pickle.load(open(cache, "rb"))
 
     g = build_graph(allowed, walking)
-    net = network(g)
-    if not net:
-        raise SystemExit("no road route found")
-    s, e = nearest(net, *start), nearest(net, *end)
+    s, e = snap(g, start, end)
     dist = {s: 0.0}
     prev = {}
     pq = [(0.0, s)]

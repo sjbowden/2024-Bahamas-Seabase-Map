@@ -40,7 +40,7 @@ import re
 from datetime import datetime, timedelta, timezone
 
 from trip import (ANCHORAGES, DAYS, HOTEL, MARINA, MOVING_KN, PLACES, haversine,
-                  in_chart, read_inreach, read_utc, recorded_fixes)
+                  in_chart, in_second, read_inreach, read_utc, recorded_fixes)
 from map import clock_fit as C
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -135,13 +135,13 @@ def at(fixes, times, t):
         return None
     i = bisect.bisect_left(times, t)
     if i == 0:
-        return (None if times[0] - t >= C.SAME_SECOND
-                else (fixes[0][1], fixes[0][2], fixes[0][3], fixes[0][4]))
+        return ((fixes[0][1], fixes[0][2], fixes[0][3], fixes[0][4])
+                if in_second(times[0], t) else None)
     if i >= len(times):
         return None
     a, b = fixes[i - 1], fixes[i]
     span = (b[0] - a[0]).total_seconds()
-    if times[i] == t or (span > MAX_GAP_S and times[i] - t < C.SAME_SECOND):
+    if times[i] == t or (span > MAX_GAP_S and in_second(times[i], t)):
         # On a fix, or in its second: that is a recorded position, whatever
         # came before it. Checked ahead of the gap rule, which would otherwise
         # refuse the first fix after the receiver came back on.
@@ -247,6 +247,11 @@ def spread_m(fixes, times, t, half_window_s):
     if before <= 0 and after <= 0:
         return 0.0
     lo, hi = t - timedelta(seconds=before), t + timedelta(seconds=after)
+    if lo < times[0]:
+        # at() would put an edge in the first fix's own second on that fix. For
+        # a photograph that is its position; for a window it is still a start
+        # before the record's, and what the boat did then is not known.
+        return None
     worst = 0.0
     for edge in (lo, hi):
         end = at(fixes, times, edge)

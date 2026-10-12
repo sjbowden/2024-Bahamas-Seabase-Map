@@ -477,7 +477,7 @@ def test_invariants(photos, spans):
     check("a time always comes with the method that found it", not bad, str(bad[:3]))
     for k, v in per_photo.items():
         if v["utc"]:
-            datetime.strptime(v["utc"], "%Y-%m-%dT%H:%M:%SZ")
+            read_utc(v["utc"])
     check("every resolved time parses as UTC", True)
     resolved = sum(1 for v in per_photo.values() if v["utc"])
     check("most photographs resolve", resolved > 0.9 * len(photos),
@@ -1656,6 +1656,8 @@ def test_edges():
     town = {"elements": [
         way("service", [(26.5, -77.0), (26.5, -77.001)], access="private"),
         way("residential", [(26.5002, -77.0), (26.5002, -76.9995), (26.5002, -76.999)]),
+        # a kilometre of straight road, drawn with a point at each end and no more
+        way("residential", [(26.5002, -76.999), (26.5002, -76.989)]),
         # a public lane reached only by a private one, nearest of all to the end
         way("service", [(26.5002, -76.999), (26.50021, -76.99898)], access="private"),
         way("residential", [(26.50021, -76.99898), (26.5003, -76.9989)]),
@@ -1667,11 +1669,13 @@ def test_edges():
         with open(os.path.join(t, "roads.json"), "w") as fh:
             json.dump(town, fh)
         roads.fetch_roads, roads.CACHE = (lambda: town), t
-        g, net, line, far = {}, set(), None, None
+        g, net, line, far, lane, beside = {}, set(), None, None, None, None
         try:
             g = roads.build_graph(roads.DRIVABLE)
-            net = roads.network(g)
+            net = max(roads.networks(g), key=len)
             line, far = roads.route((26.5, -77.0), (26.50021, -76.99897))
+            lane = roads.route((26.50021, -76.99898), (26.5003, -76.9989))
+            beside = roads.route((26.5, -77.0), (26.5003, -76.9945))
         except (Exception, SystemExit) as e:
             far = repr(e)
         try:
@@ -1685,6 +1689,11 @@ def test_edges():
           (26.5, -77.0) not in net and (26.5002, -77.0) in net
           and (26.5003, -76.9989) in g and (26.5003, -76.9989) not in net,
           str(sorted(net)))
+    check("a drive along the lane itself is the lane's, though the lane goes nowhere",
+          lane is not None and lane[0][1:-1] == [(-76.99898, 26.50021), (-76.9989, 26.5003)]
+          and 10 < lane[1] < 16, f"{lane} {far}")
+    check("and a door on a long straight road is on it, however far its drawn ends",
+          beside is not None and beside[0][-2] == (-76.999, 26.5002), f"{beside} {far}")
     check("and a drive from a kilometre off every road is refused, not drawn",
           lost is not None and lost.startswith("SystemExit") and "26.51" in lost,
           str(lost))
@@ -1826,6 +1835,12 @@ def test_edges():
             # a fraction that is not one costs the fraction, not the position
             fh.write(nmea("GPRMC,120004.,A,2630.000,N,07700.000,W,1.0,0.0,250324,,,A"))
             fh.write(nmea("GPRMC,120005.x5,A,2630.000,N,07700.000,W,1.0,0.0,250324,,,A"))
+            # ...unless that second already has a fix whose time can be read:
+            # where in the second this one belongs is then not known
+            fh.write(nmea("GPRMC,120006.200,A,2630.000,N,07700.000,W,1.0,0.0,250324,,,A"))
+            fh.write(nmea("GPRMC,120006.x70,A,2630.012,N,07700.000,W,1.0,0.0,250324,,,A"))
+            fh.write(nmea("GPRMC,120007.x70,A,2630.012,N,07700.000,W,1.0,0.0,250324,,,A"))
+            fh.write(nmea("GPRMC,120007.200,A,2630.000,N,07700.000,W,1.0,0.0,250324,,,A"))
         was = parse_nmea.SRC, parse_nmea.OUT, trip.HERE
         parse_nmea.SRC, parse_nmea.OUT, trip.HERE = t, os.path.join(t, "tracks"), t
         try:
@@ -1841,11 +1856,13 @@ def test_edges():
     tenths = [(r[0].second, r[0].microsecond, round(r[1], 4)) for r in rows]
     check("two fixes inside one second are two fixes, each at its own time",
           tenths == [(0, 100000, 26.5), (0, 900000, 26.5001), (1, 900000, 26.5),
-                     (3, 0, 26.5), (4, 0, 26.5), (5, 0, 26.5)], str(tenths))
+                     (3, 0, 26.5), (4, 0, 26.5), (5, 0, 26.5), (6, 200000, 26.5),
+                     (7, 200000, 26.5)], str(tenths))
     check("and the track is written and read back to the same fraction",
           written == ["2024-03-25T12:00:00.100Z", "2024-03-25T12:00:00.900Z",
                       "2024-03-25T12:00:01.900Z", "2024-03-25T12:00:03Z",
-                      "2024-03-25T12:00:04Z", "2024-03-25T12:00:05Z"]
+                      "2024-03-25T12:00:04Z", "2024-03-25T12:00:05Z",
+                      "2024-03-25T12:00:06.200Z", "2024-03-25T12:00:07.200Z"]
           and back == again == [r[0] for r in rows if r[5]], f"{written} {back}")
 
     check("one reader takes a time with a fraction or without, and nothing else",
@@ -1887,6 +1904,18 @@ def test_edges():
     check("with no ring, as on the fix itself: the seconds before it are the gap's",
           P.spread_m(night, nt, noon, 2.0) is None
           and P.spread_m(night, nt, woke, 2.0) is None)
+    check("nor has one whose window starts before the record does, by any amount",
+          P.spread_m(night[1:], nt[1:], noon + timedelta(seconds=2), 2.0) is None
+          and P.spread_m(night[1:], nt[1:], noon + timedelta(seconds=3), 2.0) == 0.0)
+    check("a time that is not a whole second is in no fix's second but its own",
+          P.at(night, nt, woke - timedelta(milliseconds=300)) is None
+          and trip.in_second(woke, noon) and trip.in_second(woke, woke)
+          and not trip.in_second(woke, noon + timedelta(seconds=1)))
+    day = [(noon, 26.5, -77.0, 1.0), (woke, 26.5, -77.0, 1.0),
+           (woke + timedelta(seconds=1), 26.5, -77.0, 1.0)]
+    check("a day cut at a whole second is cut after that second's fixes",
+          trip._split_at(day, "2024-03-25T16:00:00Z") == (day[:2], day[2:])
+          and trip._split_at(day, "2024-03-25T16:00:00.300Z") == (day[:1], day[1:]))
     was = C.DAYS, C.read_fixes
     C.DAYS, C.read_fixes = [dict(file="x")], lambda stem: (night[1:], 0)
     try:

@@ -42,9 +42,25 @@ def utc_text(ts):
     return ts.strftime("%Y-%m-%dT%H:%M:%S") + frac + "Z"
 
 
+def second_of(t):
+    """The whole second an instant falls in."""
+    return t.replace(microsecond=0)
+
+
+def in_second(fix_t, t):
+    """Whether a fix belongs to the time t: at it, or in the whole second it names.
+
+    A photograph's time, and a day's cut, are whole seconds, and a fix's is not.
+    The receiver that came on at 11:16:09.611 was recording in the second a
+    photograph calls 11:16:09. Everything that sets one against the other asks
+    here or of second_of(), so they cannot come to disagree.
+    """
+    return fix_t == t or second_of(fix_t) == t
+
+
 def utc_second(ts):
     """utc_text() to the whole second, which is all a photograph's time is."""
-    return utc_text(ts.replace(microsecond=0))
+    return utc_text(second_of(ts))
 
 
 _UTC = re.compile(r"\d{4}-\d\d-\d\dT(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d"
@@ -672,7 +688,11 @@ def recorded_fixes(stem, max_kn=30.0, road_split=None):
 def _split_at(pts, iso):
     """Cut a day in two at a UTC instant: (before, after)."""
     cut = read_utc(iso)
-    return [p for p in pts if p[0] <= cut], [p for p in pts if p[0] > cut]
+    # A cut named to the second is that whole second, as it was when the fixes
+    # were whole seconds too.
+    def before(t):
+        return t <= cut or in_second(t, cut)
+    return [p for p in pts if before(p[0])], [p for p in pts if not before(p[0])]
 
 
 def _thin(pts, step=3):
