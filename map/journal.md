@@ -129,7 +129,7 @@ As we reboarded the ship we saw a plume in the sky. At first we thought it was a
 
 The SpaceX launch was at about 7:30 pm EDT on 25 March 2024.
 
-> The launch was a Falcon 9, not a Falcon Heavy, carrying 23 Starlink satellites. It was scheduled for 7:42 pm EDT from Space Launch Complex 40 at Cape Canaveral. A Falcon 9 has a single booster, which landed on the drone ship A Shortfall of Gravitas in the Atlantic, so only one of the two bright objects was a booster; that was the one we saw fire its engines. The other was probably the upper stage or the fairing.
+> The launch was a Falcon 9 carrying 23 Starlink satellites. It lifted off at 7:42 pm EDT from Space Launch Complex 40 at Cape Canaveral and passed almost directly over us. Our photographs show it: the "main ship" with the plume was the upper stage, its exhaust spreading into a wide white cone. A Falcon 9 has a single booster, so only one of the two bright objects was a booster; the other was probably the fairing. At 7:48 pm, six minutes after liftoff, a photograph catches the booster's engines firing orange beside the white plume. That was its entry burn; it landed on the drone ship A Shortfall of Gravitas two minutes later.
 
 We also saw an amazing moonrise. It was awesome.
 

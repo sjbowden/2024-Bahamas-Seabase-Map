@@ -106,7 +106,9 @@ STORIES = [
               "then jump into the water to rinse off."),
     # The launch is the one story with a fact added from outside the journal, which
     # took the two bright objects for two boosters. It was a Falcon 9 with a single
-    # booster, scheduled for 7:42 pm EDT from Cape Canaveral, so the time is that.
+    # booster, which lifted off at 7:42 pm EDT from Cape Canaveral, so the time is
+    # that. The crew's photographs catch its entry burn at 7:48 pm, two minutes
+    # before it landed, so the story says "on its way down" and not "landing".
     dict(day="Mon 25 Mar", time="19:42", lon=-76.98492, lat=26.35683,
          title="A rocket over the water",
          text="As we reboarded the ship we saw a plume in the sky. At first we thought "
@@ -114,8 +116,8 @@ STORIES = [
               "objects separate from it. We were watching a SpaceX launch! It was a "
               "Falcon 9 carrying 23 Starlink satellites, launched from Cape Canaveral "
               "that evening. One of the bright objects was its booster, and we saw it "
-              "fire its engines for a powered landing, on a drone ship out in the "
-              "Atlantic. We also saw an amazing moonrise."),
+              "fire its engines on its way down to a drone ship out in the Atlantic. "
+              "We also saw an amazing moonrise."),
 
     # ------------------------------------------------------------ Tue 26 Mar
     dict(day="Tue 26 Mar", time="10:30", lon=-77.00025, lat=26.32422,
