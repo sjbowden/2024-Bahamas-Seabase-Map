@@ -173,9 +173,12 @@ def moored_at(fixes, times, t):
     """Where a photograph was, if the boat lay still across the gap holding it.
 
     Returns (lat, lon, moved_m, gap_s, receivers) or None. The question is not how long the
-    gap is but whether the boat used it: between two fixes 50 m apart, everything
-    that happened is within 50 m of both, however many hours passed. That is the
-    evening on a mooring, which is where most of these photographs were taken.
+    gap is but whether the boat used it, and two fixes 50 m apart are taken to
+    mean she did not: that is the evening on a mooring, which is where most of
+    these photographs were taken. Taken to mean, not proved -- she could have
+    left and come back between two reports, and nothing here would see it. The
+    README says so of the nights; a position from this is where the boat was if
+    she stayed.
     """
     i = bisect.bisect_left(times, t)
     if i == 0 or i >= len(times):
@@ -206,10 +209,11 @@ def moored_through(fixes, times, t, half_window_s):
     if got is None:
         return None
     lat, lon, moved, gap, who = got
-    if half_window_s <= 0:
+    before, after = _ends(half_window_s)
+    if before <= 0 and after <= 0:
         return got
-    lo = t - timedelta(seconds=half_window_s)
-    hi = t + timedelta(seconds=half_window_s)
+    lo = t - timedelta(seconds=before)
+    hi = t + timedelta(seconds=after)
     i0 = bisect.bisect_right(times, lo) - 1      # the fix at or before the window
     i1 = bisect.bisect_left(times, hi)           # the fix at or after it
     if i0 < 0 or i1 >= len(times):
@@ -239,9 +243,10 @@ def spread_m(fixes, times, t, half_window_s):
     mid = at(fixes, times, t)
     if mid is None:
         return None
-    if half_window_s <= 0:
+    before, after = _ends(half_window_s)
+    if before <= 0 and after <= 0:
         return 0.0
-    lo, hi = t - timedelta(seconds=half_window_s), t + timedelta(seconds=half_window_s)
+    lo, hi = t - timedelta(seconds=before), t + timedelta(seconds=after)
     worst = 0.0
     for edge in (lo, hi):
         end = at(fixes, times, edge)
@@ -354,6 +359,29 @@ def nearest_named(lat, lon, limit_m=1500.0):
     return _closest(lat, lon, anch + towns + isles, limit_m)
 
 
+def fit_window(f):
+    """How far a fitted camera's time may be out: (seconds early, seconds late).
+
+    The fit's near-peak offsets, measured from the offset it chose. Not half the
+    peak's width either side: the chosen offset can sit at one end of the peak,
+    and a window centred on it then leaves out offsets the fit itself counts as
+    near as good. A heuristic spread, not a confidence interval.
+    """
+    lo, hi = f.get("peak_lo_s"), f.get("peak_hi_s")
+    if lo is None or hi is None:                # a fit recorded before the ends were
+        half = (f.get("peak_width_s", 0.0) or C.COARSE_S) / 2.0
+        return half, half
+    # Never tighter than the search itself: a peak one grid step wide says the
+    # offset is in that step, and a winner refined to its edge is still in it.
+    floor = C.COARSE_S / 2.0
+    return max(-lo, floor), max(hi, floor)
+
+
+def _ends(window):
+    """A timing window as (seconds before, seconds after); a number is both."""
+    return window if isinstance(window, tuple) else (window, window)
+
+
 def place(photos, per_photo, cameras, fixes=None):
     """Give every photograph a tier, a position where it has one, and a note.
 
@@ -375,7 +403,7 @@ def place(photos, per_photo, cameras, fixes=None):
     for cam, r in cameras.items():
         f = r.get("fit") or {}
         if f.get("accepted"):
-            fitted[cam] = (f.get("peak_width_s", 0.0) or C.COARSE_S) / 2.0
+            fitted[cam] = fit_window(f)
 
     def half_window(camera, method):
         return 2.0 if method == "gps_utc" else fitted.get(camera, 2.0)

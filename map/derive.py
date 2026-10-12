@@ -4,7 +4,7 @@
     python -m map.derive                 # into site_build/media
     python -m map.derive --only 40       # a sample, for checking the settings
 
-Two sizes per photograph, ~920 MB in total, and this is the only expensive stage
+Two sizes per photograph, ~620 MB in total, and this is the only expensive stage
 in the build — which is why the design put it last, after placement was trusted.
 
     thumbnail   256 px, q72   ~38 MB    what the clusters and the tray show
@@ -165,7 +165,7 @@ def one(job):
     so those can be kept if they exist; any other size is rendered again whatever
     is there.
     """
-    pid, archive, member, dest, fresh = job
+    pid, archive, member, dest, fresh, crc, size = job
     made = files = 0
     try:
         wanted = [s for s in (THUMB, VIEW)
@@ -173,7 +173,15 @@ def one(job):
                           and _exists(os.path.join(dest, s["name"], f"{pid}.jpg")))]
         if not wanted:
             return pid, 0, 0, None
-        with _zip(archive).open(member) as fh:
+        zf = _zip(archive)
+        info = zf.getinfo(member)
+        # The index may have been read from an archive somewhere else. A member
+        # of the same name here is only the same photograph if it is the same
+        # bytes, and a picture filed under another's fingerprint is not allowed.
+        if crc is not None and (info.CRC, info.file_size) != (crc, size):
+            raise ValueError(f"{member} in {os.path.basename(archive)} is not "
+                             "the file the index was made from")
+        with zf.open(info) as fh:
             im = prepare(fh.read())
         for spec in wanted:
             out = os.path.join(dest, spec["name"], f"{pid}.jpg")
@@ -275,7 +283,8 @@ def stale(photos, dest, manifest_path=None):
     if not any(_count(os.path.join(dest, s["name"])) for s in (THUMB, VIEW)):
         # Nothing finished -- but a run killed before its first rename leaves a
         # .part behind, and that is a picture in the folder all the same.
-        return sorted({what for _, what in _orphans(dest, set())}) or None
+        return (sorted({what for _, what in _orphans(dest, set())})
+                + _legacy(dest)) or None
     manifest = _load_manifest(manifest_path or MANIFEST, dest)
     out = []
     for p in photos:
@@ -289,7 +298,16 @@ def stale(photos, dest, manifest_path=None):
                 out.append(p["id"])
                 break
     wanted = {p["id"] for p in photos if not p.get("unreadable")}
-    return out + sorted({what for _, what in _orphans(dest, wanted)})
+    return out + sorted({what for _, what in _orphans(dest, wanted)}) + _legacy(dest)
+
+
+def _legacy(dest):
+    """The manifest once kept inside the published folder, if it is still there.
+
+    It lists source fingerprints, which is why it moved out; only run() removes
+    it, so a build that does not render has to refuse to publish beside it.
+    """
+    return [LEGACY_MANIFEST] if os.path.exists(os.path.join(dest, LEGACY_MANIFEST)) else []
 
 
 def fail_on_errors(result):
@@ -332,7 +350,8 @@ def run(photos, dest, workers=None, only=None, progress=True, archive_dir=None,
         _save_manifest(manifest_path, dest, manifest)
 
     jobs = [(p["id"], os.path.join(archive_dir, os.path.basename(_archive_path(p))),
-             p["src"]["member"], dest, tuple(manifest.get(p["id"], ())))
+             p["src"]["member"], dest, tuple(manifest.get(p["id"], ())),
+             p["src"].get("crc"), p["src"].get("size"))
             for p in todo]
 
     total, done, errors, t0 = len(jobs), 0, [], time.time()

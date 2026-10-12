@@ -11,7 +11,7 @@ subset over one HTTP request with no key and no account.
 
 At 61 m cells over the whole chart region it resolves the Sea of Abaco's banks
 plainly, and the answer it gives matches the crew's memory of scraping across:
-Sunday and Tuesday both touch 1.0 m, and Wednesday spent 4,681 fixes in under
+Sunday and Tuesday both touch 1.0 m, and Wednesday spent 4,625 fixes in under
 three metres of water.
 
 Three things it is not, all of which shape how it is drawn rather than being
@@ -28,7 +28,7 @@ would have read.
 **Blind to anything narrower than a cell.** A harbour entrance, a dredged
 channel, a marina berth — all finer than 61 m, so the grid calls them land. The
 day-by-day figures below therefore ignore fixes the grid thinks are ashore, which
-is why Friday's airport drive and Thursday's mooring hop contribute nothing.
+is why Friday's airport drive contributes nothing.
 """
 import argparse
 import math
@@ -237,10 +237,11 @@ def day_summary(grid, finer=None):
     Prefers the finer grid where it reaches, since the whole track is inside it and
     61 m resolves a shoal a 122 m cell averages away.
     """
-    from trip import DAYS, _split_at, read_fixes
+    from trip import DAYS, _split_at, recorded_fixes
     rows = {}
     for d in DAYS:
-        fixes, _ = read_fixes(d["file"])
+        # The stream the drawing and the placement accept, spikes gone.
+        fixes = recorded_fixes(d["file"])
         # Water under the keel: not the walk to the marina, and not the van.
         if d.get("walk_split"):
             fixes = _split_at(fixes, d["walk_split"])[1]

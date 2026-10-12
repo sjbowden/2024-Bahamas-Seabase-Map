@@ -6,6 +6,7 @@ with columns: utc, lat, lon, sog_kn, cog_deg.
 """
 import csv
 import glob
+import math
 import os
 from datetime import datetime, timezone
 
@@ -31,6 +32,8 @@ def dm_to_deg(val, hemi):
     """NMEA ddmm.mmmm -> signed decimal degrees."""
     if not val:
         return None
+    if hemi not in ("N", "S", "E", "W"):
+        raise ValueError(f"no such hemisphere: {hemi!r}")
     dot = val.find(".")
     if dot < 0:
         dot = len(val)
@@ -57,7 +60,10 @@ def parse_gga(path):
             if len(f) < 9 or not f[1] or not f[6]:
                 continue
             try:
-                q[f[1][:6]] = (int(f[6]), int(f[7] or 0), float(f[8] or 99.0))
+                hdop = float(f[8] or 99.0)
+                # "nan" is a float, and nan > MAX_HDOP is False: unknown is bad.
+                q[f[1][:6]] = (int(f[6]), int(f[7] or 0),
+                               hdop if math.isfinite(hdop) else 99.0)
             except ValueError:
                 continue
     return q
@@ -100,10 +106,16 @@ def parse_file(path):
                 continue
             if not (abs(lat) <= 90.0 and abs(lon) <= 180.0):
                 continue
+            if f[4] not in ("N", "S") or f[6] not in ("E", "W"):
+                continue
             try:
                 sog = float(f[7]) if f[7] else 0.0
                 cog = float(f[8]) if f[8] else float("nan")
             except ValueError:
+                continue
+            # float() reads "nan" and "inf" as numbers. A speed has to be one;
+            # a course may be absent, which is what the nan above stands for.
+            if not math.isfinite(sog) or (f[8] and not math.isfinite(cog)):
                 continue
             gq, gsat, ghdop = qual.get(hhmmss[:6], (0, 0, 99.0))
             rows.append((ts, lat, lon, sog, cog, gq, gsat, ghdop))

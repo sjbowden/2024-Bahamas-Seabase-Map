@@ -45,7 +45,7 @@ def handheld_windows():
     """
     out = []
     for d in DAYS:
-        pts = recorded_fixes(d["file"])
+        pts = recorded_fixes(d["file"], road_split=d.get("road_split"))
         if pts:
             out.append((pts[0][0], pts[-1][0], d["label"]))
     return sorted(out)
@@ -55,7 +55,7 @@ def all_fixes():
     """The receiver's whole record, for asking where it was at a given moment."""
     fixes = []
     for d in DAYS:
-        fixes += recorded_fixes(d["file"])
+        fixes += recorded_fixes(d["file"], road_split=d.get("road_split"))
     return sorted(fixes, key=lambda p: p[0])
 
 
@@ -145,13 +145,29 @@ def main():
         seen = [p for p in inr if out[0][0] <= p[0] <= out[-1][0]]
         print(f"  {'':12s} the inReach independently caught it: {len(seen)} fixes")
 
+    # The photographs' own positions, from the index the map is built from. A
+    # photos.csv, if one is given, is read in its place: that was the first way
+    # this section was fed, and the file was never part of the repository.
+    index = os.path.join(HERE, "out", "photo_index.json")
+    rows = None
     if os.path.exists(photos):
-        rule("Camera GPS")
-        rows = [r for r in csv.DictReader(open(photos))
+        rows = [dict(r, t=datetime.strptime(r["when"], "%Y:%m:%d %H:%M:%S")
+                     .replace(tzinfo=EDT))
+                for r in csv.DictReader(open(photos))
                 if r.get("lat") and float(r["lat"]) < 30 and r.get("when")]
+    elif os.path.exists(index):
+        import json
+        rows = [dict(name=p["name"], lat=p["gps"][0], lon=p["gps"][1],
+                     when=p["gps_utc"],
+                     t=datetime.strptime(p["gps_utc"], "%Y-%m-%dT%H:%M:%SZ")
+                     .replace(tzinfo=timezone.utc))
+                for p in json.load(open(index))
+                if p.get("gps") and p.get("gps_utc") and p["gps"][0] < 30]
+    if rows is not None:
+        rule("Camera GPS")
         ds = []
         for r in rows:
-            t = datetime.strptime(r["when"], "%Y:%m:%d %H:%M:%S").replace(tzinfo=EDT)
+            t = r["t"]
             n = min(fixes, key=lambda p: abs((p[0] - t).total_seconds()))
             if abs((n[0] - t).total_seconds()) <= 90:
                 ds.append(haversine(float(r["lat"]), float(r["lon"]), n[1], n[2]))

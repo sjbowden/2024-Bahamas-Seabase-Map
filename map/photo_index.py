@@ -101,8 +101,15 @@ def _dms(v, ref):
         d, m, s = (float(x) for x in v)
     except (TypeError, ValueError):
         return None
+    ref = str(ref).upper().strip()
+    # A position with no hemisphere is half a position, and guessing north and
+    # east puts a photograph taken in the Bahamas in Kazakhstan.
+    if ref not in ("N", "S", "E", "W"):
+        return None
+    if not (0 <= d <= 180 and 0 <= m < 60 and 0 <= s < 60):   # nan fails these
+        return None
     deg = d + m / 60.0 + s / 3600.0
-    return -deg if str(ref).upper().strip() in ("S", "W") else deg
+    return -deg if ref in ("S", "W") else deg
 
 
 def read_tags(data):
@@ -135,8 +142,8 @@ def read_tags(data):
     except Exception:                           # noqa: BLE001
         g = {}
     if g and _LAT in g and _LON in g:
-        lat = _dms(g[_LAT], g.get(_LAT_REF, "N"))
-        lon = _dms(g[_LON], g.get(_LON_REF, "E"))
+        lat = _dms(g[_LAT], g.get(_LAT_REF))
+        lon = _dms(g[_LON], g.get(_LON_REF))
         if lat is not None and lon is not None and (lat, lon) != (0.0, 0.0):
             out["gps"] = [round(lat, 7), round(lon, 7)]
     # GPS date and time are UTC straight from the satellites — the camera's own
@@ -364,7 +371,7 @@ def main():
         archives = [(l, path if l == label else p) for l, p in archives]
 
     photos, stats = index(archives)
-    os.makedirs(os.path.dirname(a.out), exist_ok=True)
+    os.makedirs(os.path.dirname(os.path.abspath(a.out)), exist_ok=True)
     with open(a.out, "w") as fh:
         json.dump(photos, fh, indent=1)
     print(f"wrote {a.out} — {len(photos)} photographs")

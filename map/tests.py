@@ -1080,6 +1080,17 @@ def test_site_build():
             "data/places.geojson", "data/stories.geojson",
             "journal.html", "journal.css"]
     missing = [n for n in need if not os.path.exists(os.path.join(out, n))]
+    # Everything below, and the browser after it, reads this folder. If it was
+    # built from an older source, a pass is a pass for yesterday's page.
+    src = os.path.join(C.HERE, "map", "site")
+    old = [n for n in ("index.html", "app.js", "style.css", "journal.css")
+           if os.path.exists(os.path.join(out, n))
+           and open(os.path.join(src, n), "rb").read() != open(os.path.join(out, n), "rb").read()]
+    check("the built folder is built from this source", not old,
+          f"{', '.join(old)} differ from map/site: run python -m map.build")
+    page0 = open(os.path.join(out, "index.html")).read()
+    check("the panel says whose position the ring is", "the boat's\n       position" in page0
+          or "the boat's position" in page0)
     check("every file the page asks for is present", not missing, str(missing))
 
     app = open(os.path.join(out, "app.js")).read()
@@ -1310,6 +1321,7 @@ def test_edges():
     import io
     import random
     import tempfile
+    import zipfile
     from datetime import timezone
     from PIL import Image
     from shapely.geometry import box
@@ -1544,6 +1556,111 @@ def test_edges():
           abs(ratio - 1) < 1e-3 and abs(box.width - poster.HERO_RECT[2]) < 1e-4,
           f"ratio {ratio:.5f}, frame width {box.width:.5f}")
 
+    # ---- the second whole-repository review, 12 October
+    # A fit's window runs as far each way as its near-peak offsets do.
+    check("a fitted window is the peak's own ends, not half its width either side",
+          P.fit_window(dict(peak_width_s=600.0, peak_lo_s=-498.0, peak_hi_s=102.0))
+          == (498.0, 102.0)
+          and P.fit_window(dict(peak_width_s=600.0)) == (300.0, 300.0)
+          and P.fit_window(dict(peak_width_s=0.0, peak_lo_s=0.0, peak_hi_s=7.0))
+          == (C.COARSE_S / 2, C.COARSE_S / 2)
+          and {"peak_lo_s", "peak_hi_s"} <= set(f) and f["peak_lo_s"] <= 0 <= f["peak_hi_s"],
+          str({k: f.get(k) for k in ("peak_width_s", "peak_lo_s", "peak_hi_s")}))
+    skew = {"cam": dict(fit=dict(accepted=True, peak_width_s=600.0,
+                                 peak_lo_s=-590.0, peak_hi_s=10.0))}
+    even = {"cam": dict(fit=dict(accepted=True, peak_width_s=600.0))}
+    fitted = {"p1": dict(utc="2024-03-25T16:30:00Z", method="correlate")}
+    lop = P.place(shot, fitted, skew, fixes=run)[0]["uncertainty_m"]
+    mid = P.place(shot, fitted, even, fixes=run)[0]["uncertainty_m"]
+    check("and a peak lying to one side of its winner makes the longer ring",
+          lop > 1.8 * mid, f"{lop} m against {mid} m centred")
+
+    # A drive reconstructed from the map is one the map allows.
+    import roads
+    check("a van does not go against a one-way street or down a private road",
+          [roads.directions(t) for t in ({"oneway": "yes"}, {"oneway": "-1"},
+                                         {"access": "private"}, {},
+                                         {"junction": "roundabout"})]
+          == [(True, False), (False, True), (False, False), (True, True), (True, False)]
+          and roads.directions({"oneway": "yes"}, walking=True) == (True, True))
+    legal = set()
+    for el in roads.fetch_roads().get("elements", []):
+        tags = el.get("tags", {})
+        if tags.get("highway") not in roads.DRIVABLE:
+            continue
+        fwd, back = roads.directions(tags)
+        geom = [roads._key(g["lat"], g["lon"]) for g in el.get("geometry") or []]
+        for a, b in zip(geom, geom[1:]):
+            if fwd:
+                legal.add((a, b))
+            if back:
+                legal.add((b, a))
+    drive, dist = roads.route((trip.AIRPORT[1], trip.AIRPORT[0]),
+                              (trip.HOTEL[1], trip.HOTEL[0]))
+    steps = [roads._key(lat, lon) for lon, lat in drive[1:-1]]
+    wrong = [(a, b) for a, b in zip(steps, steps[1:]) if (a, b) not in legal]
+    check("the airport drive runs the way every street on it runs",
+          not wrong and 6000 < dist < 6400, f"{len(wrong)} steps against, {dist:.0f} m")
+    was, roads.ROUTE_VERSION = roads.ROUTE_VERSION, roads.ROUTE_VERSION + 1
+    try:
+        bumped = roads._source_digest(roads.DRIVABLE)
+    finally:
+        roads.ROUTE_VERSION = was
+    check("a cached route is keyed on the roads and the router that made it",
+          bumped != roads._source_digest(roads.DRIVABLE)
+          and roads._source_digest(roads.DRIVABLE) != roads._source_digest(roads.WALKABLE))
+
+    # A fix thrown out as a spike sets no speed record.
+    jump = [(noon, 26.5, -77.0, 5.0),
+            (noon + timedelta(seconds=5), 26.6, -77.0, 70.0),
+            (noon + timedelta(seconds=10), 26.50005, -77.0, 6.0)]
+    trip.read_fixes = lambda stem: (jump, 0)
+    try:
+        best = trip.load_day("x")["max_kn"]
+    finally:
+        trip.read_fixes = real_read
+    check("the best speed is the best of the fixes that were kept", best == 6.0, str(best))
+    import corroborate
+    check("the cross-check reads the same road fixes placement does",
+          len(corroborate.all_fixes()) == len(P.track()),
+          f"{len(corroborate.all_fixes())} against {len(P.track())}")
+
+    # Two more things a build that renders nothing must not publish beside.
+    with tempfile.TemporaryDirectory() as t:
+        for s in (D.THUMB, D.VIEW):
+            os.makedirs(os.path.join(t, s["name"]))
+        with open(os.path.join(t, D.LEGACY_MANIFEST), "w") as fh:
+            fh.write("{}")
+        check("a manifest left inside the media folder is not publishable",
+              D.stale([], t, os.path.join(t, "m.json")) == [D.LEGACY_MANIFEST])
+        zpath = os.path.join(t, "a.zip")
+        b = io.BytesIO()
+        Image.new("RGB", (8, 8), "red").save(b, "JPEG")
+        with zipfile.ZipFile(zpath, "w") as zf:
+            zf.writestr("x.jpg", b.getvalue())
+        info = zipfile.ZipFile(zpath).getinfo("x.jpg")
+        right = D.one(("p0", zpath, "x.jpg", t, (), info.CRC, info.file_size))
+        other = D.one(("p1", zpath, "x.jpg", t, (), info.CRC + 1, info.file_size))
+        check("a photograph is rendered only from the bytes that were indexed",
+              right[3] is None and right[2] == 2 and other[2] == 0
+              and "not the file" in (other[3] or ""), f"{right} {other}")
+
+    # float() takes "nan" for a number, and a hemisphere is one of four letters.
+    from map.photo_index import _dms
+    with tempfile.TemporaryDirectory() as t:
+        log = os.path.join(t, "GPS_y.log")
+        with open(log, "w") as fh:
+            fh.write(nmea("GPRMC,120000.00,A,2630.000,N,07700.000,W,nan,0.0,250324,,,A"))
+            fh.write(nmea("GPRMC,120001.00,A,2630.000,?,07700.000,W,1.0,0.0,250324,,,A"))
+            fh.write(nmea("GPGGA,120002.00,2630.000,N,07700.000,W,1,08,nan,1.0,M,,M,,"))
+            fh.write(nmea("GPRMC,120002.00,A,2630.000,N,07700.000,W,1.0,0.0,250324,,,A"))
+        rows = parse_nmea.parse_file(log)
+    check("a speed that is not a number and a hemisphere that is not one cost a fix",
+          len(rows) == 1 and rows[0][3] == 1.0 and rows[0][7] == 99.0, str(rows))
+    check("a camera position needs a real hemisphere and real minutes",
+          [_dms((26, 30, 0), r) for r in ("N", "S", None, "?")] == [26.5, -26.5, None, None]
+          and _dms((26, 75, 0), "N") is None and _dms((26, float("nan"), 0), "N") is None)
+
     # The browser check is one failed check or one skip, never a traceback that
     # takes the rest of the suite's verdict with it.
     import contextlib
@@ -1578,6 +1695,36 @@ def test_edges():
               skip.returncode == 0 and '"skip"' in skip.stdout, skip.stdout[-200:])
 
 
+def test_build_refuses_first():
+    """A build that has to stop for stale media stops before it writes."""
+    import contextlib
+    import io
+    import tempfile
+    from map import build as B
+    section("a refused build")
+    with tempfile.TemporaryDirectory() as t:
+        os.makedirs(os.path.join(t, "media", "view"))
+        os.makedirs(os.path.join(t, "media", "thumb"))
+        with open(os.path.join(t, "media", "thumb", "p99999.jpg"), "wb") as fh:
+            fh.write(b"x")
+        wrote, real = [], (B.E.export, B.copy_site, sys.argv)
+        B.E.export = lambda *a, **k: wrote.append("data") or {}
+        B.copy_site = lambda *a, **k: wrote.append("site") or []
+        sys.argv = ["build", "--reuse-index", "--out", t]
+        stopped = None
+        try:
+            with contextlib.redirect_stdout(io.StringIO()):
+                B.main()
+        except SystemExit as e:
+            stopped = str(e)
+        finally:
+            B.E.export, B.copy_site, sys.argv = real
+        left = sorted(os.listdir(t))
+    check("a build that must refuse stale media refuses before it writes anything",
+          bool(stopped) and "has been changed" in stopped and not wrote and left == ["media"],
+          f"{wrote} {left} {(stopped or '')[:80]}")
+
+
 def main():
     test_units()
     test_edges()
@@ -1605,6 +1752,7 @@ def main():
         test_export(placed)
         test_gaps(photos, placed)
         test_nothing_published_carries_metadata(placed)
+        test_build_refuses_first()
     test_site_build()
     test_browser()
 

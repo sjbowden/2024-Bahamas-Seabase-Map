@@ -295,6 +295,11 @@ def correlate_offset(local_times, reference_utc, spans, search_h=SEARCH_H):
     near = np.abs(grid - coarse) <= SHOULDER_S
     good = grid[near][counts[near] >= 0.9 * counts[best]]
     width = float(good.max() - good.min()) if good.size else 0.0
+    # Where that spread lies about the offset chosen, which is not its middle:
+    # the winner is refined to the second and can sit at one end of a peak that
+    # runs minutes the other way. place.py needs both ends, not half the width.
+    lo = min(float(good.min()) - offset, 0.0) if good.size else 0.0
+    hi = max(float(good.max()) - offset, 0.0) if good.size else 0.0
     rate = hits / mu if mu > 0 else float("inf")
     score = hits * coverage_frac
 
@@ -323,6 +328,7 @@ def correlate_offset(local_times, reference_utc, spans, search_h=SEARCH_H):
                 null_mean=round(mu, 1), null_sd=round(sd, 1),
                 rate=(round(float(rate), 2) if rate != float("inf") else None),
                 coverage=round(coverage_frac, 3), peak_width_s=round(width, 1),
+                peak_lo_s=round(lo, 1), peak_hi_s=round(hi, 1),
                 margin=(round(margin, 2) if margin != float("inf") else None),
                 rival_min=(round(rival_off / 60.0, 2) if rival_off is not None else None))
 

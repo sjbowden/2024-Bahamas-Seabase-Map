@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Build the whole site into site_build/, from the archives to a servable folder.
 
-    python -m map.build                  # everything except the 900 MB of media
+    python -m map.build                  # everything except the 620 MB of media
     python -m map.build --media          # ...including derivatives
     python -m map.build --serve          # then serve it on :8000
 
@@ -77,7 +77,7 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--out", default=OUT)
     ap.add_argument("--media", action="store_true",
-                    help="also generate thumbnails and viewing copies (~920 MB)")
+                    help="also generate thumbnails and viewing copies (~620 MB)")
     ap.add_argument("--serve", action="store_true",
                     help="serve the result on :8000 when the build finishes")
     ap.add_argument("--reuse-index", action="store_true",
@@ -111,6 +111,25 @@ def main():
                   if r["tier"] in ("gps", "bracket", "calibrated", "inferred"))
     print(f"[place ] {plotted} plot on the chart ({time.time() - t:.1f}s)")
 
+    # Before anything in the folder is replaced. Not rendering is fine;
+    # publishing pictures that no longer belong to their records is not. Ids
+    # are positions in the index, so if the index moved under an existing media
+    # folder, say so and stop -- with the old data still beside the old pictures,
+    # and not new records pointing at them.
+    media_note = None
+    if not a.media:
+        from map import derive
+        stale = derive.stale(photos, os.path.join(a.out, "media"))
+        if stale:
+            raise SystemExit(
+                f"[derive] {len(stale)} photographs or leftover files do not match "
+                f"the media on disk (e.g. {', '.join(stale[:3])}) — run again "
+                f"with --media; nothing in {a.out} has been changed")
+        media_note = ("[derive] skipped — pass --media for the 620 MB step"
+                      if stale is None else
+                      f"[derive] skipped — the media on disk matches all "
+                      f"{len(photos)} photographs")
+
     t = time.time()
     written = E.export(os.path.join(a.out, "data"), placed)
     print(f"[export] {len(written)} data files, "
@@ -131,22 +150,7 @@ def main():
         # Before "built": a site with thumbnails missing is not built.
         derive.fail_on_errors(made)
     else:
-        # Not rendering is fine; publishing pictures that no longer belong to
-        # their records is not. Ids are positions in the index, so if the index
-        # moved under an existing media folder, say so and stop.
-        from map import derive
-        media = os.path.join(a.out, "media")
-        stale = derive.stale(photos, media)
-        if stale is None:
-            print("[derive] skipped — pass --media for the 920 MB step")
-        elif stale:
-            raise SystemExit(
-                f"[derive] {len(stale)} photographs or leftover files do not match "
-                f"the media on disk (e.g. {', '.join(stale[:3])}) — run again "
-                f"with --media")
-        else:
-            print(f"[derive] skipped — the media on disk matches all "
-                  f"{len(photos)} photographs")
+        print(media_note)
 
     print(f"\nbuilt {a.out} in {time.time() - t0:.0f}s")
     if a.serve:

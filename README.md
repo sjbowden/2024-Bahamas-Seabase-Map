@@ -97,12 +97,14 @@ Three corrections matter, and all three change the numbers:
 Other things worth remembering:
 
 - 21 Mar and part of 28 Mar are Portland legs (lat ≈ 45 N); everything filters
-  to `lat < 30`. The 25.8 kn peak on 28 Mar is the airport van, not the boat.
+  to `lat < 30`. The receiver's own speed peaks at 45.9 kn on 28 Mar: that is
+  the airport van, not the boat, whose best was 8.3 kn.
   The drive home on 28 Mar is published as far as the Hillsboro exit and no
   further, so the log ends there rather than where the receiver was switched off.
 - **22 Mar has no usable passage at all** — the whole log fits in an 870 m box.
   The airport→hotel drive shown on the poster is *reconstructed* by routing over
-  the OSM road network (`roads.py`, 5.90 km / **3.2 nm**), not recorded. For
+  the OSM road network (`roads.py`, 6.17 km / **3.3 nm**, keeping to the way
+  each one-way street runs), not recorded. For
   scale, Thursday's recorded drive in the other direction — from the marina, not
   the hotel, and not necessarily the same streets — measures **2.7 nm**.
 - The **hotel** (26.545222, −77.048906) comes from the GPS EXIF of a photograph
@@ -149,9 +151,10 @@ other. That is what makes the chart checkable rather than merely plausible.
 |---|---|---|
 | handheld GPS receiver (`GPSFILES/*.log`) | a fix every ~5 s | 10–14 h a day, one battery charge |
 | inReach satellite communicator (`geo/inreach.gpx`) | 10 min by day, 4 h overnight | continuous, including nights — and it bridges them |
-| crew cameras (EXIF) | per shot | 458 located photos |
+| crew cameras (EXIF) | per shot | 512 located photos |
 
-`python corroborate.py` regenerates every number below.
+`python corroborate.py` regenerates every number below. Its camera figures are
+read from the photo index, so that has to exist (`python -m map.photo_index`).
 
 The inReach does more than corroborate. The handheld runs one battery charge a
 day, so its log stops each evening and resumes the next morning, and the drawn
@@ -285,18 +288,23 @@ polyline simply runs a little inshore of the beach.
 
 ### Camera GPS
 
-458 photos carry coordinates, and they agree with the boat's track to a
-**median of 10 m** (90th percentile 34 m). Placement differs by camera, which
-matters for putting photos on an interactive map:
+512 of the 2,505 photographs carry coordinates, and 449 of those were taken
+in Abaco with the satellites' own time on them. The 385 taken within 90 s of a
+handheld fix sit a **median of 16 m** from it. The 90th percentile is 745 m: a
+phone goes where its owner goes, and that was not always where the receiver
+was. Placement differs by camera, which matters for putting photos on an
+interactive map:
 
 | camera | images | with GPS | how to place |
 |---|---|---|---|
-| Apple iPhone 15 Pro | 543 | 466 | own GPS |
-| FujiFilm XP90 | 148 | 0 | timestamp → track |
+| Apple iPhone 15 Pro | 511 | 480 | own GPS |
+| FujiFilm XP90 | 149 | 0 | timestamp → track |
 | GoPro HERO5 Session | 114 | 0 | timestamp → track |
 | Mavic Mini (drone) | 22 | 22 | own GPS, with altitude |
 
-**312 images have no GPS but do have a timestamp**, so the track places them.
+Those are four of the cameras, the ones the first pass at this was made on; the
+index has the rest. **1,918 images have no GPS but do have a timestamp**, so
+the track places them.
 That is the more general technique anyway: a photo's time pins it to the track
 within metres, and the track is more accurate than the phone's own fix.
 
@@ -330,8 +338,9 @@ The poster is drawn to read like a paper chart rather than a data plot:
   stretched by 1/cos(26.5°), so the sheet has no rotation or convergence — the
   rose reads true for every point on the chart.
 - **Depth tinting.** Deep water is near-white and the tint deepens inshore,
-  following chart convention. These are buffers around the coastline, not
-  surveyed contours — there is no bathymetry in this repo.
+  following chart convention. On the sheet these are buffers around the
+  coastline, not surveyed contours. The interactive chart and the depth edition
+  of the sheet draw measured depths in their place (`map/depth.py`).
 - **Compass rose.** A true ring graduated every 1°, an inner magnetic ring
   turned by the local variation, and a 16-point faceted star with a
   fleur-de-lis north. Variation is **9°05′ W (2024)**, computed from the WMM
@@ -429,7 +438,7 @@ than that and is left alone rather than quietly straightened out.
 
 | Local day | Route | On the water |
 |---|---|---|
-| Fri 22 Mar | Arrival — MHH → hotel by road (reconstructed, 3.2 nm) | — |
+| Fri 22 Mar | Arrival — MHH → hotel by road (reconstructed, 3.3 nm) | — |
 | Sat 23 Mar | Walk to the marina (0.4 nm), then out to anchor off Outer Point Cay | 3.6 nm |
 | Sun 24 Mar | Marsh Hbr → Man-O-War → Tahiti Beach → Tilloo Pond | 24.0 nm |
 | Mon 25 Mar | Tilloo Pond → Hope Town Harbour → Lynyard Cay | 20.5 nm |

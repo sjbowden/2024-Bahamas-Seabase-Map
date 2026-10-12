@@ -42,9 +42,23 @@ const say = (name, ok, detail = '') => console.log(JSON.stringify({ name, ok: !!
     all.push({ ...src, id: 'pTEST', day: null, utc: null, time: null });
     await route.fulfill({ response: r, json: all });
   });
+  const asked = [];
+  page.on('request', (r) => asked.push(r.url()));
+  const fetched = (name) => asked.some((u) => u.includes(`coast.${name}.geojson`));
   await page.goto(process.argv[2], { waitUntil: 'load' });
   await page.waitForFunction(
     () => typeof state !== 'undefined' && state.stories && state.onChart, null, { timeout: 60000 });
+
+  // The fine coastline is 1.2 MB and is for someone who has zoomed in.
+  await page.waitForFunction(() => map.isSourceLoaded('coast-coarse'));
+  const early = { coarse: fetched('coarse'), fine: fetched('fine'),
+                  zoom: await page.evaluate(() => map.getZoom()) };
+  await page.evaluate(() => map.jumpTo({ zoom: 14 }));
+  await page.waitForFunction(() => map.querySourceFeatures('coast-fine').length > 0,
+                             null, { timeout: 30000 });
+  say('the fine coastline is fetched on zooming in, and not before',
+      early.coarse && !early.fine && fetched('fine'), JSON.stringify(early));
+  await page.evaluate((z) => map.jumpTo({ zoom: z }), early.zoom);
 
   const popups = () => page.locator('.story-popup').count();
   const openFirstStory = () => page.evaluate(() => {
@@ -248,5 +262,28 @@ const say = (name, ok, detail = '') => console.log(JSON.stringify({ name, ok: !!
   }
 
   say('the page raised no errors', errors.length === 0, errors.join('; '));
+
+  // The chart's own data failing has to be said on the page, not in a console.
+  const broken = await browser.newPage({ viewport: { width: 1400, height: 900 } });
+  await broken.route('**/data/meta.json', (route) => route.fulfill({ status: 500, body: 'no' }));
+  await broken.goto(process.argv[2], { waitUntil: 'load' });
+  await broken.waitForFunction(() => !document.querySelector('#notice').hidden,
+                               null, { timeout: 30000 }).catch(() => {});
+  const told = await broken.evaluate(() => {
+    const n = document.querySelector('#notice');
+    return { shown: !n.hidden, text: n.textContent, link: !!n.querySelector('a[href="journal.html"]') };
+  });
+  say('a chart that cannot load its data says so, and offers the journal',
+      told.shown && /could not load/i.test(told.text) && told.link, JSON.stringify(told));
+  await broken.close();
+
+  const holed = await browser.newPage({ viewport: { width: 1400, height: 900 } });
+  await holed.route('**/data/tracks.geojson', (route) => route.fulfill({ status: 500, body: 'no' }));
+  await holed.goto(process.argv[2], { waitUntil: 'load' });
+  await holed.waitForFunction(() => !document.querySelector('#notice').hidden,
+                              null, { timeout: 30000 }).catch(() => {});
+  const gap = await holed.evaluate(() => document.querySelector('#notice').textContent);
+  say('a chart missing its track says the track is missing', /the track/.test(gap), gap);
+  await holed.close();
   await browser.close();
 })().catch((e) => { say('the browser check ran to the end', false, String(e)); process.exit(1); });

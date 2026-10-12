@@ -43,7 +43,7 @@ def haversine(a_lat, a_lon, b_lat, b_lon):
     return 2 * R * math.asin(math.sqrt(h))
 
 
-def clean(pts, max_kn=30.0):    # the airport van legitimately hit 25.8 kn
+def clean(pts, max_kn=30.0):    # the airport van legitimately passed it
     """Drop fixes implying an impossible speed over ground (GPS spikes)."""
     out = [pts[0]]
     for p in pts[1:]:

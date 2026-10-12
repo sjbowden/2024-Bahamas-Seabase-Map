@@ -592,9 +592,12 @@ def read_fixes(stem):
             lat, lon = float(r["lat"]), float(r["lon"])
             if lat >= 30.0:                         # Bahamas only, no PDX legs
                 continue
+            # Written so that a nan fails: nan > MAX_HDOP is False, and a fix
+            # whose quality or speed is not a number is not a good fix.
             if (int(r["quality"]) not in GOOD_QUALITY
                     or int(r["sats"]) < MIN_SATS
-                    or float(r["hdop"]) > MAX_HDOP):
+                    or not float(r["hdop"]) <= MAX_HDOP
+                    or not math.isfinite(float(r["sog_kn"]))):
                 dropped += 1
                 continue
             fixes.append((datetime.strptime(r["utc"], "%Y-%m-%dT%H:%M:%SZ")
@@ -666,18 +669,20 @@ def load_day(stem, min_step_m=22.0, max_kn=30.0, walk_split=None, road_split=Non
         return dict(afloat=[], nm=0.0, max_kn=0.0, fixes=n_raw, dropped=dropped,
                     walk=_thin(walk_raw), road=_thin(road_raw))
     kept, dist, prev = [raw[0]], 0.0, raw[0]
+    speeds = [raw[0][3]]
     for p in raw[1:]:
         dt = (p[0] - prev[0]).total_seconds()
         step = haversine(prev[1], prev[2], p[1], p[2])
         if dt > 0 and step / dt * 1.94384 > max_kn and step > 60:
             continue                                # residual spike
+        speeds.append(p[3])                         # a rejected fix sets no record
         if p[3] > MOVING_KN:
             dist += step                            # measure against the last
         prev = p                                    # accepted fix, not the last
         if haversine(kept[-1][1], kept[-1][2],      # *plotted* one
                      p[1], p[2]) >= min_step_m:     # thin stationary jitter
             kept.append(p)
-    speeds = [p[3] for p in raw if p[3] > 0.8]
+    speeds = [v for v in speeds if v > 0.8]
     return dict(afloat=kept, nm=dist / NM, max_kn=(max(speeds) if speeds else 0.0),
                 fixes=n_raw, dropped=dropped,
                 walk=_thin(walk_raw), road=_thin(road_raw))

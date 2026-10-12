@@ -17,7 +17,9 @@ const PALETTE = {
 
 // Which band serves which zooms. The coarse band is 138 KB and the fine one
 // 1.2 MB, so the fine one is only asked for once somebody zooms in far enough
-// to see the difference.
+// to see the difference: loadCoast() gives a band its data when the zoom comes
+// within half a level of it. A layer's own minzoom only stops it drawing; the
+// file was fetched at startup all the same until the source waited too.
 const BANDS = [
   { name: 'coarse', maxzoom: 11 },
   { name: 'medium', minzoom: 11, maxzoom: 13 },
@@ -26,6 +28,26 @@ const BANDS = [
 
 const $ = (s) => document.querySelector(s);
 const state = { days: new Set(), meta: null };
+
+// Something a reader has to be told, where they will see it. `html` only ever
+// comes from this file.
+function notify(html) {
+  const n = $('#notice');
+  n.innerHTML = html;
+  n.hidden = false;
+}
+const ELSEWHERE = ' <a href="journal.html">The journal</a> is still here.';
+
+// Without WebGL the map library throws while it is being built, and a page
+// with a dead Layers button and no word of why is worse than a sentence.
+(function needsWebGL() {
+  let ok = false;
+  try {
+    const c = document.createElement('canvas');
+    ok = !!(c.getContext('webgl2') || c.getContext('webgl'));
+  } catch (e) { ok = false; }
+  if (!ok) notify('This browser cannot draw the chart: it needs WebGL.' + ELSEWHERE);
+}());
 
 async function json(path) {
   // no-cache: always ask the server before trusting a stored copy. These
@@ -88,7 +110,13 @@ map.addControl(new maplibregl.AttributionControl({
                    + 'Track from a handheld GPS',
 }), 'bottom-left');
 
-map.on('load', start);
+// The chart's own data failing is not an optional layer failing: nothing below
+// would be built, and the page would sit there looking finished.
+map.on('load', () => start().catch((e) => {
+  console.error(e);
+  state.failed = true;
+  notify('The chart could not load. Reloading the page may fix it.' + ELSEWHERE);
+}));
 
 async function start() {
   const meta = await json('data/meta.json');
@@ -121,9 +149,7 @@ async function start() {
   buildPanel(meta);
   wirePanel();
   if (lost.length) {
-    const n = $('#notice');
-    n.textContent = `Could not load the ${lost.join(' or the ')}. The rest of the chart is here.`;
-    n.hidden = false;
+    notify(`Could not load the ${lost.join(' or the ')}. The rest of the chart is here.`);
   }
   scaleBar();
   map.on('move', scaleBar);
@@ -192,7 +218,9 @@ function addChart(meta) {
   addShoals();
   addDepth(meta);
   for (const b of BANDS) {
-    map.addSource(`coast-${b.name}`, { type: 'geojson', data: `data/coast.${b.name}.geojson` });
+    // Empty until its zooms come round; the layers go in now so that the
+    // drawing order does not depend on what was loaded when.
+    map.addSource(`coast-${b.name}`, { type: 'geojson', data: emptyFC() });
     map.addLayer({
       id: `land-${b.name}`, type: 'fill', source: `coast-${b.name}`,
       ...zoomRange(b), paint: { 'fill-color': PALETTE.land },
@@ -206,8 +234,25 @@ function addChart(meta) {
       },
     });
   }
+  loadCoast();
+  map.on('zoom', loadCoast);
 }
 
+
+const coastLoaded = new Set();
+function loadCoast() {
+  const z = map.getZoom();
+  for (const b of BANDS) {
+    if (coastLoaded.has(b.name)) continue;
+    // Half a level early, so a band is there by the time it is drawn. Once
+    // loaded it stays, for zooming back.
+    if ((b.minzoom === undefined || z >= b.minzoom - 0.5)
+        && (b.maxzoom === undefined || z < b.maxzoom + 0.5)) {
+      coastLoaded.add(b.name);
+      map.getSource(`coast-${b.name}`).setData(`data/coast.${b.name}.geojson`);
+    }
+  }
+}
 
 function zoomRange(b) {
   const o = {};
@@ -637,10 +682,17 @@ function esc(s) {
     { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
+// What each of the chart's own sources is, to someone reading a notice.
+const SOURCE_WORDS = { tracks: 'the track', depth: 'the depths', shoals: 'the shallows' };
+const lostSources = new Set();
 map.on('error', (e) => {
-  // Loud in the console, quiet on the chart: a missing optional layer should not
-  // blank the map the crew opened.
   console.error('map error', e && e.error ? e.error : e);
+  // A source that would not load leaves a chart that looks whole and is not:
+  // no coastline, or no track. That is said; it does not blank what did load.
+  const id = e && e.sourceId;
+  if (!id || state.failed) return;
+  lostSources.add(id.startsWith('coast-') ? 'the coastline' : (SOURCE_WORDS[id] || 'part of the chart'));
+  notify(`Could not load ${[...lostSources].join(' or ')}. Reloading the page may fix it.`);
 });
 
 /* ----------------------------------------------------------- photographs --- */

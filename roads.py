@@ -59,21 +59,61 @@ def metres(a, b):
     return 2 * R * math.asin(math.sqrt(h))
 
 
-def build_graph(allowed):
+# Bump when the router changes what it returns for the same roads and endpoints,
+# so a route cached the old way is not mistaken for a current one.
+ROUTE_VERSION = 2
+
+
+def directions(tags, walking=False):
+    """Which ways along a road one may go: (as drawn, against).
+
+    On foot, both. In a van, not against a one-way street and not along a road
+    closed to the public: a drive reconstructed from the map has to be one the
+    map allows, or it is a shorter line that nobody could have driven.
+    """
+    if walking:
+        return True, True
+    if "no" in (tags.get("access"), tags.get("motor_vehicle")) \
+            or "private" in (tags.get("access"), tags.get("motor_vehicle")):
+        return False, False
+    oneway = tags.get("oneway")
+    if oneway in ("-1", "reverse"):
+        return False, True
+    if oneway in ("yes", "true", "1") or tags.get("junction") in ("roundabout", "circular"):
+        return True, False
+    return True, True
+
+
+def build_graph(allowed, walking=False):
     js = fetch_roads()
     g = {}
     for el in js.get("elements", []):
-        if el.get("tags", {}).get("highway") not in allowed:
+        tags = el.get("tags", {})
+        if tags.get("highway") not in allowed:
             continue
+        fwd, back = directions(tags, walking)
         geom = el.get("geometry") or []
         for a, b in zip(geom, geom[1:]):
             ka, kb = _key(a["lat"], a["lon"]), _key(b["lat"], b["lon"])
             if ka == kb:
                 continue
             w = metres(ka, kb)
-            g.setdefault(ka, []).append((kb, w))
-            g.setdefault(kb, []).append((ka, w))   # treat all roads two-way
+            g.setdefault(ka, [])
+            g.setdefault(kb, [])
+            if fwd:
+                g[ka].append((kb, w))
+            if back:
+                g[kb].append((ka, w))
     return g
+
+
+def _source_digest(allowed):
+    """What a cached route was computed from: the roads, and which of them."""
+    import hashlib
+    fetch_roads()
+    h = hashlib.sha1(open(os.path.join(CACHE, "roads.json"), "rb").read())
+    h.update(repr((ROUTE_VERSION, allowed)).encode())
+    return h.hexdigest()[:10]
 
 
 def nearest(g, lat, lon):
@@ -82,12 +122,16 @@ def nearest(g, lat, lon):
 
 def route(start, end, walking=False):
     """(lat,lon) -> (lat,lon) shortest path along roads; list of (lon,lat)."""
-    cache = os.path.join(CACHE, "route_%s_%.5f_%.5f_%.5f_%.5f.pkl"
-                         % ("w" if walking else "d", *start, *end))
+    allowed = WALKABLE if walking else DRIVABLE
+    # Keyed on the roads and the router as well as the endpoints: a corrected
+    # road or a corrected rule must not go on drawing the old line.
+    cache = os.path.join(CACHE, "route_%s_%s_%.5f_%.5f_%.5f_%.5f.pkl"
+                         % ("w" if walking else "d", _source_digest(allowed),
+                            *start, *end))
     if os.path.exists(cache):
         return pickle.load(open(cache, "rb"))
 
-    g = build_graph(WALKABLE if walking else DRIVABLE)
+    g = build_graph(allowed, walking)
     s, e = nearest(g, *start), nearest(g, *end)
     dist = {s: 0.0}
     prev = {}
