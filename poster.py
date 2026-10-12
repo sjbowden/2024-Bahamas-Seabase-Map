@@ -214,7 +214,10 @@ def _trim_loops(run, window=80, tol=None, active=None):
                 jump = (j, x)
                 break
         if jump:
+            # On to the crossing, which lies on segment j, and then to the end
+            # of that segment: A[j + 1] is a corner of the route, not of the loop.
             out.append(jump[1])
+            out.append(A[jump[0] + 1])
             i = jump[0] + 1
         else:
             out.append(A[i + 1])

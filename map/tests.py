@@ -1405,6 +1405,27 @@ def test_edges():
           len(P.track()) == raw and lost > 0,
           f"{raw - len(P.track())} dropped; {lost} would be without the road split")
 
+    # Three places where the arithmetic drew something the data did not say.
+    import numpy as np
+    import poster
+    from map import depth as DP
+    loop = [(0, 0), (4, 0), (4, 2), (2, 2), (2, -2), (6, -2)]
+    cut = poster._trim_loops(loop)
+    check("trimming a fold keeps the corner after the crossing",
+          cut == [(0.0, 0.0), (2.0, 0.0), (2.0, -2.0), (6.0, -2.0)], str(cut))
+    flat = DP._box_mean(np.full((1500, 1500), 2500.0, dtype=np.float32), 25)
+    check("a box mean over a deep grid is the depth, to the centimetre",
+          float(np.abs(flat - 2500.0).max()) < 0.01,
+          f"off by up to {float(np.abs(flat - 2500.0).max()):.1f} m")
+    vals = np.full((5, 3), 400.0, dtype=np.float32)
+    trusted = np.zeros((5, 3), bool)
+    trusted[0] = True
+    region = np.zeros((5, 3), bool)
+    region[4] = True
+    grown = DP._grow_into(vals, region, trusted)
+    check("the grid's north edge is not a neighbour of its south edge",
+          (grown[4] == -1.0).all(), str(grown[4]))
+
     # The browser check is one failed check or one skip, never a traceback that
     # takes the rest of the suite's verdict with it.
     import contextlib

@@ -444,7 +444,10 @@ def _box_mean(a, k):
     """Mean over a k x k window, via a summed-area table."""
     pad = k // 2
     p = np.pad(a, pad + 1, mode="edge")
-    s = p.cumsum(0).cumsum(1)
+    # In float64 whatever comes in. The table's far corner is the sum of the
+    # whole grid -- 5.4e9 m for this one -- and float32 holds that to the nearest
+    # few hundred metres, which a 25-cell window then reports as depth.
+    s = p.cumsum(0, dtype=np.float64).cumsum(1)
     y0, x0 = np.mgrid[0:a.shape[0], 0:a.shape[1]]
     y1, x1 = y0 + k, x0 + k
     total = s[y1, x1] - s[y0, x1] - s[y1, x0] + s[y0, x0]
@@ -474,10 +477,10 @@ def _grow_into(values, region, trusted, passes=FRINGE_PASSES):
         todo = region & ~known
         if not todo.any():
             break
-        nb = np.stack([
-            np.roll(out, 1, 0), np.roll(out, -1, 0),
-            np.roll(out, 1, 1), np.roll(out, -1, 1),
-        ])
+        # Padded and not rolled: a roll wraps, and the grid's north edge is not
+        # a neighbour of its south edge 205 km away.
+        p = np.pad(out, 1, constant_values=np.nan)
+        nb = np.stack([p[:-2, 1:-1], p[2:, 1:-1], p[1:-1, :-2], p[1:-1, 2:]])
         with warnings.catch_warnings():
             # A pixel with no known neighbour yet is expected, not exceptional.
             warnings.simplefilter("ignore", RuntimeWarning)
