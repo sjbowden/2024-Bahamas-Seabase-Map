@@ -1199,7 +1199,7 @@ def test_site_build():
     check("the viewer hedges a day guessed from a filename",
           "day_provisional" in app)
     # Safari and Firefox fetch when src is set; a lazy flag set after is too late.
-    tray = app[app.index("function buildTray"):]
+    tray = app[app.index("function thumbButton"):]
     check("a tray thumbnail is marked lazy before it is given its address",
           0 < tray.find("img.loading = 'lazy'") < tray.find("img.src = "))
     tracks = json.load(open(os.path.join(out, "data", "tracks.geojson")))["features"]
@@ -1252,8 +1252,8 @@ def test_site_build():
           and start_body.index("catch") < start_body.index("buildPanel("))
     # Both sheets of thumbnails, on the chart and off it, make theirs one way.
     thumb_body = re.search(r"function thumbButton\(.*?\)\s*\{(.*?)\n\}", app, re.S).group(1)
-    sheets = "".join(re.search(rf"function {f}\(\)\s*\{{(.*?)\n\}}", app, re.S).group(1)
-                     for f in ("buildTray", "buildChartTray"))
+    sheets = "".join(re.search(rf"function {f}\(.*?\)\s*\{{(.*?)\n\}}", app, re.S).group(1)
+                     for f in ("buildOffTray", "buildChartTray"))
     check("tray photographs are buttons, so a keyboard can open them",
           "createElement('button')" in thumb_body and "aria-label" in thumb_body
           and sheets.count("thumbButton(") == 2 and "createElement('img')" not in sheets)

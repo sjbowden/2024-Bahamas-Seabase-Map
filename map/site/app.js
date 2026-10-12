@@ -379,7 +379,9 @@ function refreshPhotos() {
   if (browse) {
     browse.disabled = !state.shown.length;
     // The count is part of the button's name, so it is read out with it.
-    browse.textContent = `All the photographs on the chart, as thumbnails (${state.shown.length})`;
+    // The wording is index.html's, kept from the first time through.
+    browse.dataset.label = browse.dataset.label || browse.textContent.trim();
+    browse.textContent = `${browse.dataset.label} (${state.shown.length})`;
   }
   const src = map.getSource('photos');
   if (src) src.setData(photoFC(state.shown));
@@ -596,7 +598,13 @@ function applyLayer(key, on) {
     drawClusterCounts();
     // The key explains the photograph dots, so it comes and goes with them.
     $('#photo-key').hidden = !on;
-    if ($('#photo-links')) $('#photo-links').hidden = !on;
+    // Shipped showing and hidden from here, so a tab with this page and an
+    // older script still has them. Not shown at all if the photographs never
+    // loaded: there would be nothing behind either link.
+    if ($('#photo-links')) $('#photo-links').hidden = !on || !state.onChart;
+    // A sheet of photographs over a chart that has stopped showing them is the
+    // box not having unticked.
+    if (!on) closeTray();
   }
 }
 
@@ -1089,14 +1097,26 @@ function revealViewer() {
 
 function closeViewer() {
   const wasOpen = !$('#viewer').hidden;
+  // The photograph being left, for the sheet of thumbnails to come back to.
+  const left = (state.at != null && state.shown) ? state.shown[state.at] : null;
   $('#viewer').hidden = true;
   $('#viewer-moved').hidden = true;
   document.body.classList.remove('viewing');
   for (const sel of BEHIND_VIEWER) { const el = $(sel); if (el) el.inert = false; }
   if (wasOpen) {
-    const back = state.viewerReturn;
+    let back = state.viewerReturn;
     state.viewerReturn = null;
-    if (back && document.contains(back) && back.focus) back.focus();
+    // Opened from the sheet and stepped on from there: the place to come back
+    // to is the photograph just closed, not the one opened three days ago.
+    if (left && state.trayMode === 'on' && !$('#tray').hidden) {
+      const here = [...document.querySelectorAll('#tray-body .thumb')]
+        .find((b) => b.dataset.id === left.id);
+      if (here && here.offsetParent !== null) {
+        back = here;
+        here.scrollIntoView({ block: 'center' });
+      }
+    }
+    if (back && document.contains(back) && back.focus) back.focus({ preventScroll: back.className === 'thumb' });
   }
   // state.at is only meaningful while the viewer is open on a chart photograph.
   // Left behind, it would tell refreshPhotos a closed viewer was still showing it.
@@ -1129,15 +1149,16 @@ function wireViewer() {
   // a keyboard nowhere to start. The sheet of thumbnails is the start: each is
   // a button, and the arrows do the rest.
   const openTray = (mode) => {
+    if (!state.offChart) return;               // the photographs never loaded
     state.trayMode = mode;
     $('#tray').hidden = false;
-    buildTray();
+    if (mode === 'on') buildChartTray(); else buildTray();
     $('#tray').scrollTop = 0;
     $('#tray-close').focus();
   };
   if ($('#photos-browse')) {
     $('#photos-browse').addEventListener('click', () => {
-      if (state.shown.length) openTray('on');
+      if (state.shown && state.shown.length) openTray('on');
     });
   }
   $('#tray-open').addEventListener('click', () => openTray('off'));
@@ -1147,9 +1168,17 @@ function wireViewer() {
 function closeTray() {
   if ($('#tray').hidden) return;
   $('#tray').hidden = true;
-  // Back to whichever link opened it.
-  const from = state.trayMode === 'on' ? $('#photos-browse') : $('#tray-open');
-  (from || $('#tray-open')).focus();
+  const mode = state.trayMode;
+  state.trayMode = null;
+  $('#tray-body').innerHTML = '';              // made for looking at; not kept
+  // Back to whichever link opened it -- or, if that link has since been hidden
+  // or disabled, to the nearest thing that can take focus, so that a keyboard
+  // is not dropped at the top of the page.
+  const takes = (el) => el && !el.disabled && el.offsetParent !== null;
+  const back = [mode === 'on' ? $('#photos-browse') : $('#tray-open'),
+                $('#chart-layers input[data-layer="photos"]'), $('#panel-toggle')]
+    .find(takes);
+  if (back) back.focus();
 }
 
 /* ------------------------------------------------------------------- tray --- */
@@ -1161,13 +1190,17 @@ function closeTray() {
  * thumbnail opens the viewer. The bubbles on the chart still open the viewer
  * directly; this is the way in for someone who would rather see them all. */
 function buildTray() {
+  if (!state.offChart) return;                 // the photographs never loaded
   const off = state.offChart.filter((p) => !p.day || state.days.has(p.day));
   $('#tray-count').textContent = `(${off.length})`;
-  if (state.trayMode === 'on') {
-    // 2,180 thumbnails are only worth making for someone looking at them.
-    if (!$('#tray').hidden) buildChartTray();
-    return;
-  }
+  // Thumbnails are only worth making for someone looking at them: the sheet is
+  // filled by openTray and emptied by closeTray. While it is open a day toggle
+  // has to reach it, and how depends on which sheet it is.
+  if ($('#tray').hidden) return;
+  if (state.trayMode === 'on') syncChartTray(); else buildOffTray(off);
+}
+
+function buildOffTray(off) {
   $('#tray').setAttribute('aria-label', 'Photographs not on the chart');
   $('#tray h2').textContent = 'Not on the chart';
   $('#tray > .tray-why').textContent = '';
@@ -1220,28 +1253,44 @@ function buildTray() {
 // were taken. Opening one opens the viewer where a bubble would have, so the
 // arrows walk on from it and the chart behind follows.
 function buildChartTray() {
-  const n = state.shown.length;
   $('#tray').setAttribute('aria-label', 'Photographs on the chart');
   $('#tray h2').textContent = 'On the chart';
-  $('#tray > .tray-why').textContent =
-    `${n} photograph${n === 1 ? '' : 's'}, in the order they were taken. `
-    + 'Open one and the arrows step on from it.';
   const body = $('#tray-body');
   body.innerHTML = '';
+  // Every day, ticked or not, each in a block of its own. A day toggle then
+  // shows or hides a block and leaves the other two thousand thumbnails, and
+  // the reader's place among them, where they were.
   const byDay = new Map();
-  for (const p of state.shown) {
-    const day = p.day || 'Undated';
+  for (const p of state.onChart) {
+    const day = p.day || '';
     if (!byDay.has(day)) byDay.set(day, []);
     byDay.get(day).push(p);
   }
   for (const [day, ps] of byDay) {
+    const block = document.createElement('div');
+    block.className = 'tray-day';
+    block.dataset.day = day;
     const dh = document.createElement('h4');
-    dh.textContent = `${day} · ${ps.length}`;
+    dh.textContent = `${day || 'Undated'} · ${ps.length}`;
     const grid = document.createElement('div');
     grid.className = 'grid';
     for (const p of ps) grid.append(thumbButton(p, () => openViewer(p.id)));
-    body.append(dh, grid);
+    block.append(dh, grid);
+    body.append(block);
   }
+  syncChartTray();
+}
+
+// The chart sheet against the day checkboxes: the same rule as state.shown.
+function syncChartTray() {
+  for (const block of document.querySelectorAll('#tray-body .tray-day')) {
+    block.hidden = !!block.dataset.day && !state.days.has(block.dataset.day);
+  }
+  const n = state.shown.length;
+  $('#tray > .tray-why').textContent = n
+    ? `${n} photograph${n === 1 ? '' : 's'}, in the order they were taken. `
+      + 'Open one and the arrows step on from it.'
+    : 'No day is ticked, so there are none to show.';
 }
 
 function thumbButton(p, open) {
@@ -1252,6 +1301,7 @@ function thumbButton(p, open) {
   const btn = document.createElement('button');
   btn.type = 'button';
   btn.className = 'thumb';
+  btn.dataset.id = p.id;
   btn.title = what;
   btn.setAttribute('aria-label', `Open photograph: ${what}`);
   const img = document.createElement('img');

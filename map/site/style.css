@@ -147,7 +147,6 @@ html, body {
 #photo-links { margin: .2rem 0 .15rem 1.45rem; font-size: .69rem; color: var(--ink-soft); }
 #photo-links > * { display: block; margin-top: .22rem; text-align: left; }
 #photo-links[hidden] { display: none; }
-.nowrap { white-space: nowrap; }
 
 /* Above the attribution, which now sits in the bottom-left corner: the layers
    panel is tall enough to reach y=610, and on a 700px-high window that landed on

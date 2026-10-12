@@ -260,6 +260,52 @@ const say = (name, ok, detail = '') => console.log(JSON.stringify({ name, ok: !!
       !backAt.viewer && backAt.tray && backAt.focus === 'thumb'
       && await page.evaluate(() => document.querySelector('#tray').hidden
         && document.activeElement.id === 'photos-browse'), JSON.stringify(backAt));
+  // With the sheet open: a day toggle hides that day's block and keeps the
+  // reader's place; closing a photograph comes back to the one being looked
+  // at; and unticking Photographs takes the sheet away with them.
+  // At this window's size the open sheet lies over most of the panel, so the
+  // boxes under it are clicked as a taller window, or a keyboard, would.
+  const press = (sel) => page.evaluate((q) => document.querySelector(q).click(), sel);
+  await page.click('#photos-browse');
+  const made = await page.evaluate(() => {
+    const t = document.querySelector('#tray');
+    t.scrollTop = 4000;
+    return { thumbs: document.querySelectorAll('#tray-body .thumb').length, top: t.scrollTop };
+  });
+  await press('#days input[data-day="Thu 28 Mar"]');
+  const kept = await page.evaluate(() => ({
+    thumbs: document.querySelectorAll('#tray-body .thumb').length,
+    top: document.querySelector('#tray').scrollTop,
+    thu: document.querySelector('#tray-body .tray-day[data-day="Thu 28 Mar"]').hidden,
+    others: [...document.querySelectorAll('#tray-body .tray-day')].filter((b) => !b.hidden).length,
+    why: document.querySelector('#tray > .tray-why').textContent,
+    shown: state.shown.length }));
+  say('a day toggle hides that day in the open sheet and keeps the reader\'s place',
+      kept.thumbs === made.thumbs && made.top > 1000 && kept.top === made.top && kept.thu
+      && kept.others >= 6 && kept.why.startsWith(`${kept.shown} photographs`),
+      JSON.stringify({ made, kept }));
+  await press('#days input[data-day="Thu 28 Mar"]');
+  await page.evaluate(() => document.querySelector('#tray-body .thumb').click());
+  for (let k = 0; k < 40; k++) await page.keyboard.press('ArrowRight');
+  const stepped = await page.evaluate(() => state.shown[state.at].id);
+  await page.keyboard.press('Escape');
+  const landed = await page.evaluate(() => {
+    const a = document.activeElement, r = a.getBoundingClientRect();
+    return { id: a.dataset.id, cls: a.className, inView: r.top >= 0 && r.bottom <= innerHeight };
+  });
+  say('closing a photograph stepped to from the sheet lands on its own thumbnail',
+      landed.cls === 'thumb' && landed.id === stepped && landed.inView,
+      JSON.stringify({ stepped, landed }));
+  await page.focus('#tray-close');
+  await press('#chart-layers input[data-layer="photos"]');
+  const gone = await page.evaluate(() => ({
+    tray: document.querySelector('#tray').hidden,
+    left: document.querySelectorAll('#tray-body .thumb').length,
+    focus: document.activeElement.dataset.layer || document.activeElement.id }));
+  say('unticking Photographs closes the sheet and leaves focus somewhere real',
+      gone.tray && gone.left === 0 && gone.focus === 'photos', JSON.stringify(gone));
+  await page.check('#chart-layers input[data-layer="photos"]');
+
   await page.click('#tray-open');
   const offTray = await page.evaluate(() => ({
     title: document.querySelector('#tray h2').textContent,
@@ -378,6 +424,27 @@ const say = (name, ok, detail = '') => console.log(JSON.stringify({ name, ok: !!
   say('a chart that cannot load its data says so, and offers the journal',
       told.shown && /could not load/i.test(told.text) && told.link, JSON.stringify(told));
   await broken.close();
+
+  // The photographs failing to load takes their two links with it, and a click
+  // that reaches one anyway does nothing rather than throwing.
+  const blind = await browser.newPage({ viewport: { width: 1400, height: 900 } });
+  const blindErrors = [];
+  blind.on('pageerror', (e) => blindErrors.push(String(e)));
+  await blind.route('**/data/photos.json', (route) => route.fulfill({ status: 500, body: 'no' }));
+  await blind.goto(process.argv[2], { waitUntil: 'load' });
+  await blind.waitForFunction(() => typeof state !== 'undefined' && state.stories && state.layers,
+                              null, { timeout: 60000 });
+  await blind.check('#chart-layers input[data-layer="photos"]');
+  const dark = await blind.evaluate(() => {
+    document.querySelector('#tray-open').click();
+    document.querySelector('#photos-browse').click();
+    return { links: document.querySelector('#photo-links').hidden,
+             tray: document.querySelector('#tray').hidden };
+  });
+  say('with no photographs loaded their links are not offered and cannot throw',
+      dark.links && dark.tray && blindErrors.length === 0,
+      JSON.stringify({ ...dark, errors: blindErrors }));
+  await blind.close();
 
   const holed = await browser.newPage({ viewport: { width: 1400, height: 900 } });
   await holed.route('**/data/tracks.geojson', (route) => route.fulfill({ status: 500, body: 'no' }));
