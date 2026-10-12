@@ -45,14 +45,25 @@ def dm_to_deg(val, hemi):
     return -d if hemi in ("S", "W") else d
 
 
-def parse_gga(path):
-    """Fix-quality sidecar keyed by hhmmss: (quality, n_sats, hdop).
+# A fix and its quality are two sentences of one burst: in these logs the RMC
+# comes four to seven lines after the GGA of the same instant. This is generous,
+# and still far short of the day's worth of lines between two noons.
+NEAR_LINES = 40
 
-    quality 1=GPS, 2=DGPS, 6=dead-reckoning (an estimate, not a real fix).
+
+def parse_gga(path):
+    """Fix quality by the time it was reported: {time field: [(line, quality)]}.
+
+    quality is (fix quality, satellites, hdop); fix quality 1=GPS, 2=DGPS,
+    6=dead-reckoning (an estimate, not a real fix).
+
+    Every occurrence is kept, with the line it was on. Keyed on the time of day
+    alone, a log that ran past 24 hours gave Monday's noon fix Tuesday's noon
+    quality, and two fixes inside one second shared whichever came last.
     """
     q = {}
     with open(path, "r", encoding="ascii", errors="replace") as fh:
-        for line in fh:
+        for n, line in enumerate(fh):
             line = line.strip()
             if not line.startswith("$GPGGA") or not nmea_checksum_ok(line):
                 continue
@@ -62,18 +73,35 @@ def parse_gga(path):
             try:
                 hdop = float(f[8] or 99.0)
                 # "nan" is a float, and nan > MAX_HDOP is False: unknown is bad.
-                q[f[1][:6]] = (int(f[6]), int(f[7] or 0),
-                               hdop if math.isfinite(hdop) else 99.0)
+                q.setdefault(f[1], []).append(
+                    (n, (int(f[6]), int(f[7] or 0),
+                         hdop if math.isfinite(hdop) else 99.0)))
             except ValueError:
                 continue
     return q
+
+
+NO_QUALITY = (0, 0, 99.0)
+
+
+def quality_at(qual, when, line):
+    """The quality reported with the fix on `line`: the same instant, nearby.
+
+    The nearest GGA carrying the same time field, if it is within NEAR_LINES.
+    None that near means this fix came without one, and it gets no quality
+    rather than another day's.
+    """
+    near = min(qual.get(when, ()), key=lambda c: abs(c[0] - line), default=None)
+    if near is None or abs(near[0] - line) > NEAR_LINES:
+        return NO_QUALITY
+    return near[1]
 
 
 def parse_file(path):
     rows = []
     qual = parse_gga(path)
     with open(path, "r", encoding="ascii", errors="replace") as fh:
-        for line in fh:
+        for n, line in enumerate(fh):
             line = line.strip()
             if not line.startswith("$GPRMC") or not nmea_checksum_ok(line):
                 continue
@@ -117,7 +145,7 @@ def parse_file(path):
             # a course may be absent, which is what the nan above stands for.
             if not math.isfinite(sog) or (f[8] and not math.isfinite(cog)):
                 continue
-            gq, gsat, ghdop = qual.get(hhmmss[:6], (0, 0, 99.0))
+            gq, gsat, ghdop = quality_at(qual, hhmmss, n)
             rows.append((ts, lat, lon, sog, cog, gq, gsat, ghdop))
     rows.sort(key=lambda r: r[0])
     # drop exact-duplicate timestamps

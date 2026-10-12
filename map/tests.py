@@ -1707,6 +1707,28 @@ def test_edges():
           g.depth.tolist() == [[2.0, DP.NO_DEPTH_M], [4.0, -1.0]] and g.missing == 1,
           f"{g.depth.tolist()} {g.missing}")
 
+    # A fix takes the quality reported in its own burst, not whichever GGA last
+    # carried the same time of day. A log two days long has two noons.
+    def burst(hms, date, q):
+        return (nmea(f"GPGGA,{hms},2630.000,N,07700.000,W,{q},08,1.0,1.0,M,,M,,")
+                + nmea(f"GPRMC,{hms},A,2630.000,N,07700.000,W,1.0,0.0,{date},,,A"))
+    with tempfile.TemporaryDirectory() as t:
+        log = os.path.join(t, "GPS_z.log")
+        with open(log, "w") as fh:
+            fh.write(burst("120000.00", "240324", 1))
+            for k in range(60):                       # an afternoon between them
+                fh.write(burst(f"13{k:02d}00.00", "240324", 1))
+            fh.write(burst("120000.00", "250324", 6))
+            # and one fix on the second day whose GGA never arrived
+            fh.write(nmea("GPRMC,130000.00,A,2630.000,N,07700.000,W,1.0,0.0,250324,,,A"))
+            # two inside one second, the second of them dead reckoning
+            fh.write(burst("140000.00", "250324", 1))
+            fh.write(burst("140000.50", "250324", 6))
+        got = {r[0].strftime("%d %H:%M:%S"): r[5] for r in parse_nmea.parse_file(log)}
+    check("a fix takes the quality of its own burst, across days and within a second",
+          (got["24 12:00:00"], got["25 12:00:00"], got["25 13:00:00"], got["25 14:00:00"])
+          == (1, 6, 0, 1), str({k: v for k, v in got.items() if k[3:5] != "13" or k[:2] == "25"}))
+
     # The browser check is one failed check or one skip, never a traceback that
     # takes the rest of the suite's verdict with it.
     import shutil
