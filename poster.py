@@ -478,12 +478,13 @@ def draw_vessel(ax, lon, lat, width_deg, alpha=1.0, zorder=4):
     img = vessel_rgba()
     h, w = img.shape[:2]
     height_deg = width_deg * (h / w) / ASPECT
+    # imshow's aspect is the whole axes', not the image's, so it is handed back
+    # the one the chart already has: "auto" here stretched the chart to its
+    # frame, 1.1% on the sheet and 3.7% on the square.
     ax.imshow(img, extent=(lon - width_deg / 2, lon + width_deg / 2,
                            lat - height_deg / 2, lat + height_deg / 2),
-              aspect="auto", zorder=zorder, alpha=alpha, interpolation="bilinear")
-    # imshow's aspect is the whole axes', not the image's: left at "auto" it
-    # stretched the chart to its frame, 1.1% on the sheet and 3.7% on the square.
-    ax.set_aspect(ASPECT)
+              aspect=ax.get_aspect(), zorder=zorder, alpha=alpha,
+              interpolation="bilinear")
 
 
 def draw_airport(ax, lw_scale=1.0, label=True, text=None, nudge=(0.0, 0.0)):
@@ -1042,12 +1043,9 @@ def build(dpi, out_png, out_pdf=None, spread=True, depth=False):
             else:
                 need_w = max(max(lons) - min(lons), 0.012) * 1.35
                 need_h = max(max(lats) - min(lats), 0.012) * 1.35
-            box_ratio = (strip_h * 24) / (wid * 18)     # inches h/w
-            if need_h / (need_w / ASPECT) < box_ratio:
-                need_h = need_w / ASPECT * box_ratio
-            else:
-                need_w = need_h / box_ratio * ASPECT
-            sub = (cx - need_w / 2, cx + need_w / 2, cy - need_h / 2, cy + need_h / 2)
+            sub = true_extent((cx - need_w / 2, cx + need_w / 2,
+                               cy - need_h / 2, cy + need_h / 2),
+                              [0, 0, wid, strip_h], SHEET_IN)
         else:
             sub = extent
         # The arrival panel doubles as the harbour inset, so it carries
@@ -1140,6 +1138,9 @@ def photobook_extent(tracks, margin=0.11):
             clat - span / 2, clat + span / 2)
 
 
+PAGE_IN = (8, 8)
+
+
 def photobook(dpi, out_png, depth=False, title=True):
     """One square page of chart, for an 8 x 8 in photobook.
 
@@ -1160,9 +1161,9 @@ def photobook(dpi, out_png, depth=False, title=True):
     # frame is then not quite the square photobook_extent() frames for, so the
     # extent takes the difference.
     rect = [0.055, 0.052, 0.890, 0.858 if title else 0.896]
-    extent = true_extent(photobook_extent(tracks), rect, (8, 8))
+    extent = true_extent(photobook_extent(tracks), rect, PAGE_IN)
 
-    fig = plt.figure(figsize=(8, 8), dpi=dpi)
+    fig = plt.figure(figsize=PAGE_IN, dpi=dpi)
     fig.patch.set_facecolor(C_PAPER)
     ax = fig.add_axes(rect)
     # 0.8 rather than 1.0: this frame is about half the poster's scale, so the same

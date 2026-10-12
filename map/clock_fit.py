@@ -120,7 +120,7 @@ def _utc(s):
     return datetime.strptime(s, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=UTC)
 
 
-_TZ = re.compile(r"^([+-])(\d{2}):(\d{2})$")
+_TZ = re.compile(r"([+-])(\d{2}):(\d{2})")
 
 
 def _tz_minutes(s):
@@ -129,11 +129,11 @@ def _tz_minutes(s):
     Strictly: a tag this trusts becomes a UTC nothing else checks, so 'x04:00'
     and '+99:99' are not offsets. No zone is further than 14 hours from UTC.
     """
-    m = _TZ.match(s) if isinstance(s, str) else None
+    m = _TZ.fullmatch(s) if isinstance(s, str) else None
     if not m:
         return None
     h, mins = int(m.group(2)), int(m.group(3))
-    if h > 14 or mins > 59:
+    if mins > 59 or h * 60 + mins > 14 * 60:
         return None
     return (-1 if m.group(1) == "-" else 1) * (h * 60 + mins)
 

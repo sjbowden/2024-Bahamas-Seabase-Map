@@ -237,10 +237,15 @@ def day_summary(grid, finer=None):
     Prefers the finer grid where it reaches, since the whole track is inside it and
     61 m resolves a shoal a 122 m cell averages away.
     """
-    from trip import DAYS, read_fixes
+    from trip import DAYS, _split_at, read_fixes
     rows = {}
     for d in DAYS:
         fixes, _ = read_fixes(d["file"])
+        # Water under the keel: not the walk to the marina, and not the van.
+        if d.get("walk_split"):
+            fixes = _split_at(fixes, d["walk_split"])[1]
+        if d.get("road_split"):
+            fixes = _split_at(fixes, d["road_split"])[0]
         ds = along_track(finer or grid, fixes) or along_track(grid, fixes)
         if not ds:
             continue
@@ -448,9 +453,10 @@ def _box_mean(a, k):
     # whole grid -- 5.4e9 m for this one -- and float32 holds that to the nearest
     # few hundred metres, which a 25-cell window then reports as depth.
     s = p.cumsum(0, dtype=np.float64).cumsum(1)
-    y0, x0 = np.mgrid[0:a.shape[0], 0:a.shape[1]]
-    y1, x1 = y0 + k, x0 + k
-    total = s[y1, x1] - s[y0, x1] - s[y1, x0] + s[y0, x0]
+    h, w = a.shape
+    # Four views of the table and no index arrays, which for this grid were
+    # four more copies of it.
+    total = s[k:k + h, k:k + w] - s[:h, k:k + w] - s[k:k + h, :w] + s[:h, :w]
     return total / float(k * k)
 
 

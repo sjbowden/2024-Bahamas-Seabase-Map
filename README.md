@@ -234,16 +234,18 @@ mattering. Four hours on a mooring is still a mooring.
 
 So placement takes a second pass over what the handheld missed, asking both
 receivers and accepting only where they bracket the moment within **50 m**. That
-recovered 97 of the 222 photographs previously marked "the receiver was not
+recovered 97 of the 198 photographs previously marked "the receiver was not
 recording at this moment", at 22–62 m of uncertainty — the movement across the
 gap, plus 35 m for the inReach's own disagreement with the handheld, or 10 m
 where two of the handheld's own fixes bracket it.
 
-That 10 m is on every photograph placed from the handheld's track. Its figure
-was once only how far the boat moved across the clock's timing window, which
-for a boat at anchor is nothing, and 559 photographs said "± 0 m". The receiver
-is not that good and the camera was somewhere else on a 17 m boat, so the
-figure is now that movement plus 10 m.
+That 10 m is on every photograph placed from the handheld's own fixes; the 80
+bracketed by an inReach report carry its 35 m instead, which is the worst the
+two receivers disagreed and so covers both. The figure was once only how far
+the boat moved across the clock's timing window, which for a boat at anchor is
+nothing, and 559 photographs said "± 0 m". The receiver is not that good and
+the camera was somewhere else on a 17 m boat, so the figure is now that
+movement plus 10 m.
 
 | where they landed | |
 |---|---|
@@ -251,7 +253,7 @@ figure is now that movement plus 10 m.
 | on the Marsh Harbour mooring | 37 |
 | Hope Town · Tilloo Pond · Lynyard Cay | 13 · 9 · 4 |
 
-The 125 still unplaced are the ones this cannot honestly reach: the arrival and
+The 101 still unplaced are the ones this cannot honestly reach: the arrival and
 departure days outside both receivers, and one 48-minute crossing on Wednesday
 where the boat moved 773 m between reports. Interpolating that would be drawing
 a straight line through an unobserved manoeuvre and calling it a position.

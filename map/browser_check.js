@@ -187,6 +187,22 @@ const say = (name, ok, detail = '') => console.log(JSON.stringify({ name, ok: !!
   const when = await page.evaluate(() => whenText({ utc: '2024-03-20T05:38:26Z', day: null }));
   say('a photograph off the trip\'s days is captioned with its date',
       when === 'Wed 20 Mar · 01:38 Bahamas time', when);
+  const away = await page.evaluate(() => [
+    whenText({ utc: '2024-03-22T08:00:00Z', day: 'Fri 22 Mar', tier: 'travel' }),
+    whenText({ utc: '2024-03-22T08:00:00Z', day: 'Fri 22 Mar', tier: 'gps' })]);
+  say('and one taken away from Abaco on a trip day says whose clock it is',
+      away[0] === 'Fri 22 Mar · 04:00 Bahamas time' && away[1] === 'Fri 22 Mar · 04:00',
+      away.join(' | '));
+  const idle = await page.evaluate(() => {
+    const b = document.querySelector('#photos-browse');
+    const was = b.disabled;
+    b.disabled = true;
+    const line = getComputedStyle(b).textDecorationLine;
+    b.disabled = was;
+    return line;
+  });
+  say('with nothing to browse, the browse button does not look like a link',
+      idle === 'none', idle);
 
   // The dots open on a click; a keyboard gets in by the panel.
   await page.click('#days-all');
@@ -194,7 +210,7 @@ const say = (name, ok, detail = '') => console.log(JSON.stringify({ name, ok: !!
   await page.keyboard.press('Enter');
   const first = await page.evaluate(() => ({
     open: !document.querySelector('#viewer').hidden, at: state.at,
-    count: document.querySelector('#photos-browse-count').textContent }));
+    count: document.querySelector('#photos-browse').textContent }));
   await page.keyboard.press('ArrowRight');
   say('a keyboard can open the chart\'s photographs and step through them',
       first.open && first.at === 0 && await page.evaluate(() => state.at === 1)

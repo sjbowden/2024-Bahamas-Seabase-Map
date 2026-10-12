@@ -65,8 +65,10 @@ DAYS = [
 
 # ------------------------------------------------------------------ places ---
 # The chart's own bounds, and the wider box the land is loaded over. The poster
-# draws EXTENT; anything outside it is not on this chart, which is how a
-# photograph taken in Portland is told apart from one taken in Abaco.
+# draws EXTENT, with some 150 m more sea either side where its frame is a hair
+# wider than these bounds (poster.true_extent); anything outside EXTENT is not
+# on this chart, which is how a photograph taken in Portland is told apart from
+# one taken in Abaco.
 EXTENT = (-77.185, -76.912, 26.298, 26.712)     # lon0, lon1, lat0, lat1
 LAND_BBOX = (-77.35, 26.15, -76.80, 26.85)      # lon0, lat0, lon1, lat1
 

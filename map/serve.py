@@ -27,6 +27,22 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         super().end_headers()
 
 
+def server(site, port):
+    """A server for one built folder, on this machine only.
+
+    Never on every interface: the folder holds the crew's photographs, and a
+    preview is not a publication. Port 0 asks the system for a free one.
+    """
+    return http.server.ThreadingHTTPServer(
+        ("127.0.0.1", port), functools.partial(Handler, directory=site))
+
+
+def run(site, port):
+    srv = server(site, port)
+    print(f"serving {site} on http://127.0.0.1:{srv.server_address[1]}  (ctrl-c to stop)")
+    srv.serve_forever()
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--port", type=int, default=8123)
@@ -34,10 +50,7 @@ def main():
     site = os.path.join(HERE, "site_build")
     if not os.path.isdir(site):
         raise SystemExit("no site_build to serve -- run: python -m map.build")
-    srv = http.server.ThreadingHTTPServer(
-        ("127.0.0.1", a.port), functools.partial(Handler, directory=site))
-    print(f"serving {site} on http://127.0.0.1:{a.port}")
-    srv.serve_forever()
+    run(site, a.port)
 
 
 if __name__ == "__main__":

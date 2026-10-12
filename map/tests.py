@@ -712,12 +712,22 @@ def test_gaps(photos, placed):
     check("the second receiver places the evenings the handheld missed",
           len(moored) > 50, f"{len(moored)} placed across a gap")
 
-    # "The receiver was off" is a claim about a day of the trip. The evening of
-    # 21 March EDT is already the 22nd in UTC, and the crew was over Texas.
     exact = [r["id"] for r in placed if r["tier"] in ("calibrated", "inferred")
              and r["uncertainty_m"] is not None and r["uncertainty_m"] < P.RECEIVER_M]
     check("no photograph placed from a receiver claims to beat the receiver",
           not exact, f"{len(exact)} under {P.RECEIVER_M:.0f} m, e.g. {exact[:3]}")
+    # The note's figure is the ring's figure, written the way the viewer writes it.
+    odd = [r["id"] for r in placed if "only good to ~" in (r.get("note") or "")
+           and P._good_to(r["uncertainty_m"]) not in r["note"]]
+    late = [r["id"] for r in placed if r["tier"] in ("calibrated", "inferred")
+            and (r["uncertainty_m"] or 0) > 400 and "placed from the" in (r.get("note") or "")
+            and "only good to" not in r["note"]]
+    check("a note that gives a distance gives the one on the ring",
+          not odd and not late and P._good_to(765) == "770 m"
+          and P._good_to(1878) == "1.9 km" and P._good_to(84) == "84 m",
+          f"{odd[:3]} {late[:3]} {P._good_to(765)}")
+    # "The receiver was off" is a claim about a day of the trip. The evening of
+    # 21 March EDT is already the 22nd in UTC, and the crew was over Texas.
     lost = [r["id"] for r in placed if r["tier"] == "unplaced" and r.get("utc")
             and not r.get("day")]
     check("a photograph the receiver missed was taken on a day of the trip",
@@ -1150,10 +1160,15 @@ def test_site_build():
     wet = [f["properties"]["mode"] for f in tracks if "shallowest_m" in f["properties"]]
     check("only a track afloat carries a depth of water",
           wet and set(wet) == {"afloat"}, str(sorted(set(wet))))
+    # Asked of the server itself, and of the build only that it uses that server.
+    from map import serve
+    srv = serve.server(out, 0)
+    host = srv.server_address[0]
+    srv.server_close()
     build_src = open(os.path.join(C.HERE, "map", "build.py")).read()
-    check("the build's own preview is served to this machine only",
-          "serve.Handler" in build_src and '("", 8000)' not in build_src
-          and '("127.0.0.1", 8000)' in build_src)
+    check("a preview is served to this machine only, and the build's is that one",
+          host == "127.0.0.1" and "serve.run(" in build_src
+          and "HTTPServer" not in build_src, host)
     # Place names are HTML and always paint above the canvas, so the bubble is
     # HTML too: drawn in #clusters, which stacks above the names, it covers what
     # it covers -- names never hide, and never show through a bubble either.
@@ -1432,9 +1447,10 @@ def test_edges():
 
     # A tag that is trusted becomes a UTC nothing else checks.
     check("a malformed timezone tag is not an offset",
-          [C._tz_minutes(s) for s in ("x04:00", "+99:99", "-04:60", "-4:00", None)]
-          == [None] * 5 and C._tz_minutes("-04:00") == -240
-          and C._tz_minutes("+05:30") == 330)
+          [C._tz_minutes(s) for s in ("x04:00", "+99:99", "-04:60", "-4:00", None,
+                                      "+14:45", "-14:30", "-04:00\n")]
+          == [None] * 8 and C._tz_minutes("-04:00") == -240
+          and C._tz_minutes("+05:30") == 330 and C._tz_minutes("+14:00") == 840)
 
     with tempfile.TemporaryDirectory() as t:
         os.makedirs(os.path.join(t, "view"))
@@ -1445,8 +1461,23 @@ def test_edges():
             fh.write(b"x")
         check("but one holding only a half-written file does",
               D.stale([], t, os.path.join(t, "m.json")) == ["p00001.jpg.part"])
-    check("derivatives from before comments were stripped are not current",
-          D.RENDER_VERSION >= 2)
+    # A folder rendered before comments were stripped: the same sources and
+    # settings, recorded under the render version of the time.
+    with tempfile.TemporaryDirectory() as t:
+        dest, man = os.path.join(t, "media"), os.path.join(t, "derived.json")
+        ph = [dict(id="p00000", src=dict(archive="mine", member="0.jpg", crc=0, size=0))]
+        now, D.RENDER_VERSION = D.RENDER_VERSION, 1
+        try:
+            old = {"p00000": {s["name"]: D.fingerprint(ph[0], s) for s in (D.THUMB, D.VIEW)}}
+        finally:
+            D.RENDER_VERSION = now
+        for s in (D.THUMB, D.VIEW):
+            os.makedirs(os.path.join(dest, s["name"]))
+            with open(os.path.join(dest, s["name"], "p00000.jpg"), "wb") as fh:
+                fh.write(b"x")
+        D._save_manifest(man, dest, old)
+        check("derivatives from before comments were stripped are not current",
+              D.stale(ph, dest, man) == ["p00000"], str(D.stale(ph, dest, man)))
 
     # No fixes at all is no position, and a day spent wholly ashore is a day.
     noon = datetime(2024, 3, 25, 16, tzinfo=timezone.utc)
@@ -1478,6 +1509,16 @@ def test_edges():
     fit = P.place(shot, when, wide, fixes=run)[0]["uncertainty_m"]
     check("a photograph timed by satellite keeps its own two-second window",
           plain == fit and plain < 30, f"{plain} m alone, {fit} m beside a fit")
+    # A timezone tag says which zone the clock was set to, not that it was right.
+    tagged = {"p1": dict(utc="2024-03-25T16:30:00Z", method="tz_tag")}
+    tag = P.place(shot, tagged, wide, fixes=run)[0]["uncertainty_m"]
+    check("a photograph timed by a zone tag takes its camera's fitted window",
+          tag > 10 * plain, f"{tag} m against {plain} m by satellite")
+    late = [dict(shot[0], id="p2")]
+    p2 = P.place(late, {"p2": dict(utc="2024-03-29T04:00:00Z", method="gps_utc")},
+                 {"cam": {}}, fixes=run)[0]
+    check("the first instant after the trip's last day is not a day of the trip",
+          (p2["tier"], p2["day"]) == ("travel", None), str(p2))
     moored = P.place(shot, when, {"cam": {}}, fixes=still)[0]["uncertainty_m"]
     check("a boat that never moved is still only known to the receiver's error",
           moored == P.RECEIVER_M, f"{moored} m")

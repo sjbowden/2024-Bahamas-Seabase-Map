@@ -329,8 +329,13 @@ function refreshPhotos() {
   // one that knows where it was but not when would otherwise be in neither.
   state.shown = state.onChart.filter((p) => !p.day || state.days.has(p.day));
   state.indexById = new Map(state.shown.map((p, i) => [p.id, i]));
-  $('#photos-browse').disabled = !state.shown.length;
-  $('#photos-browse-count').textContent = `(${state.shown.length})`;
+  // Guarded: a tab holding last week's page with this script has no button.
+  const browse = $('#photos-browse');
+  if (browse) {
+    browse.disabled = !state.shown.length;
+    // The count is part of the button's name, so it is read out with it.
+    browse.textContent = `Browse the photographs on the chart (${state.shown.length})`;
+  }
   const src = map.getSource('photos');
   if (src) src.setData(photoFC(state.shown));
   // A photograph whose day just went away should not stay open over a chart that
@@ -992,7 +997,9 @@ function whenText(p) {
   const edt = new Date(d.getTime() - 4 * 3600 * 1000);
   const hh = String(edt.getUTCHours()).padStart(2, '0');
   const mm = String(edt.getUTCMinutes()).padStart(2, '0');
-  if (day) return `${day} · ${hh}:${mm}`;
+  // Away from Abaco the clock shown is still the trip's, and says so: 04:00 on
+  // a photograph taken at Dallas was three in the morning there.
+  if (day) return `${day} · ${hh}:${mm}${p.tier === 'travel' ? ' Bahamas time' : ''}`;
   // Off the trip's days -- Portland, an airport -- there is no day to name, and
   // a bare clock time says neither which date nor whose clock.
   const date = edt.toLocaleDateString('en-GB', {
@@ -1064,9 +1071,11 @@ function wireViewer() {
   });
   // The dots and counts are drawn on a canvas and open on a click, which leaves
   // a keyboard nowhere to start. This is the start; the arrows do the rest.
-  $('#photos-browse').addEventListener('click', () => {
-    if (state.shown.length) openViewer(state.shown[0].id);
-  });
+  if ($('#photos-browse')) {
+    $('#photos-browse').addEventListener('click', () => {
+      if (state.shown.length) openViewer(state.shown[0].id);
+    });
+  }
   $('#tray-open').addEventListener('click', () => {
     $('#tray').hidden = false;
     $('#tray-close').focus();

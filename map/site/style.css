@@ -141,6 +141,7 @@ html, body {
   font: inherit; font-size: .69rem;
   color: var(--ink-soft); text-decoration: underline; cursor: pointer;
 }
+.link:disabled { text-decoration: none; cursor: default; opacity: .6; }
 
 /* Above the attribution, which now sits in the bottom-left corner: the layers
    panel is tall enough to reach y=610, and on a 700px-high window that landed on

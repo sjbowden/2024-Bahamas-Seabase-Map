@@ -32,6 +32,7 @@ answers, and the difference is real.
 """
 import argparse
 import bisect
+import math
 import collections
 import json
 import os
@@ -49,21 +50,14 @@ UTC = timezone.utc
 # with a hole between them. Matches the gap that breaks a coverage span.
 MAX_GAP_S = 120.0
 
-# Sailing days. A photograph resolved to a UTC outside every receiver window is
-# `unplaced` if it falls in this range — the receiver was merely off — and
-# `travel` if it falls outside, because then the crew was not in Abaco at all.
-# Midnight to midnight where the days are counted, which is EDT: at midnight UTC
-# on the 22nd it was still Thursday evening and the crew was over Texas.
-SAIL_LO = datetime(2024, 3, 22, 4, tzinfo=UTC)
-SAIL_HI = datetime(2024, 3, 29, 4, tzinfo=UTC)
-
 # What a position from the satellite communicator is worth. corroborate.py
-# measures it against the handheld at the same instants: median 10 m apart, worst
-# 34 m, and all 150 of its reports within 50 m of the handheld's path.
+# measures it against the handheld at the same instants: median 8 m apart, worst
+# 32 m, and all 150 of its reports within 50 m of the handheld's path. A worst
+# case between the two receivers, so it stands for both and is not added to.
 INREACH_M = 35.0
 
 # What a position from the handheld is worth before the clock comes into it. The
-# two receivers sat a median 10 m apart at the same instants, and the camera was
+# two receivers sat a median 8 m apart at the same instants, and the camera was
 # somewhere on a 17 m boat with the receiver somewhere else on it. Without this a
 # boat at anchor through the timing window made the claim "± 0 m", which is how
 # far the boat moved and not how well anyone knows where the photograph was taken.
@@ -371,10 +365,12 @@ def place(photos, per_photo, cameras, fixes=None):
     fixes = fixes if supplied else track()
     times = [f[0] for f in fixes]
 
-    # Timing uncertainty: half the fit's peak width for a photograph whose time
-    # came from its camera's fit, and a couple of seconds where it came from
-    # satellites or a tag -- by photograph, because a camera can have both kinds
-    # and a fit says nothing about a time it was not used to find.
+    # Timing uncertainty: a couple of seconds for a photograph with the
+    # satellites' own time on it, whatever its camera's other photographs
+    # needed -- a fit says nothing about a time it was not used to find. A
+    # timezone tag is not that: it says which zone the clock was set to and not
+    # that the clock was right, so on a camera whose clock had to be fitted the
+    # tagged photographs take the fit's window too.
     fitted = {}
     for cam, r in cameras.items():
         f = r.get("fit") or {}
@@ -382,7 +378,7 @@ def place(photos, per_photo, cameras, fixes=None):
             fitted[cam] = (f.get("peak_width_s", 0.0) or C.COARSE_S) / 2.0
 
     def half_window(camera, method):
-        return 2.0 if method in ("gps_utc", "tz_tag") else fitted.get(camera, 2.0)
+        return 2.0 if method == "gps_utc" else fitted.get(camera, 2.0)
 
     out = []
     for p in photos:
@@ -446,7 +442,10 @@ def place(photos, per_photo, cameras, fixes=None):
         t = C._utc(v["utc"])
         pos = at(fixes, times, t)
         if pos is None:
-            travel = not (SAIL_LO <= t <= SAIL_HI)
+            # On a day of the trip the receiver was merely off; on any other
+            # the crew was not in Abaco at all. The days are EDT dates, and
+            # day_for() is the one place that knows them.
+            travel = day_for(t)[0] is None
             rec.update(tier="travel" if travel else "unplaced",
                        note=("taken away from Abaco — not on this chart" if travel
                              else "the receiver was not recording at this moment"))
@@ -457,10 +456,12 @@ def place(photos, per_photo, cameras, fixes=None):
             continue
         lat, lon, sog, day = pos
         u = spread_m(fixes, times, t, half_window(p["camera"], v["method"]))
+        # One figure for the ring and for the note beside it.
+        u = None if u is None else round(u + RECEIVER_M)
         rec.update(lat=lat, lon=lon, day=day or day_for(t)[0],
                    tier="calibrated" if v["method"] in ("gps_utc", "tz_tag")
                    else "inferred",
-                   uncertainty_m=None if u is None else round(u + RECEIVER_M))
+                   uncertainty_m=u)
         rec["note"] = _track_note(t, sog, lat, lon, u, rec["day"])
         out.append(rec)
 
@@ -582,8 +583,20 @@ def _before_boarding(day):
     return day in labels[:first]
 
 
+def _good_to(m):
+    """A distance as the viewer's own caption writes it: app.js fmtDistance()."""
+    if m >= 1000:
+        return f"{m / 1000:.1f} km"
+    # Halves go up, as JavaScript's Math.round sends them; Python's round() sends
+    # them to the even ten, and 765 m would be 760 here and 770 on the ring.
+    return f"{math.floor(m / 10 + 0.5) * 10} m" if m >= 100 else f"{m:.0f} m"
+
+
 def _track_note(t, sog, lat, lon, u, day=None):
     """What the viewer says about a photograph placed from the handheld's track.
+
+    `u` is the published uncertainty, so a figure in the note is the figure on
+    the ring.
 
     The handheld went where its owner went. Afloat that is the boat; on land it
     is a walk through Marsh Harbour or Hope Town, and on the Friday there was no
@@ -600,7 +613,7 @@ def _track_note(t, sog, lat, lon, u, day=None):
         if u is None:
             note += " — the timing cannot be bounded here"
         elif u > 400:
-            note += f" — only good to ~{round(u / 100) * 100:.0f} m"
+            note += f" — only good to ~{_good_to(u)}"
         return note
     stopped = sog is not None and sog <= MOVING_KN
     near = nearest_named(lat, lon)
@@ -614,7 +627,7 @@ def _track_note(t, sog, lat, lon, u, day=None):
     if u is None:
         note += " — the timing cannot be bounded here"
     elif u > 400:
-        note += f" — the boat was moving, so this is only good to ~{round(u / 100) * 100:.0f} m"
+        note += f" — the boat was moving, so this is only good to ~{_good_to(u)}"
     elif stopped and shore <= SHORE_M:
         # Only a stopped boat within reach of land: the photographer may have
         # gone ashore and left the receiver aboard.
