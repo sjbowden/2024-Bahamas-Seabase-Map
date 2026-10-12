@@ -1250,9 +1250,13 @@ def test_site_build():
     check("a failed optional load does not stop the panel being built",
           "catch" in start_body and "addStories" in start_body
           and start_body.index("catch") < start_body.index("buildPanel("))
-    tray_body = re.search(r"function buildTray\(\)\s*\{(.*?)\n\}", app, re.S).group(1)
+    # Both sheets of thumbnails, on the chart and off it, make theirs one way.
+    thumb_body = re.search(r"function thumbButton\(.*?\)\s*\{(.*?)\n\}", app, re.S).group(1)
+    sheets = "".join(re.search(rf"function {f}\(\)\s*\{{(.*?)\n\}}", app, re.S).group(1)
+                     for f in ("buildTray", "buildChartTray"))
     check("tray photographs are buttons, so a keyboard can open them",
-          "createElement('button')" in tray_body and "aria-label" in tray_body)
+          "createElement('button')" in thumb_body and "aria-label" in thumb_body
+          and sheets.count("thumbButton(") == 2 and "createElement('img')" not in sheets)
     check("the viewer takes focus, holds it, and gives it back",
           ".inert = true" in app and "$('#viewer-close').focus()" in app
           and "viewerReturn" in app and "back.focus()" in app)

@@ -224,17 +224,50 @@ const say = (name, ok, detail = '') => console.log(JSON.stringify({ name, ok: !!
   say('with nothing to browse, the browse button does not look like a link',
       idle === 'none', idle);
 
-  // The dots open on a click; a keyboard gets in by the panel.
+  // The dots open on a click; a keyboard gets in by the panel, which opens a
+  // sheet of thumbnails for the photographs on the chart, as the other link
+  // does for the ones that are not.
   await page.click('#days-all');
   await page.focus('#photos-browse');
   await page.keyboard.press('Enter');
+  const tray = await page.evaluate(() => ({
+    open: !document.querySelector('#tray').hidden,
+    title: document.querySelector('#tray h2').textContent,
+    thumbs: document.querySelectorAll('#tray-body .thumb').length,
+    shown: state.shown.length,
+    days: [...document.querySelectorAll('#tray-body h4')].map((h) => h.textContent.split(' · ')[0]),
+    viewer: !document.querySelector('#viewer').hidden,
+    label: document.querySelector('#photos-browse').textContent }));
+  say('the browse link opens thumbnails of the chart\'s photographs, day by day',
+      tray.open && !tray.viewer && tray.title === 'On the chart'
+      && tray.thumbs === tray.shown && tray.thumbs > 2000 && tray.days.length >= 7
+      && /\(\d+\)/.test(tray.label), JSON.stringify({ ...tray, days: tray.days.length }));
+  await page.focus('#tray-body .thumb');
+  await page.keyboard.press('Enter');
   const first = await page.evaluate(() => ({
-    open: !document.querySelector('#viewer').hidden, at: state.at,
-    count: document.querySelector('#photos-browse').textContent }));
+    open: !document.querySelector('#viewer').hidden, at: state.at }));
   await page.keyboard.press('ArrowRight');
-  say('a keyboard can open the chart\'s photographs and step through them',
-      first.open && first.at === 0 && await page.evaluate(() => state.at === 1)
-      && /\(\d+\)/.test(first.count), JSON.stringify(first));
+  say('a keyboard can open one of them and step on through the rest',
+      first.open && first.at === 0 && await page.evaluate(() => state.at === 1),
+      JSON.stringify(first));
+  await page.keyboard.press('Escape');
+  const backAt = await page.evaluate(() => ({
+    viewer: !document.querySelector('#viewer').hidden,
+    tray: !document.querySelector('#tray').hidden,
+    focus: document.activeElement.className }));
+  await page.keyboard.press('Escape');
+  say('closing the photograph returns to the thumbnails, and again to the chart',
+      !backAt.viewer && backAt.tray && backAt.focus === 'thumb'
+      && await page.evaluate(() => document.querySelector('#tray').hidden
+        && document.activeElement.id === 'photos-browse'), JSON.stringify(backAt));
+  await page.click('#tray-open');
+  const offTray = await page.evaluate(() => ({
+    title: document.querySelector('#tray h2').textContent,
+    thumbs: document.querySelectorAll('#tray-body .thumb').length,
+    off: state.offChart.filter((p) => !p.day || state.days.has(p.day)).length }));
+  say('and the other link still opens the ones not on the chart',
+      offTray.title === 'Not on the chart' && offTray.thumbs === offTray.off && offTray.off > 0,
+      JSON.stringify(offTray));
   await page.keyboard.press('Escape');
 
   // A photograph placed from the track sits on the line. A click on it opens
@@ -301,6 +334,15 @@ const say = (name, ok, detail = '') => console.log(JSON.stringify({ name, ok: !!
       smallLate.map(span).join('; '));
   await phone.check('#chart-layers input[data-layer="photos"]');
   await phone.tap('#photos-browse');
+  const strip = await phone.evaluate(() => {
+    const t = document.querySelector('#tray'), r = t.getBoundingClientRect();
+    return { open: !t.hidden, left: r.left, right: r.right, bottom: r.bottom,
+             wide: document.documentElement.scrollWidth };
+  });
+  say('on a phone the thumbnails open as a sheet inside the screen',
+      strip.open && strip.left >= 0 && strip.right <= PHONE.width
+      && strip.bottom <= PHONE.height + 1 && strip.wide <= PHONE.width, JSON.stringify(strip));
+  await phone.tap('#tray-body .thumb');
   await phone.waitForFunction(() => {
     const i = document.querySelector('#viewer-img');
     return i.complete && i.naturalWidth > 0;

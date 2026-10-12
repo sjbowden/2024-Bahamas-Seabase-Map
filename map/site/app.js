@@ -1125,32 +1125,51 @@ function wireViewer() {
     if (e.key === 'ArrowRight') showAt(Math.min(state.shown.length - 1, state.at + 1));
   });
   // The dots and counts are drawn on a canvas and open on a click, which leaves
-  // a keyboard nowhere to start. This is the start; the arrows do the rest.
+  // a keyboard nowhere to start. The sheet of thumbnails is the start: each is
+  // a button, and the arrows do the rest.
+  const openTray = (mode) => {
+    state.trayMode = mode;
+    $('#tray').hidden = false;
+    buildTray();
+    $('#tray').scrollTop = 0;
+    $('#tray-close').focus();
+  };
   if ($('#photos-browse')) {
     $('#photos-browse').addEventListener('click', () => {
-      if (state.shown.length) openViewer(state.shown[0].id);
+      if (state.shown.length) openTray('on');
     });
   }
-  $('#tray-open').addEventListener('click', () => {
-    $('#tray').hidden = false;
-    $('#tray-close').focus();
-  });
+  $('#tray-open').addEventListener('click', () => openTray('off'));
   $('#tray-close').addEventListener('click', closeTray);
 }
 
 function closeTray() {
   if ($('#tray').hidden) return;
   $('#tray').hidden = true;
-  $('#tray-open').focus();
+  // Back to whichever link opened it.
+  const from = state.trayMode === 'on' ? $('#photos-browse') : $('#tray-open');
+  (from || $('#tray-open')).focus();
 }
 
 /* ------------------------------------------------------------------- tray --- */
 // Rebuilt by refreshPhotos on every day toggle: "unticked" has to mean the same
 // thing in the tray as on the chart. A photograph with no day has no checkbox
 // to answer to, so it is always listed.
+/* One tray, two things to look through in it: the photographs that are not on
+ * the chart, and the ones that are. Both are sheets of thumbnails by day, and a
+ * thumbnail opens the viewer. The bubbles on the chart still open the viewer
+ * directly; this is the way in for someone who would rather see them all. */
 function buildTray() {
   const off = state.offChart.filter((p) => !p.day || state.days.has(p.day));
   $('#tray-count').textContent = `(${off.length})`;
+  if (state.trayMode === 'on') {
+    // 2,180 thumbnails are only worth making for someone looking at them.
+    if (!$('#tray').hidden) buildChartTray();
+    return;
+  }
+  $('#tray').setAttribute('aria-label', 'Photographs not on the chart');
+  $('#tray h2').textContent = 'Not on the chart';
+  $('#tray > .tray-why').textContent = '';
   const heading = {
     unplaced: 'Ashore, or between receivers',
     travel: 'Travel',
@@ -1189,29 +1208,61 @@ function buildTray() {
       const grid = document.createElement('div');
       grid.className = 'grid';
       for (const p of ps) {
-        // A button, not a bare image: an <img> with a click handler cannot be
-        // reached with Tab or opened with Enter, so the tray could be opened
-        // from the keyboard and nothing in it could.
-        const what = `${p.camera}${p.utc ? ' · ' + whenText(p) : ''}`;
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'thumb';
-        btn.title = what;
-        btn.setAttribute('aria-label', `Open photograph: ${what}`);
-        const img = document.createElement('img');
-        // Before src: Safari and Firefox start the fetch when src is set, and
-        // a flag that arrives afterwards is too late to make it lazy.
-        img.loading = 'lazy';            // only what is on screen is fetched
-        img.decoding = 'async';
-        img.src = p.thumb;
-        img.alt = '';                    // the button carries the name
-        btn.append(img);
-        btn.addEventListener('click', () => openOffChart(p));
-        grid.append(btn);
+        grid.append(thumbButton(p, () => openOffChart(p)));
       }
       body.append(dh, grid);
     }
   }
+}
+
+// The photographs on the chart, whichever days are ticked, in the order they
+// were taken. Opening one opens the viewer where a bubble would have, so the
+// arrows walk on from it and the chart behind follows.
+function buildChartTray() {
+  const n = state.shown.length;
+  $('#tray').setAttribute('aria-label', 'Photographs on the chart');
+  $('#tray h2').textContent = 'On the chart';
+  $('#tray > .tray-why').textContent =
+    `${n} photograph${n === 1 ? '' : 's'}, in the order they were taken. `
+    + 'Open one and the arrows step on from it.';
+  const body = $('#tray-body');
+  body.innerHTML = '';
+  const byDay = new Map();
+  for (const p of state.shown) {
+    const day = p.day || 'Undated';
+    if (!byDay.has(day)) byDay.set(day, []);
+    byDay.get(day).push(p);
+  }
+  for (const [day, ps] of byDay) {
+    const dh = document.createElement('h4');
+    dh.textContent = `${day} · ${ps.length}`;
+    const grid = document.createElement('div');
+    grid.className = 'grid';
+    for (const p of ps) grid.append(thumbButton(p, () => openViewer(p.id)));
+    body.append(dh, grid);
+  }
+}
+
+function thumbButton(p, open) {
+  // A button, not a bare image: an <img> with a click handler cannot be
+  // reached with Tab or opened with Enter, so the tray could be opened
+  // from the keyboard and nothing in it could.
+  const what = `${p.camera}${p.utc ? ' · ' + whenText(p) : ''}`;
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'thumb';
+  btn.title = what;
+  btn.setAttribute('aria-label', `Open photograph: ${what}`);
+  const img = document.createElement('img');
+  // Before src: Safari and Firefox start the fetch when src is set, and
+  // a flag that arrives afterwards is too late to make it lazy.
+  img.loading = 'lazy';            // only what is on screen is fetched
+  img.decoding = 'async';
+  img.src = p.thumb;
+  img.alt = '';                    // the button carries the name
+  btn.append(img);
+  btn.addEventListener('click', open);
+  return btn;
 }
 
 function openOffChart(p) {
