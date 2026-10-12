@@ -819,6 +819,17 @@ def test_nothing_published_carries_metadata(placed):
         rec("later", "2024-03-25T23:17:57Z")])]
     check("a photograph with only its camera's clock is stepped through on its own day",
           order == ["mon", "loose", "later", "thu", "none"], str(order))
+    # And on the real sequence, the check that would have caught it: stepping
+    # forward never goes back a day, and a day never disagrees with its time.
+    rank = {d["label"]: i for i, d in enumerate(DAYS)}
+    seq = [r for r in pj if r.get("lat") is not None]
+    back = [(a["id"], a["day"], b["id"], b["day"]) for a, b in zip(seq, seq[1:])
+            if a["day"] and b["day"] and rank[b["day"]] < rank[a["day"]]]
+    off = [r["id"] for r in seq if r["utc"] and r["day"] and
+           (C._utc(r["utc"]) - timedelta(hours=4)).strftime("%a %d %b") != r["day"]]
+    check("stepping through the chart's photographs never goes back a day",
+          not back and not off, f"{len(back)} steps back, e.g. {back[:2]}; "
+          f"{len(off)} whose day is not their time's, e.g. {off[:3]}")
     drone = [r for r in placed if r["camera"].startswith("DJI")]
     check("the drone's photographs have the time its flight records vouch for",
           len(drone) == 22 and all(r["utc"] and r["time_method"] == "checked_clock"
