@@ -379,7 +379,7 @@ function refreshPhotos() {
   if (browse) {
     browse.disabled = !state.shown.length;
     // The count is part of the button's name, so it is read out with it.
-    browse.textContent = `Browse the photographs on the chart (${state.shown.length})`;
+    browse.textContent = `All the photographs on the chart, as thumbnails (${state.shown.length})`;
   }
   const src = map.getSource('photos');
   if (src) src.setData(photoFC(state.shown));
@@ -596,6 +596,7 @@ function applyLayer(key, on) {
     drawClusterCounts();
     // The key explains the photograph dots, so it comes and goes with them.
     $('#photo-key').hidden = !on;
+    if ($('#photo-links')) $('#photo-links').hidden = !on;
   }
 }
 

@@ -33,7 +33,13 @@
   <div class="group">
     <h2>Chart</h2>
     <ul id="chart-layers">
-      <li><label><input type="checkbox" data-layer="photos"> Photographs</label></li>
+      <li><label><input type="checkbox" data-layer="photos"> Photographs</label>
+          <span class="note">tick, then tap a bubble for the ones taken there</span>
+          <div id="photo-links" hidden>
+            <button type="button" id="photos-browse" class="link">All the photographs on the chart, as thumbnails</button>
+            <span class="nowrap"><button type="button" id="tray-open" class="link">Photographs not on the chart</button>
+              <span id="tray-count"></span></span>
+          </div></li>
       <li><label><input type="checkbox" data-layer="depth" checked> Depth</label>
           <span class="note">measured, GMRT ~61 m grid · off draws the halo</span></li>
       <li><label><input type="checkbox" data-layer="places" checked> Place names</label></li>
@@ -55,9 +61,6 @@
     <p class="hint">Open one to see a ring showing how far out that position
        could be. For a photograph placed from the boat's track it is the boat's
        position: whoever took it may have been ashore.</p>
-    <p class="hint"><button type="button" id="photos-browse" class="link">Browse the photographs on the chart</button></p>
-    <p class="hint"><button type="button" id="tray-open" class="link">Photographs not on the chart</button>
-       <span id="tray-count"></span></p>
   </div>
 </section>
 
