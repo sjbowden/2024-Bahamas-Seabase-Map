@@ -690,9 +690,10 @@ def _split_at(pts, iso):
     cut = read_utc(iso)
     # A cut named to the second is that whole second, as it was when the fixes
     # were whole seconds too.
-    def before(t):
-        return t <= cut or in_second(t, cut)
-    return [p for p in pts if before(p[0])], [p for p in pts if not before(p[0])]
+    halves = [], []
+    for p in pts:
+        halves[not (p[0] <= cut or in_second(p[0], cut))].append(p)
+    return halves
 
 
 def _thin(pts, step=3):

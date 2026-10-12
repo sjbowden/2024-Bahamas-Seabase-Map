@@ -7,6 +7,7 @@ reconstructed by routing over the OSM road network rather than invented.
 """
 import json
 import heapq
+import itertools
 import math
 import os
 import pickle
@@ -61,7 +62,7 @@ def metres(a, b):
 
 # Bump when the router changes what it returns for the same roads and endpoints,
 # so a route cached the old way is not mistaken for a current one.
-ROUTE_VERSION = 4
+ROUTE_VERSION = 5
 
 
 def directions(tags, walking=False):
@@ -168,50 +169,64 @@ def networks(g):
 SNAP_M = 250.0
 
 
-def off_road(g, part, lat, lon):
-    """Metres from a place to the nearest stretch of road in one network.
+def on_road(g, part, lat, lon):
+    """Where a place meets one network: (metres off, a, b, how far along a→b).
 
-    To the road and not to the points it is drawn with: a long straight one has
-    a point at each end and passes a good many doors in between.
+    The nearest point of the nearest stretch of road, not the nearest of the
+    points the road is drawn with: a long straight one has a point at each end
+    and passes a good many doors in between.
     """
     k = math.cos(math.radians(lat))
-    best = float("inf")
+    best = None
     for a in part:
         ax, ay = (a[1] - lon) * k, a[0] - lat
-        best = min(best, math.hypot(ax, ay))
         for b, _ in g[a]:
             if b not in part:
                 continue
             dx, dy = (b[1] - a[1]) * k, b[0] - a[0]
             f = max(0.0, min(1.0, -(ax * dx + ay * dy) / (dx * dx + dy * dy)))
-            best = min(best, math.hypot(ax + f * dx, ay + f * dy))
-    return math.radians(best) * 6371000.0
+            off = metres(_along(a, b, f), (lat, lon))
+            if best is None or off < best[0]:
+                best = off, a, b, f
+    return best
 
 
-def nearest(nodes, lat, lon):
-    return min(nodes, key=lambda n: metres(n, (lat, lon)))
+def _along(a, b, f):
+    """The point a fraction f of the way from a to b; the ends exactly."""
+    if f <= 0.0 or f >= 1.0:
+        return b if f >= 1.0 else a
+    return (a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f)
 
 
 def snap(g, start, end):
-    """The points a route runs between: each end's nearest, on one network.
+    """Where each end of a route meets the roads, both on one network.
 
-    The network is the one lying nearest both ends together, so a drive on a
-    cay's own roads is that cay's, and a lane behind a private road loses to the
-    road outside it unless the drive is along the lane.
+    Of the networks within SNAP_M of both ends, the one nearest the two of them
+    together: a drive on a cay's own roads is that cay's, and a lane behind a
+    private road loses to the road outside it unless the drive is along the
+    lane. One point is not a network -- every point of a road closed to the van
+    is one on its own, and a drive to and from it goes nowhere.
     """
     best = None
     for part in networks(g):
-        off = off_road(g, part, *start), off_road(g, part, *end)
-        if best is None or sum(off) < sum(best[0]):
-            best = off, part
-    if best is None or max(best[0]) > SNAP_M:
+        if len(part) < 2:
+            continue
+        ends = on_road(g, part, *start), on_road(g, part, *end)
+        off = [e[0] for e in ends]
+        if max(off) <= SNAP_M and (best is None or sum(off) < best[0]):
+            best = sum(off), ends
+    if best is None:
         raise SystemExit(f"no one road network comes within {SNAP_M:.0f} m "
                          f"of both {start} and {end}")
-    return nearest(best[1], *start), nearest(best[1], *end)
+    return best[1]
 
 
 def route(start, end, walking=False):
-    """(lat,lon) -> (lat,lon) shortest path along roads; list of (lon,lat)."""
+    """(lat,lon) -> (lat,lon) shortest path along roads; list of (lon,lat).
+
+    Each end joins the road at the nearest point of it, and the distance is the
+    road between those two points.
+    """
     allowed = WALKABLE if walking else DRIVABLE
     # Keyed on the roads and the router as well as the endpoints: a corrected
     # road or a corrected rule must not go on drawing the old line.
@@ -222,35 +237,56 @@ def route(start, end, walking=False):
         return pickle.load(open(cache, "rb"))
 
     g = build_graph(allowed, walking)
-    s, e = snap(g, start, end)
-    dist = {s: 0.0}
+    (_, sa, sb, sf), (_, ea, eb, ef) = snap(g, start, end)
+
+    def joined(a, b):
+        return any(m == b for m, _ in g[a])
+    # The two ends go into the graph as points of their own, part way along the
+    # stretches they meet, each open in the directions its stretch is.
+    S, E = "start", "end"
+    at = {S: _along(sa, sb, sf), E: _along(ea, eb, ef)}
+    ws, we = metres(sa, sb), metres(ea, eb)
+    g[S] = [(sb, ws * (1 - sf))] + ([(sa, ws * sf)] if joined(sb, sa) else [])
+    g[ea] = g[ea] + [(E, we * ef)]
+    if joined(eb, ea):
+        g[eb] = g[eb] + [(E, we * (1 - ef))]
+    if {sa, sb} == {ea, eb}:
+        # Both on one stretch: straight along it, if it runs that way.
+        f = ef if (ea, eb) == (sa, sb) else 1 - ef
+        if f >= sf or joined(sb, sa):
+            g[S].append((E, ws * abs(f - sf)))
+
+    dist = {S: 0.0}
     prev = {}
-    pq = [(0.0, s)]
+    tick = itertools.count()            # two points never compare; this does
+    pq = [(0.0, next(tick), S)]
     seen = set()
     while pq:
-        d, n = heapq.heappop(pq)
+        d, _, n = heapq.heappop(pq)
         if n in seen:
             continue
         seen.add(n)
-        if n == e:
+        if n == E:
             break
         for m, w in g.get(n, ()):
             nd = d + w
             if nd < dist.get(m, float("inf")):
                 dist[m] = nd
                 prev[m] = n
-                heapq.heappush(pq, (nd, m))
-    path, cur = [], e
-    while cur != s:
-        path.append(cur)
+                heapq.heappush(pq, (nd, next(tick), m))
+    if E not in dist:
+        raise SystemExit(f"no road route found from {start} to {end}")
+    path, cur = [], E
+    while cur != S:
+        path.append(at.get(cur, cur))
         cur = prev[cur]
-    path.append(s)
+    path.append(at[S])
     path.reverse()
-    # snap the true endpoints onto the ends of the road path
+    # each true end, then the point where it meets its road
     out = ([(start[1], start[0])] + [(lon, lat) for lat, lon in path]
            + [(end[1], end[0])])
-    pickle.dump((out, dist[e]), open(cache, "wb"))
-    return out, dist[e]
+    pickle.dump((out, dist[E]), open(cache, "wb"))
+    return out, dist[E]
 
 
 if __name__ == "__main__":

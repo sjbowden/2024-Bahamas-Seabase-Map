@@ -121,7 +121,8 @@ def parse_file(path):
                 # fraction that is not digits is no fraction; the fix is still
                 # a fix, in that second.
                 frac = hhmmss[7:] if hhmmss[6:7] == "." else ""
-                unread = bool(hhmmss[6:]) and not (frac.isascii() and frac.isdigit())
+                unread = (hhmmss[6:] not in ("", ".")
+                          and not (frac.isascii() and frac.isdigit()))
                 if unread:
                     frac = ""
                 ts = datetime(

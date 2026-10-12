@@ -475,10 +475,10 @@ def test_invariants(photos, spans):
     check("no unexpected method names", methods <= allowed, str(methods - allowed))
     bad = [k for k, v in per_photo.items() if v["utc"] and not v["method"]]
     check("a time always comes with the method that found it", not bad, str(bad[:3]))
-    for k, v in per_photo.items():
-        if v["utc"]:
-            read_utc(v["utc"])
-    check("every resolved time parses as UTC", True)
+    parts = [k for k, v in per_photo.items()
+             if v["utc"] and read_utc(v["utc"]).microsecond]
+    check("every resolved time parses as UTC, to the whole second", not parts,
+          str(parts[:3]))
     resolved = sum(1 for v in per_photo.values() if v["utc"])
     check("most photographs resolve", resolved > 0.9 * len(photos),
           f"{resolved}/{len(photos)}")
@@ -1637,7 +1637,8 @@ def test_edges():
                 legal.add((b, a))
     drive, dist = roads.route((trip.AIRPORT[1], trip.AIRPORT[0]),
                               (trip.HOTEL[1], trip.HOTEL[0]))
-    steps = [roads._key(lat, lon) for lon, lat in drive[1:-1]]
+    # between the two ends and the points where each meets its road
+    steps = [roads._key(lat, lon) for lon, lat in drive[2:-2]]
     wrong = [(a, b) for a, b in zip(steps, steps[1:]) if (a, b) not in legal]
     check("the airport drive runs the way every street on it runs",
           not wrong and 6000 < dist < 6400, f"{len(wrong)} steps against, {dist:.0f} m")
@@ -1665,43 +1666,73 @@ def test_edges():
         way("residential", [(26.5003, -76.9995), (26.50001, -76.99995)], oneway="yes"),
     ]}
     real_roads, real_cache = roads.fetch_roads, roads.CACHE
-    with tempfile.TemporaryDirectory() as t:
-        with open(os.path.join(t, "roads.json"), "w") as fh:
-            json.dump(town, fh)
-        roads.fetch_roads, roads.CACHE = (lambda: town), t
-        g, net, line, far, lane, beside = {}, set(), None, None, None, None
-        try:
-            g = roads.build_graph(roads.DRIVABLE)
-            net = max(roads.networks(g), key=len)
-            line, far = roads.route((26.5, -77.0), (26.50021, -76.99897))
-            lane = roads.route((26.50021, -76.99898), (26.5003, -76.9989))
-            beside = roads.route((26.5, -77.0), (26.5003, -76.9945))
-        except (Exception, SystemExit) as e:
-            far = repr(e)
-        try:
-            roads.route((26.51, -77.0), (26.50021, -76.99897))
-            lost = None
-        except (Exception, SystemExit) as e:
-            lost = repr(e)
-        finally:
-            roads.fetch_roads, roads.CACHE = real_roads, real_cache
+
+    def drive_in(roads_of, a, b):
+        """A route over made-up roads, or what stopped it, as text."""
+        with tempfile.TemporaryDirectory() as t:
+            with open(os.path.join(t, "roads.json"), "w") as fh:
+                json.dump(roads_of, fh)
+            roads.fetch_roads, roads.CACHE = (lambda: roads_of), t
+            try:
+                return roads.route(a, b)
+            except (Exception, SystemExit) as e:
+                return repr(e)
+            finally:
+                roads.fetch_roads, roads.CACHE = real_roads, real_cache
+
+    def ran(got, lon0, lon1, lat, lo, hi):
+        """Whether a route is a line and runs lon0 to lon1 at lat, lo..hi metres."""
+        if isinstance(got, str):
+            return False
+        line, far = got
+        return (abs(line[1][0] - lon0) < 1e-6 and abs(line[-2][0] - lon1) < 1e-6
+                and all(abs(y - lat) < 1e-6 for _, y in line[1:-1]) and lo < far < hi)
+
+    roads.fetch_roads = lambda: town
+    try:
+        g = roads.build_graph(roads.DRIVABLE)
+    finally:
+        roads.fetch_roads = real_roads
+    net = max(roads.networks(g), key=len)
+    line = drive_in(town, (26.5, -77.0), (26.50021, -76.99897))
+    lane = drive_in(town, (26.50021, -76.99898), (26.5003, -76.9989))
+    beside = drive_in(town, (26.5, -77.0), (26.5003, -76.9945))
+    lost = drive_in(town, (26.51, -77.0), (26.50021, -76.99897))
     check("a private road is no part of the network a van can use",
           (26.5, -77.0) not in net and (26.5002, -77.0) in net
           and (26.5003, -76.9989) in g and (26.5003, -76.9989) not in net,
           str(sorted(net)))
     check("a drive along the lane itself is the lane's, though the lane goes nowhere",
-          lane is not None and lane[0][1:-1] == [(-76.99898, 26.50021), (-76.9989, 26.5003)]
-          and 10 < lane[1] < 16, f"{lane} {far}")
-    check("and a door on a long straight road is on it, however far its drawn ends",
-          beside is not None and beside[0][-2] == (-76.999, 26.5002), f"{beside} {far}")
+          not isinstance(lane, str)
+          and list(dict.fromkeys(lane[0])) == [(-76.99898, 26.50021), (-76.9989, 26.5003)]
+          and 10 < lane[1] < 16, str(lane))
+    check("a door on a long straight road is reached along it, to the door",
+          ran(beside, -77.0, -76.9945, 26.5002, 540, 555), str(beside))
     check("and a drive from a kilometre off every road is refused, not drawn",
-          lost is not None and lost.startswith("SystemExit") and "26.51" in lost,
+          isinstance(lost, str) and lost.startswith("SystemExit") and "26.51" in lost,
           str(lost))
-    check("a drive starts on the nearest road it can leave by, not the nearest road",
-          line is not None and line[1] == (-77.0, 26.5002), f"{line} {far}")
-    check("and ends on the nearest road that can be reached from there",
-          line is not None and line[-2] == (-76.999, 26.5002) and 90 < far < 110,
-          f"{line} {far}")
+    check("a drive starts on the nearest road it can leave by, and ends on the "
+          "nearest it can reach", ran(line, -77.0, -76.99897, 26.5002, 98, 107), str(line))
+    # One point of a road nobody may drive is not a road network, however near
+    # both ends of a drive it is.
+    drive = {"elements": [
+        way("residential", [(26.5, -77.003), (26.5, -77.0), (26.5, -76.997)]),
+        way("service", [(26.5, -77.0), (26.501, -77.0)], access="private"),
+    ]}
+    check("a drive past a private drive's gate goes round by the road",
+          ran(drive_in(drive, (26.5010, -77.0007), (26.5010, -76.9993)),
+              -77.0007, -76.9993, 26.5, 135, 145),
+          str(drive_in(drive, (26.5010, -77.0007), (26.5010, -76.9993))))
+    # The network is chosen among those near enough both ends, not found nearest
+    # and then refused: a lane at the start's door, too far from the end, does
+    # not cost the drive the road that serves both.
+    two = {"elements": [
+        way("residential", [(26.5, -77.003), (26.5, -76.997)]),
+        way("residential", [(26.50135, -77.0014), (26.50135, -77.0016)]),
+    ]}
+    got = drive_in(two, (26.50135, -77.0014), (26.50135, -76.9986))
+    check("a lane at one end's door does not cost the drive the road near both",
+          ran(got, -77.0014, -76.9986, 26.5, 270, 290), str(got))
 
     # A fix thrown out as a spike sets no speed record.
     jump = [(noon, 26.5, -77.0, 5.0),
@@ -1841,6 +1872,9 @@ def test_edges():
             fh.write(nmea("GPRMC,120006.x70,A,2630.012,N,07700.000,W,1.0,0.0,250324,,,A"))
             fh.write(nmea("GPRMC,120007.x70,A,2630.012,N,07700.000,W,1.0,0.0,250324,,,A"))
             fh.write(nmea("GPRMC,120007.200,A,2630.000,N,07700.000,W,1.0,0.0,250324,,,A"))
+            # a point with nothing after it is a whole second, and nothing unknown
+            fh.write(nmea("GPRMC,120008.,A,2630.000,N,07700.000,W,1.0,0.0,250324,,,A"))
+            fh.write(nmea("GPRMC,120008.500,A,2630.000,N,07700.000,W,1.0,0.0,250324,,,A"))
         was = parse_nmea.SRC, parse_nmea.OUT, trip.HERE
         parse_nmea.SRC, parse_nmea.OUT, trip.HERE = t, os.path.join(t, "tracks"), t
         try:
@@ -1857,12 +1891,13 @@ def test_edges():
     check("two fixes inside one second are two fixes, each at its own time",
           tenths == [(0, 100000, 26.5), (0, 900000, 26.5001), (1, 900000, 26.5),
                      (3, 0, 26.5), (4, 0, 26.5), (5, 0, 26.5), (6, 200000, 26.5),
-                     (7, 200000, 26.5)], str(tenths))
+                     (7, 200000, 26.5), (8, 0, 26.5), (8, 500000, 26.5)], str(tenths))
     check("and the track is written and read back to the same fraction",
           written == ["2024-03-25T12:00:00.100Z", "2024-03-25T12:00:00.900Z",
                       "2024-03-25T12:00:01.900Z", "2024-03-25T12:00:03Z",
                       "2024-03-25T12:00:04Z", "2024-03-25T12:00:05Z",
-                      "2024-03-25T12:00:06.200Z", "2024-03-25T12:00:07.200Z"]
+                      "2024-03-25T12:00:06.200Z", "2024-03-25T12:00:07.200Z",
+                      "2024-03-25T12:00:08Z", "2024-03-25T12:00:08.500Z"]
           and back == again == [r[0] for r in rows if r[5]], f"{written} {back}")
 
     check("one reader takes a time with a fraction or without, and nothing else",
@@ -1907,6 +1942,13 @@ def test_edges():
     check("nor has one whose window starts before the record does, by any amount",
           P.spread_m(night[1:], nt[1:], noon + timedelta(seconds=2), 2.0) is None
           and P.spread_m(night[1:], nt[1:], noon + timedelta(seconds=3), 2.0) == 0.0)
+    check("a window with nothing before the photograph starts where she does",
+          P.spread_m(night[1:], nt[1:], noon, (0.0, 3.0)) == 0.0
+          and P.spread_m(night[1:], nt[1:], noon, (0.5, 3.0)) is None)
+    both = [(f[0], f[1], f[2], "handheld") for f in night[1:]]
+    check("and the mooring pass reads the first fix's second as the first pass does",
+          P.moored_at(both, nt[1:], noon) == (26.5, -77.0, 0.0, 0.0, {"handheld"})
+          and P.moored_at(both, nt[1:], noon - timedelta(seconds=1)) is None)
     check("a time that is not a whole second is in no fix's second but its own",
           P.at(night, nt, woke - timedelta(milliseconds=300)) is None
           and trip.in_second(woke, noon) and trip.in_second(woke, woke)

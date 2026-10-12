@@ -181,6 +181,10 @@ def moored_at(fixes, times, t):
     she stayed.
     """
     i = bisect.bisect_left(times, t)
+    if i == 0 and times and in_second(times[0], t):
+        # The first fix of all, in the photograph's own second: at() calls that
+        # a recorded position, and so it is here.
+        return (fixes[0][1], fixes[0][2], 0.0, 0.0, {fixes[0][3]})
     if i == 0 or i >= len(times):
         return None
     a, b = fixes[i - 1], fixes[i]
@@ -247,10 +251,11 @@ def spread_m(fixes, times, t, half_window_s):
     if before <= 0 and after <= 0:
         return 0.0
     lo, hi = t - timedelta(seconds=before), t + timedelta(seconds=after)
-    if lo < times[0]:
+    if before > 0 and lo < times[0]:
         # at() would put an edge in the first fix's own second on that fix. For
-        # a photograph that is its position; for a window it is still a start
-        # before the record's, and what the boat did then is not known.
+        # a photograph that is its position; for a window reaching back from
+        # one it is still a start before the record's, and what the boat did
+        # then is not known.
         return None
     worst = 0.0
     for edge in (lo, hi):
