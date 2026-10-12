@@ -23,6 +23,7 @@ import argparse
 import collections
 import json
 import os
+from datetime import datetime, timedelta
 
 from shapely import set_precision
 from shapely.geometry import shape
@@ -347,11 +348,28 @@ def photos_json(placed):
             rec["uncertainty_m"] = r["uncertainty_m"]
         if r.get("day_provisional"):
             rec["day_provisional"] = True
+        if r.get("clock") and not r["utc"]:
+            rec["clock"] = r["clock"][11:16]          # HH:MM, as the camera had it
         out.append(rec)
     # Time order, so the viewer's previous/next follows the day as it happened
-    # rather than wandering by proximity. Photographs with no time go last.
-    out.sort(key=lambda r: (r["utc"] is None, r["utc"] or "", r["id"]))
+    # rather than wandering by proximity. A photograph with no trusted time but
+    # a camera clock is put where that clock says, read as the trip's own zone:
+    # the drone's 22 from Monday's beach were coming after Thursday's last
+    # photograph. Only the order is taken from it. Those with nothing go last.
+    when = {r["id"]: r["utc"] or _clock_as_utc(r.get("clock")) for r in placed}
+    out.sort(key=lambda r: (when[r["id"]] is None, when[r["id"]] or "", r["id"]))
     return out
+
+
+def _clock_as_utc(clock):
+    """A camera's own 'YYYY:MM:DD HH:MM:SS', as UTC if it was keeping EDT."""
+    if not clock:
+        return None
+    try:
+        t = datetime.strptime(clock, "%Y:%m:%d %H:%M:%S") + timedelta(hours=4)
+    except ValueError:
+        return None
+    return t.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def export(dest, placed):

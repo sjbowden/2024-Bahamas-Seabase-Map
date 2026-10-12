@@ -206,6 +206,10 @@ const say = (name, ok, detail = '') => console.log(JSON.stringify({ name, ok: !!
   const away = await page.evaluate(() => [
     whenText({ utc: '2024-03-22T08:00:00Z', day: 'Fri 22 Mar', tier: 'travel' }),
     whenText({ utc: '2024-03-22T08:00:00Z', day: 'Fri 22 Mar', tier: 'gps' })]);
+  const loose = await page.evaluate(() => whenText(
+    { utc: null, day: 'Mon 25 Mar', day_provisional: true, clock: '17:46' }));
+  say('a photograph with only its camera\'s clock says that is whose time it is',
+      loose === 'Mon 25 Mar, at a guess · 17:46 by the camera\'s own clock', loose);
   say('and one taken away from Abaco on a trip day says whose clock it is',
       away[0] === 'Fri 22 Mar · 04:00 Bahamas time' && away[1] === 'Fri 22 Mar · 04:00',
       away.join(' | '));

@@ -166,6 +166,33 @@ def covered(t, spans):
 
 
 # -------------------------------------------------------- direct methods ---
+# Clocks checked against something outside the photographs, by camera model and
+# by the days the check covers. Serial numbers stay out of this file.
+#
+# The drone writes no timezone and no satellite time, only its own clock, which
+# the app sets from the phone flying it. Its four flight records of 25 March are
+# named by that phone's clock at take-off -- 17:46:37, 17:52:53, 19:07:10 and
+# 19:17:14 -- and the first photograph of each flight is stamped 10, 17, 66 and
+# 11 seconds later, already metres up. A photograph cannot come before its
+# take-off, so the drone's clock was the phone's to about ten seconds; and the
+# phone's is measured against the satellites in 480 of its own photographs at a
+# median of one second. The sun in the frames looking west agrees, more loosely.
+# The records themselves are kept outside the repository.
+CHECKED_CLOCKS = {
+    "DJI FC7203": dict(utc_minutes=-240, days=("2024:03:25",), good_to_s=10.0),
+}
+
+
+def checked_clock(photo):
+    """The entry in CHECKED_CLOCKS that vouches for this photograph's time, or None."""
+    when = photo.get("time_local") or ""
+    for model, c in CHECKED_CLOCKS.items():
+        if (photo.get("camera") or "").split("#")[0].strip() == model \
+                and when[:10] in c["days"]:
+            return c
+    return None
+
+
 def direct_utc(photos):
     """UTC for every photograph that can say it without a fit.
 
@@ -201,6 +228,11 @@ def direct_utc(photos):
                 c = clock_err.get(p["camera"], {}).get("median_s", 0.0)
                 out[p["id"]] = (_local(p["time_local"]) - timedelta(minutes=tz)
                                 - timedelta(seconds=c), "tz_tag")
+                continue
+        known = checked_clock(p)
+        if known:
+            out[p["id"]] = (_local(p["time_local"])
+                            - timedelta(minutes=known["utc_minutes"]), "checked_clock")
     return out, clock_err
 
 
@@ -388,10 +420,12 @@ def fit(photos):
         rec = dict(photographs=len(ps), resolved_directly=len(known),
                    needing_fit=len(need), clock_error=clock_err.get(cam))
         if known:
-            rec["method"] = "gps_utc" if any(p.get("gps_utc") for p in known) else "tz_tag"
+            rec["method"] = ("gps_utc" if any(p.get("gps_utc") for p in known)
+                             else direct[known[0]["id"]][1])
         # A camera whose photographs all carry their own position needs no clock
-        # to be placed — this is what the drone taught. Its time is still
-        # unknown, which costs it only its slot in the viewer's ordering.
+        # to be placed — this is what the drone taught. Without a clock checked
+        # some other way its time is unknown, which costs it only an exact slot
+        # in the viewer's ordering: export.py goes by the camera's own clock.
         if need and all(p.get("gps") for p in ps):
             rec["skipped_fit"] = "every photograph carries its own position"
             need = []

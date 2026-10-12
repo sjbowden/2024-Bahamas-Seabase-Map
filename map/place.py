@@ -672,6 +672,10 @@ def _finish(rec, photo):
         rec["day"] = day
         if provisional and day:
             rec["day_provisional"] = True
+            # The same clock that named the day also has a time of day on it.
+            # Nothing vouches for it, so it places nothing; but it is the only
+            # word on when in the day, and the viewer steps through in order.
+            rec["clock"] = photo["time_local"]
     return rec
 
 

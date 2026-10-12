@@ -1044,6 +1044,9 @@ function whenText(p) {
   // measurement. export.py ships the flag; this is the only place a human
   // sees it, so this is where the hedge has to be said.
   const day = p.day && p.day_provisional ? `${p.day}, at a guess` : p.day;
+  // No time anyone can vouch for, but the camera's own clock had one, and it is
+  // what put this photograph where it is in the order. Said as the camera's.
+  if (!p.utc && day && p.clock) return `${day} · ${p.clock} by the camera's own clock`;
   if (!p.utc) return day ? `${day} — time unknown` : 'time unknown';
   const d = new Date(p.utc);
   const edt = new Date(d.getTime() - 4 * 3600 * 1000);

@@ -471,7 +471,7 @@ def test_invariants(photos, spans):
     check("every photograph has exactly one verdict", len(per_photo) == len(photos),
           f"{len(per_photo)} verdicts for {len(photos)} photographs")
     methods = {v["method"] for v in per_photo.values()}
-    allowed = {None, "gps_utc", "tz_tag", "correlate"}
+    allowed = {None, "gps_utc", "tz_tag", "correlate", "checked_clock"}
     check("no unexpected method names", methods <= allowed, str(methods - allowed))
     bad = [k for k, v in per_photo.items() if v["utc"] and not v["method"]]
     check("a time always comes with the method that found it", not bad, str(bad[:3]))
@@ -486,10 +486,16 @@ def test_invariants(photos, spans):
     for cam, r in cameras.items():
         if r["needing_fit"] and not r.get("skipped_fit"):
             check(f"{cam[:28]} records its fit", "fit" in r)
-    gps_only = [c for c, r in cameras.items()
-                if r.get("skipped_fit", "").startswith("every photograph")]
-    check("a camera that never needs the track is not fitted", gps_only,
-          f"{gps_only}")
+    # The drone was this until its clock was checked against its flight records
+    # (clock_fit.CHECKED_CLOCKS), so the case is made up: a camera with its own
+    # position on every photograph, a clock, and nothing to check the clock by.
+    lone = [dict(id=f"x{i}", name=f"x{i}.jpg", camera="Somebody's Drone", ext=".jpg",
+                 time_local=f"2024:03:25 17:4{i}:00", gps=[26.3568, -76.9842])
+            for i in range(3)]
+    _, cams, _ = C.fit(lone)
+    check("a camera that never needs the track is not fitted",
+          cams["Somebody's Drone"].get("skipped_fit", "").startswith("every photograph")
+          and "fit" not in cams["Somebody's Drone"], str(cams))
 
 
 def test_interpolation():
@@ -800,7 +806,25 @@ def test_nothing_published_carries_metadata(placed):
           "clock_fit still tells the Canon from a phone")
     fields = set().union(*(set(r) for r in pj))
     allowed = {"id", "tier", "camera", "utc", "day", "note", "thumb", "view",
-               "lat", "lon", "uncertainty_m", "day_provisional"}
+               "lat", "lon", "uncertainty_m", "day_provisional", "clock"}
+    # The viewer steps through in this order. A photograph with only its
+    # camera's clock goes where that clock says and not after the last day.
+    def rec(pid, utc, clock=None):
+        return dict(id=pid, tier="gps", camera="cam", utc=utc, day="Mon 25 Mar",
+                    note=None, lat=26.5, lon=-77.0, uncertainty_m=15, clock=clock,
+                    day_provisional=bool(clock))
+    order = [r["id"] for r in E.photos_json([
+        rec("thu", "2024-03-28T17:57:49Z"), rec("loose", None, "2024:03:25 17:46:47"),
+        rec("none", None), rec("mon", "2024-03-25T21:46:40Z"),
+        rec("later", "2024-03-25T23:17:57Z")])]
+    check("a photograph with only its camera's clock is stepped through on its own day",
+          order == ["mon", "loose", "later", "thu", "none"], str(order))
+    drone = [r for r in placed if r["camera"].startswith("DJI")]
+    check("the drone's photographs have the time its flight records vouch for",
+          len(drone) == 22 and all(r["utc"] and r["time_method"] == "checked_clock"
+                                   and r["tier"] == "gps" for r in drone)
+          and min(r["utc"] for r in drone) == "2024-03-25T21:46:47Z",
+          str(collections.Counter((r["time_method"], r["tier"]) for r in drone)))
     check("photos.json carries no unexpected field", fields <= allowed,
           str(fields - allowed))
 
@@ -1728,6 +1752,14 @@ def test_edges():
     check("a fix takes the quality of its own burst, across days and within a second",
           (got["24 12:00:00"], got["25 12:00:00"], got["25 13:00:00"], got["25 14:00:00"])
           == (1, 6, 0, 1), str({k: v for k, v in got.items() if k[3:5] != "13" or k[:2] == "25"}))
+
+    # A clock vouched for from outside is good for the days it was checked on.
+    flown = dict(id="d1", camera="DJI FC7203 #XYZ", time_local="2024:03:25 17:46:47")
+    other = dict(id="d2", camera="DJI FC7203 #XYZ", time_local="2024:05:30 12:51:00")
+    got, _ = C.direct_utc([flown, other])
+    check("a checked clock gives a time on the days it was checked, and no others",
+          got.get("d1") == (datetime(2024, 3, 25, 21, 46, 47, tzinfo=timezone.utc),
+                            "checked_clock") and "d2" not in got, str(got))
 
     # The browser check is one failed check or one skip, never a traceback that
     # takes the rest of the suite's verdict with it.
