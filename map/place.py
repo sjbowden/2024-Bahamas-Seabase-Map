@@ -40,7 +40,7 @@ import re
 from datetime import datetime, timedelta, timezone
 
 from trip import (ANCHORAGES, DAYS, HOTEL, MARINA, MOVING_KN, PLACES, haversine,
-                  in_chart, read_inreach, recorded_fixes)
+                  in_chart, read_inreach, read_utc, recorded_fixes)
 from map import clock_fit as C
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -135,17 +135,17 @@ def at(fixes, times, t):
         return None
     i = bisect.bisect_left(times, t)
     if i == 0:
-        return None if t < times[0] else (fixes[0][1], fixes[0][2], fixes[0][3], fixes[0][4])
+        return (None if times[0] - t >= C.SAME_SECOND
+                else (fixes[0][1], fixes[0][2], fixes[0][3], fixes[0][4]))
     if i >= len(times):
         return None
-    if times[i] == t:
-        # On a fix exactly: that is a recorded position, whatever came before
-        # it. Checked ahead of the gap rule, which would otherwise refuse the
-        # first fix after the receiver came back on.
-        b = fixes[i]
-        return (b[1], b[2], b[3], b[4])
     a, b = fixes[i - 1], fixes[i]
     span = (b[0] - a[0]).total_seconds()
+    if times[i] == t or (span > MAX_GAP_S and times[i] - t < C.SAME_SECOND):
+        # On a fix, or in its second: that is a recorded position, whatever
+        # came before it. Checked ahead of the gap rule, which would otherwise
+        # refuse the first fix after the receiver came back on.
+        return (b[1], b[2], b[3], b[4])
     if span > MAX_GAP_S:
         return None
     f = 0.0 if span == 0 else (t - a[0]).total_seconds() / span
@@ -398,15 +398,27 @@ def place(photos, per_photo, cameras, fixes=None):
     # needed -- a fit says nothing about a time it was not used to find. A
     # timezone tag is not that: it says which zone the clock was set to and not
     # that the clock was right, so on a camera whose clock had to be fitted the
-    # tagged photographs take the fit's window too.
+    # tagged photographs take the fit's window too. A clock checked from outside
+    # is good to what that check was good to, and no fit has anything to add.
     fitted = {}
     for cam, r in cameras.items():
         f = r.get("fit") or {}
         if f.get("accepted"):
             fitted[cam] = fit_window(f)
 
-    def half_window(camera, method):
-        return 2.0 if method == "gps_utc" else fitted.get(camera, 2.0)
+    def half_window(p, method):
+        if method == "checked_clock":
+            known = C.checked_clock(p)
+            if not known:
+                # A time from a table that has since changed. No window here
+                # is this photograph's, and two seconds least of all.
+                raise SystemExit(f"{p['name']}: timed by a checked clock that "
+                                 "map/clock_fit.py no longer vouches for — fit "
+                                 "the clocks again: python -m map.clock_fit")
+            return known["good_to_s"]
+        return 2.0 if method == "gps_utc" else fitted.get(p["camera"], 2.0)
+
+    window = {}                       # by photograph, for the second pass
 
     out = []
     for p in photos:
@@ -467,7 +479,8 @@ def place(photos, per_photo, cameras, fixes=None):
             # flagged as a guess -- _finish leaves a filename's day alone.
             out.append(_finish(rec, p))
             continue
-        t = C._utc(v["utc"])
+        t = read_utc(v["utc"])
+        window[p["id"]] = half_window(p, v["method"])
         pos = at(fixes, times, t)
         if pos is None:
             # On a day of the trip the receiver was merely off; on any other
@@ -483,7 +496,7 @@ def place(photos, per_photo, cameras, fixes=None):
             out.append(_finish(rec, p))
             continue
         lat, lon, sog, day = pos
-        u = spread_m(fixes, times, t, half_window(p["camera"], v["method"]))
+        u = spread_m(fixes, times, t, window[p["id"]])
         # One figure for the ring and for the note beside it.
         u = None if u is None else round(u + RECEIVER_M)
         rec.update(lat=lat, lon=lon, day=day or day_for(t)[0],
@@ -504,11 +517,10 @@ def place(photos, per_photo, cameras, fixes=None):
     for rec in out:
         if rec["tier"] != "unplaced" or not rec["utc"]:
             continue
-        t = C._utc(rec["utc"])
+        t = read_utc(rec["utc"])
         # The same timing window the first pass used: a fitted clock is no
         # better known in a gap than out of one.
-        got = moored_through(both, bt, t,
-                             half_window(rec["camera"], rec["time_method"]))
+        got = moored_through(both, bt, t, window[rec["id"]])
         if got is None:
             continue
         lat, lon, moved, gap, who = got
@@ -667,7 +679,7 @@ def _finish(rec, photo):
     """Attach the sailing day to a photograph the track did not place."""
     if not rec["day"]:
         local = C._local(photo["time_local"]) if photo.get("time_local") else None
-        day, provisional = day_for(C._utc(rec["utc"]) if rec["utc"] else None,
+        day, provisional = day_for(read_utc(rec["utc"]) if rec["utc"] else None,
                                   local)
         rec["day"] = day
         if provisional and day:

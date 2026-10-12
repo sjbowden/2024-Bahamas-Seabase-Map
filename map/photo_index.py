@@ -37,6 +37,8 @@ import os
 import zipfile
 from datetime import datetime, timedelta
 
+from trip import utc_second
+
 from PIL import Image, ImageFile
 
 # Some of these are 12 MB iPhone frames whose EXIF sits past any sane prefix;
@@ -156,9 +158,9 @@ def read_tags(data):
             h, m, s = (float(x) for x in g[_GPS_TIME])
             t = d + timedelta(hours=h, minutes=m, seconds=s)
             if TRIP_LO <= t <= TRIP_HI:
-                out["gps_utc"] = t.strftime("%Y-%m-%dT%H:%M:%SZ")
+                out["gps_utc"] = utc_second(t)
             else:
-                out["gps_utc_rejected"] = t.strftime("%Y-%m-%dT%H:%M:%SZ")
+                out["gps_utc_rejected"] = utc_second(t)
         except Exception:                       # noqa: BLE001
             pass
     return {k: v for k, v in out.items() if v is not None}

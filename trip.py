@@ -24,10 +24,43 @@ import csv
 import hashlib
 import math
 import os
+import re
 from datetime import datetime, timedelta, timezone
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 EDT = timezone(timedelta(hours=-4))
+
+
+def utc_text(ts):
+    """A UTC instant as the tracks carry it: whole seconds bare, a fraction kept.
+
+    The fraction is three digits, as the receiver gave it, or six where three
+    would lose some: the two lengths every reader of ISO times takes.
+    """
+    us = ts.microsecond
+    frac = "" if not us else ".%03d" % (us // 1000) if us % 1000 == 0 else ".%06d" % us
+    return ts.strftime("%Y-%m-%dT%H:%M:%S") + frac + "Z"
+
+
+def utc_second(ts):
+    """utc_text() to the whole second, which is all a photograph's time is."""
+    return utc_text(ts.replace(microsecond=0))
+
+
+_UTC = re.compile(r"\d{4}-\d\d-\d\dT(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d"
+                  r"(?:\.\d{1,6})?Z", re.ASCII)
+
+
+def read_utc(text):
+    """utc_text() read back, and every other ...Z time this trip is written in.
+
+    That shape and no other. fromisoformat() alone reads '2024-03-25T12Z' as
+    noon and 'T24:00:00' as the next day, and a timestamp cut short in a damaged
+    file would become a fix at the wrong instant instead of an error.
+    """
+    if not _UTC.fullmatch(text):
+        raise ValueError(f"not a UTC time: {text!r}")
+    return datetime.fromisoformat(text[:-1]).replace(tzinfo=timezone.utc)
 NM = 1852.0
 LAT0 = 26.5                     # chart reference latitude, for lon/lat scaling
 
@@ -524,7 +557,7 @@ def read_inreach(path=None):
         t = tp.find(ns + "time")
         if t is None:
             continue
-        when = datetime.strptime(t.text, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+        when = read_utc(t.text)
         out.append((when, float(tp.get("lat")), float(tp.get("lon"))))
     return sorted(out)
 
@@ -600,8 +633,7 @@ def read_fixes(stem):
                     or not math.isfinite(float(r["sog_kn"]))):
                 dropped += 1
                 continue
-            fixes.append((datetime.strptime(r["utc"], "%Y-%m-%dT%H:%M:%SZ")
-                          .replace(tzinfo=timezone.utc),
+            fixes.append((read_utc(r["utc"]),
                           lat, lon, float(r["sog_kn"])))
     # The logs are written sequentially and measure as monotonic, so this sorts
     # nothing today. It is here because bisecting for a bracketing pair is only
@@ -639,7 +671,7 @@ def recorded_fixes(stem, max_kn=30.0, road_split=None):
 
 def _split_at(pts, iso):
     """Cut a day in two at a UTC instant: (before, after)."""
-    cut = datetime.strptime(iso, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+    cut = read_utc(iso)
     return [p for p in pts if p[0] <= cut], [p for p in pts if p[0] > cut]
 
 

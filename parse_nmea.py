@@ -10,6 +10,8 @@ import math
 import os
 from datetime import datetime, timezone
 
+from trip import utc_text
+
 SRC = os.path.join(os.path.dirname(__file__), "GPSFILES")
 OUT = os.path.join(os.path.dirname(__file__), "tracks")
 
@@ -113,6 +115,14 @@ def parse_file(path):
             if len(hhmmss) < 6 or len(datestr) != 6:
                 continue
             try:
+                # The receiver reports to the millisecond, and the fraction is
+                # part of the time: without it two fixes inside one second are
+                # one, and every other is stamped up to a second early. A
+                # fraction that is not digits is no fraction; the fix is still
+                # a fix, in that second.
+                frac = hhmmss[7:] if hhmmss[6:7] == "." else ""
+                if not (frac.isascii() and frac.isdigit()):
+                    frac = ""
                 ts = datetime(
                     2000 + int(datestr[4:6]),
                     int(datestr[2:4]),
@@ -120,6 +130,7 @@ def parse_file(path):
                     int(hhmmss[0:2]),
                     int(hhmmss[2:4]),
                     int(hhmmss[4:6]),
+                    int(frac[:6].ljust(6, "0")) if frac else 0,
                     tzinfo=timezone.utc,
                 )
             except ValueError:
@@ -169,7 +180,7 @@ def main():
             w.writerow(["utc", "lat", "lon", "sog_kn", "cog_deg",
                         "quality", "sats", "hdop"])
             for ts, lat, lon, sog, cog, gq, gsat, ghdop in rows:
-                w.writerow([ts.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                w.writerow([utc_text(ts),
                             f"{lat:.6f}", f"{lon:.6f}", f"{sog:.2f}",
                             "" if cog != cog else f"{cog:.1f}",
                             gq, gsat, f"{ghdop:.1f}"])

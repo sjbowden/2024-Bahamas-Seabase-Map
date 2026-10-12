@@ -33,7 +33,8 @@ from trip import (AIRPORT, ANCHORAGES, DAYS, EXTENT, HOTEL, MAP_CAYS,
                   MAP_LABEL_ANCHOR, MAP_LABEL_NUDGE, MAP_LAND_BBOX,
                   MAP_REGIONS, MAP_SPOTS,
                   overnight_bridges, shoal,
-                  MARINA, PLACES, VIEW_BOUNDS, load_day, transfer_route)
+                  MARINA, PLACES, VIEW_BOUNDS, load_day, transfer_route,
+                  utc_second)
 from map import clock_fit as C
 from map import depth as DEPTH
 from map import place as P
@@ -369,7 +370,7 @@ def _clock_as_utc(clock):
         t = datetime.strptime(clock, "%Y:%m:%d %H:%M:%S") + timedelta(hours=4)
     except ValueError:
         return None
-    return t.strftime("%Y-%m-%dT%H:%M:%SZ")
+    return utc_second(t)
 
 
 def export(dest, placed):

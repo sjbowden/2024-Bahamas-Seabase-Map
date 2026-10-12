@@ -68,7 +68,7 @@ from datetime import datetime, timedelta, timezone
 
 import numpy as np
 
-from trip import DAYS, read_fixes
+from trip import DAYS, read_fixes, read_utc, utc_second
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -116,10 +116,6 @@ def _local(s):
     return datetime.strptime(s, "%Y:%m:%d %H:%M:%S").replace(tzinfo=UTC)
 
 
-def _utc(s):
-    return datetime.strptime(s, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=UTC)
-
-
 _TZ = re.compile(r"([+-])(\d{2}):(\d{2})")
 
 
@@ -145,20 +141,32 @@ def coverage(max_gap_s=120.0):
     Built from the full-cadence stream, not the plotted track, and broken at
     any gap longer than max_gap_s so the 28-minute hole on arrival day is a
     hole here too rather than being spanned by a straight line.
+
+    A span starts with the second its first fix fell in. What is asked of these
+    is whether a photograph's time is inside one, and that is a whole second:
+    the receiver that came on at 11:16:09.611 was recording in the second a
+    photograph calls 11:16:09.
     """
     spans = []
     for d in DAYS:
         fixes, _ = read_fixes(d["file"])
         if not fixes:
             continue
-        start = prev = fixes[0][0]
+        prev = fixes[0][0]
+        start = prev.replace(microsecond=0)
         for t, *_ in fixes[1:]:
             if (t - prev).total_seconds() > max_gap_s:
                 spans.append((start, prev))
-                start = t
+                start = t.replace(microsecond=0)
             prev = t
         spans.append((start, prev))
     return sorted(spans)
+
+
+# A photograph's time is a whole second and a fix's is not: a time less than
+# this before a fix is in that fix's second. coverage() says the same thing of
+# its spans; place.at() says it with this.
+SAME_SECOND = timedelta(seconds=1)
 
 
 def covered(t, spans):
@@ -206,7 +214,7 @@ def direct_utc(photos):
             tz = _tz_minutes(p["tz_offset"])
             if tz is not None:
                 delta = (_local(p["time_local"]) - timedelta(minutes=tz)
-                         - _utc(p["gps_utc"])).total_seconds()
+                         - read_utc(p["gps_utc"])).total_seconds()
                 err[p["camera"]].append(delta)
     clock_err = {}
     for cam, ds in err.items():
@@ -217,7 +225,7 @@ def direct_utc(photos):
     out = {}
     for p in photos:
         if p.get("gps_utc"):
-            out[p["id"]] = (_utc(p["gps_utc"]), "gps_utc")
+            out[p["id"]] = (read_utc(p["gps_utc"]), "gps_utc")
             continue
         if p.get("time_local") and p.get("tz_offset"):
             tz = _tz_minutes(p["tz_offset"])
@@ -481,8 +489,11 @@ def fit(photos):
     per_photo = {}
     for p in photos:
         t, method = direct.get(p["id"], (None, None))
+        # The second that is written down is the one coverage is asked about,
+        # as it is the one placement will ask the track about.
+        t = t and t.replace(microsecond=0)
         per_photo[p["id"]] = dict(
-            utc=t.strftime("%Y-%m-%dT%H:%M:%SZ") if t else None,
+            utc=utc_second(t) if t else None,
             method=method,
             in_coverage=bool(t and covered(t, spans)),
             has_gps=bool(p.get("gps")))

@@ -20,10 +20,10 @@ import math
 import os
 import sys
 import xml.etree.ElementTree as ET
-from datetime import datetime, timezone
+from datetime import datetime
 
 from trip import (DAYS, EDT, LAT0, OFFSHORE_KM, haversine, load_day,
-                  offshore_km, read_inreach, recorded_fixes)
+                  offshore_km, read_inreach, read_utc, recorded_fixes)
 
 NS = "{http://www.topografix.com/GPX/1/1}"
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -159,8 +159,7 @@ def main():
         import json
         rows = [dict(name=p["name"], lat=p["gps"][0], lon=p["gps"][1],
                      when=p["gps_utc"],
-                     t=datetime.strptime(p["gps_utc"], "%Y-%m-%dT%H:%M:%SZ")
-                     .replace(tzinfo=timezone.utc))
+                     t=read_utc(p["gps_utc"]))
                 for p in json.load(open(index))
                 if p.get("gps") and p.get("gps_utc") and p["gps"][0] < 30]
     if rows is not None:

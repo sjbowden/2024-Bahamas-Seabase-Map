@@ -26,7 +26,7 @@ from datetime import datetime, timedelta
 from shapely.validation import explain_validity
 
 from abaco_geo import land_polygons
-from trip import DAYS, MAP_LAND_BBOX, haversine, in_chart, read_fixes
+from trip import DAYS, MAP_LAND_BBOX, haversine, in_chart, read_fixes, read_utc
 from map import clock_fit as C
 from map import export as E
 from map import place as P
@@ -418,7 +418,7 @@ def test_anchor_starvation(photos, spans):
 
     # Only the -04:00 photographs: this camera's tag moves with the journey, so
     # a single offset is only meaningful inside one leg of it.
-    truth = [C._utc(p["gps_utc"]) for p in kept]
+    truth = [read_utc(p["gps_utc"]) for p in kept]
     local = [C._local(p["time_local"]) for p in kept]
     implied = sorted((l - t).total_seconds() / 60.0 for l, t in zip(local, truth))
     med = implied[len(implied) // 2]
@@ -589,7 +589,7 @@ def test_placement(photos, spans):
     # the branch that gives up on a position also skipped naming the day -- so
     # the tray filed them under "Undated" and no day box could hide them.
     lost = [r["id"] for r in placed
-            if r["utc"] and not r["day"] and P.day_for(C._utc(r["utc"]))[0]]
+            if r["utc"] and not r["day"] and P.day_for(read_utc(r["utc"]))[0]]
     check("a known trip day survives a failed placement", not lost,
           f"{len(lost)} have a UTC on a trip day and no day, e.g. {lost[:3]}")
     check("nothing off the chart keeps a position",
@@ -745,7 +745,7 @@ def test_gaps(photos, placed):
     ts = [f[0] for f in fixes]
     loose, silent = [], []
     for r in moored:
-        got = P.moored_at(fixes, ts, C._utc(r["utc"]))
+        got = P.moored_at(fixes, ts, read_utc(r["utc"]))
         if got is None:
             silent.append(r["id"])
             continue
@@ -826,7 +826,7 @@ def test_nothing_published_carries_metadata(placed):
     back = [(a["id"], a["day"], b["id"], b["day"]) for a, b in zip(seq, seq[1:])
             if a["day"] and b["day"] and rank[b["day"]] < rank[a["day"]]]
     off = [r["id"] for r in seq if r["utc"] and r["day"] and
-           (C._utc(r["utc"]) - timedelta(hours=4)).strftime("%a %d %b") != r["day"]]
+           (read_utc(r["utc"]) - timedelta(hours=4)).strftime("%a %d %b") != r["day"]]
     check("stepping through the chart's photographs never goes back a day",
           not back and not off, f"{len(back)} steps back, e.g. {back[:2]}; "
           f"{len(off)} whose day is not their time's, e.g. {off[:3]}")
@@ -1649,6 +1649,50 @@ def test_edges():
     check("a cached route is keyed on the roads and the router that made it",
           bumped != roads._source_digest(roads.DRIVABLE)
           and roads._source_digest(roads.DRIVABLE) != roads._source_digest(roads.WALKABLE))
+    # A road nobody may drive is not somewhere a drive can start or end.
+    def way(kind, pts, **tags):
+        return dict(tags=dict(highway=kind, **tags),
+                    geometry=[dict(lat=la, lon=lo) for la, lo in pts])
+    town = {"elements": [
+        way("service", [(26.5, -77.0), (26.5, -77.001)], access="private"),
+        way("residential", [(26.5002, -77.0), (26.5002, -76.9995), (26.5002, -76.999)]),
+        # a public lane reached only by a private one, nearest of all to the end
+        way("service", [(26.5002, -76.999), (26.50021, -76.99898)], access="private"),
+        way("residential", [(26.50021, -76.99898), (26.5003, -76.9989)]),
+        # a one-way street whose far end is the nearest point to the start
+        way("residential", [(26.5003, -76.9995), (26.50001, -76.99995)], oneway="yes"),
+    ]}
+    real_roads, real_cache = roads.fetch_roads, roads.CACHE
+    with tempfile.TemporaryDirectory() as t:
+        with open(os.path.join(t, "roads.json"), "w") as fh:
+            json.dump(town, fh)
+        roads.fetch_roads, roads.CACHE = (lambda: town), t
+        g, net, line, far = {}, set(), None, None
+        try:
+            g = roads.build_graph(roads.DRIVABLE)
+            net = roads.network(g)
+            line, far = roads.route((26.5, -77.0), (26.50021, -76.99897))
+        except (Exception, SystemExit) as e:
+            far = repr(e)
+        try:
+            roads.route((26.51, -77.0), (26.50021, -76.99897))
+            lost = None
+        except (Exception, SystemExit) as e:
+            lost = repr(e)
+        finally:
+            roads.fetch_roads, roads.CACHE = real_roads, real_cache
+    check("a private road is no part of the network a van can use",
+          (26.5, -77.0) not in net and (26.5002, -77.0) in net
+          and (26.5003, -76.9989) in g and (26.5003, -76.9989) not in net,
+          str(sorted(net)))
+    check("and a drive from a kilometre off every road is refused, not drawn",
+          lost is not None and lost.startswith("SystemExit") and "26.51" in lost,
+          str(lost))
+    check("a drive starts on the nearest road it can leave by, not the nearest road",
+          line is not None and line[1] == (-77.0, 26.5002), f"{line} {far}")
+    check("and ends on the nearest road that can be reached from there",
+          line is not None and line[-2] == (-76.999, 26.5002) and 90 < far < 110,
+          f"{line} {far}")
 
     # A fix thrown out as a spike sets no speed record.
     jump = [(noon, 26.5, -77.0, 5.0),
@@ -1763,10 +1807,113 @@ def test_edges():
             # two inside one second, the second of them dead reckoning
             fh.write(burst("140000.00", "250324", 1))
             fh.write(burst("140000.50", "250324", 6))
-        got = {r[0].strftime("%d %H:%M:%S"): r[5] for r in parse_nmea.parse_file(log)}
+        got = {r[0].strftime("%d %H:%M:%S") + (".5" if r[0].microsecond else ""): r[5]
+               for r in parse_nmea.parse_file(log)}
     check("a fix takes the quality of its own burst, across days and within a second",
-          (got["24 12:00:00"], got["25 12:00:00"], got["25 13:00:00"], got["25 14:00:00"])
-          == (1, 6, 0, 1), str({k: v for k, v in got.items() if k[3:5] != "13" or k[:2] == "25"}))
+          (got["24 12:00:00"], got["25 12:00:00"], got["25 13:00:00"], got["25 14:00:00"],
+           got.get("25 14:00:00.5")) == (1, 6, 0, 1, 6), str({k: v for k, v in got.items() if k[3:5] != "13" or k[:2] == "25"}))
+
+    # The receiver reports fractions of a second, and they are part of the time.
+    import analyze
+    with tempfile.TemporaryDirectory() as t:
+        with open(os.path.join(t, "GPS_f.log"), "w") as fh:
+            fh.write(burst("120000.100", "250324", 1))
+            fh.write(nmea("GPGGA,120000.900,2630.006,N,07700.000,W,1,08,1.0,1.0,M,,M,,")
+                     + nmea("GPRMC,120000.900,A,2630.006,N,07700.000,W,1.0,0.0,250324,,,A"))
+            fh.write(burst("120001.900", "250324", 1))      # the same instant, twice
+            fh.write(burst("120001.900", "250324", 1))
+            fh.write(burst("120003.00", "250324", 1))
+            # a fraction that is not one costs the fraction, not the position
+            fh.write(nmea("GPRMC,120004.,A,2630.000,N,07700.000,W,1.0,0.0,250324,,,A"))
+            fh.write(nmea("GPRMC,120005.x5,A,2630.000,N,07700.000,W,1.0,0.0,250324,,,A"))
+        was = parse_nmea.SRC, parse_nmea.OUT, trip.HERE
+        parse_nmea.SRC, parse_nmea.OUT, trip.HERE = t, os.path.join(t, "tracks"), t
+        try:
+            rows = parse_nmea.parse_file(os.path.join(t, "GPS_f.log"))
+            with contextlib.redirect_stdout(io.StringIO()):
+                parse_nmea.main()
+            with open(os.path.join(t, "tracks", "GPS_f.csv")) as fh:
+                written = [ln.split(",")[0] for ln in fh][1:]
+            back = [f[0] for f in trip.read_fixes("GPS_f")[0]]
+            again = [f[0] for f in analyze.load(os.path.join(t, "tracks", "GPS_f.csv"))[0]]
+        finally:
+            parse_nmea.SRC, parse_nmea.OUT, trip.HERE = was
+    tenths = [(r[0].second, r[0].microsecond, round(r[1], 4)) for r in rows]
+    check("two fixes inside one second are two fixes, each at its own time",
+          tenths == [(0, 100000, 26.5), (0, 900000, 26.5001), (1, 900000, 26.5),
+                     (3, 0, 26.5), (4, 0, 26.5), (5, 0, 26.5)], str(tenths))
+    check("and the track is written and read back to the same fraction",
+          written == ["2024-03-25T12:00:00.100Z", "2024-03-25T12:00:00.900Z",
+                      "2024-03-25T12:00:01.900Z", "2024-03-25T12:00:03Z",
+                      "2024-03-25T12:00:04Z", "2024-03-25T12:00:05Z"]
+          and back == again == [r[0] for r in rows if r[5]], f"{written} {back}")
+
+    check("one reader takes a time with a fraction or without, and nothing else",
+          trip.read_utc("2024-03-25T11:16:09.611Z")
+          == datetime(2024, 3, 25, 11, 16, 9, 611000, tzinfo=timezone.utc)
+          and read_utc("2024-03-25T11:16:09.611Z") == trip.read_utc("2024-03-25T11:16:09.611Z")
+          and trip._split_at(rows, "2024-03-25T12:00:00.5Z")[0] == rows[:1]
+          and trip.utc_text(trip.read_utc("2024-03-25T12:00:03Z")) == "2024-03-25T12:00:03Z")
+    for bad in ("2024-03-25T12:00:03", "2024-03-25", "2024-03-25T12:00:03+01:00Z",
+                "2024-03-25T12Z", "2024-03-25T1200Z", "2024-03-25T24:00:00Z",
+                "20240325T120003Z", "2024-03-25T12:00:03,5Z",
+                "2024-03-25T12:00:03.1234567Z", "2024-03-25T12:00:03.Z",
+                "2024-03-25 12:00:03Z", "2024-02-30T12:00:03Z"):
+        try:
+            trip.read_utc(bad)
+            refused = False
+        except ValueError:
+            refused = True
+        check(f"{bad!r} is not a UTC time", refused)
+
+    # A photograph's time is a whole second and the receiver's is not. One stamped
+    # in the second the receiver came back on is on that fix, as it was when the
+    # fixes were whole seconds too.
+    woke = noon + timedelta(milliseconds=611)
+    night = [(noon - timedelta(hours=8), 26.51, -77.0, 0.0, "Sun 24 Mar"),
+             (woke, 26.5, -77.0, 0.0, "Mon 25 Mar"),
+             (woke + timedelta(seconds=5), 26.5, -77.0, 0.0, "Mon 25 Mar")]
+    nt = [f[0] for f in night]
+    check("a time is written to the millisecond, or to the second for a photograph",
+          trip.utc_text(woke) == "2024-03-25T16:00:00.611Z"
+          and trip.utc_text(woke + timedelta(microseconds=5)) == "2024-03-25T16:00:00.611005Z"
+          and trip.utc_second(woke) == "2024-03-25T16:00:00Z"
+          and trip.read_utc("2024-03-25T16:00:00.6Z") == noon + timedelta(milliseconds=600))
+    check("a photograph in the second the receiver came on is at its first fix",
+          P.at(night, nt, noon) == (26.5, -77.0, 0.0, "Mon 25 Mar")
+          and P.at(night[1:], nt[1:], noon) == (26.5, -77.0, 0.0, "Mon 25 Mar")
+          and P.at(night, nt, noon - timedelta(seconds=1)) is None
+          and P.at(night[1:], nt[1:], noon - timedelta(seconds=1)) is None)
+    check("with no ring, as on the fix itself: the seconds before it are the gap's",
+          P.spread_m(night, nt, noon, 2.0) is None
+          and P.spread_m(night, nt, woke, 2.0) is None)
+    was = C.DAYS, C.read_fixes
+    C.DAYS, C.read_fixes = [dict(file="x")], lambda stem: (night[1:], 0)
+    try:
+        awake = C.coverage()
+    finally:
+        C.DAYS, C.read_fixes = was
+    check("and inside the receiver's coverage, as the second before is not",
+          awake == [(noon, nt[-1])] and C.covered(noon, awake)
+          and not C.covered(noon - timedelta(milliseconds=300), awake)
+          and not C.covered(nt[-1] + timedelta(seconds=1), awake), str(awake))
+
+    # Two fixes half a second apart are both the receiver's. The spike rule needs
+    # sixty metres as well as thirty knots, and sixty metres in under a second is
+    # a spike at any cadence.
+    close = [(noon, 26.5, -77.0, 5.0),
+             (noon + timedelta(seconds=0.5), 26.50007, -77.0, 5.0),
+             (noon + timedelta(seconds=1), 26.5008, -77.0, 5.0),
+             (noon + timedelta(seconds=5), 26.5002, -77.0, 5.0)]
+    trip.read_fixes = lambda stem: (close, 0)
+    try:
+        kept = trip.recorded_fixes("x")
+        drawn = trip.load_day("x")
+    finally:
+        trip.read_fixes = real_read
+    check("eight metres in half a second is jitter, eighty is a spike",
+          kept == [close[0], close[1], close[3]] and analyze.clean(close) == kept
+          and 20 < drawn["nm"] * 1852 < 25, f"{kept} {drawn['nm'] * 1852:.1f} m")
 
     # A clock vouched for from outside is good for the days it was checked on.
     flown = dict(id="d1", camera="DJI FC7203 #XYZ", time_local="2024:03:25 17:46:47")
@@ -1775,6 +1922,36 @@ def test_edges():
     check("a checked clock gives a time on the days it was checked, and no others",
           got.get("d1") == (datetime(2024, 3, 25, 21, 46, 47, tzinfo=timezone.utc),
                             "checked_clock") and "d2" not in got, str(got))
+
+    # ...and only as good as the check was: ten seconds, not the two that a
+    # satellite's time is allowed.
+    sail = [(noon + timedelta(seconds=k), 26.5 + 0.00005 * k, -77.0, 10.8, "Mon 25 Mar")
+            for k in range(-60, 61)]
+    aloft = dict(id="d3", name="d3.jpg", ext=".jpg", camera="DJI FC7203 #XYZ",
+                 time_local="2024:03:25 12:00:00")
+    when = {"d3": dict(utc="2024-03-25T16:00:00Z", method="checked_clock")}
+    ring = P.place([aloft], when, {}, fixes=sail)[0]["uncertainty_m"]
+    want = round(P.spread_m(sail, [f[0] for f in sail], noon, 10.0) + P.RECEIVER_M)
+    check("a checked clock's ring is as wide as the check was good to",
+          ring == want and want > 60, f"{ring} m, and ten seconds of this track is {want} m")
+    # In a gap, still to within two seconds is not still to within ten.
+    creep = [(noon + timedelta(seconds=s), la, -77.0, 0.0, "Mon 25 Mar")
+             for s, la in ((-600, 26.5), (-125, 26.5), (8, 26.5), (30, 26.502),
+                           (600, 26.502))]
+    left = P.place([aloft], when, {}, fixes=creep)[0]
+    check("and a boat that moved inside those ten seconds is not called moored",
+          left["tier"] == "unplaced", f"{left['tier']} {left.get('note')}")
+
+    # A time that says a checked clock gave it, on a day no check covers, came
+    # from an older table. Its ring is not anyone's to guess.
+    stray = dict(aloft, time_local="2024:05:30 12:00:00")
+    try:
+        P.place([stray], when, {}, fixes=sail)
+        said = None
+    except SystemExit as e:
+        said = str(e)
+    check("a checked-clock time that nothing vouches for stops the build",
+          said is not None and "d3.jpg" in said, str(said))
 
     # The browser check is one failed check or one skip, never a traceback that
     # takes the rest of the suite's verdict with it.

@@ -61,7 +61,7 @@ def metres(a, b):
 
 # Bump when the router changes what it returns for the same roads and endpoints,
 # so a route cached the old way is not mistaken for a current one.
-ROUTE_VERSION = 2
+ROUTE_VERSION = 3
 
 
 def directions(tags, walking=False):
@@ -116,8 +116,64 @@ def _source_digest(allowed):
     return h.hexdigest()[:10]
 
 
-def nearest(g, lat, lon):
-    return min(g, key=lambda n: metres(n, (lat, lon)))
+def network(g):
+    """The roads a drive can use: the largest set of points each reachable from
+    every other.
+
+    Having a way out is not enough. A lane joined to the rest only by a private
+    road is still in the graph, with ways in and out of its own two ends, and so
+    is a one-way street that leads only to a dead end; the nearest road to the
+    hotel may be either, and no drive from the airport gets there.
+    """
+    order, seen = [], set()
+    for root in g:                      # Kosaraju, without the recursion
+        if root in seen:
+            continue
+        seen.add(root)
+        stack = [(root, iter(g[root]))]
+        while stack:
+            n, outs = stack[-1]
+            for m, _ in outs:
+                if m not in seen:
+                    seen.add(m)
+                    stack.append((m, iter(g[m])))
+                    break
+            else:
+                order.append(n)
+                stack.pop()
+    back = {n: [] for n in g}
+    for n, outs in g.items():
+        for m, _ in outs:
+            back[m].append(n)
+    best, seen = set(), set()
+    for root in reversed(order):
+        if root in seen:
+            continue
+        seen.add(root)
+        part, todo = {root}, [root]
+        while todo:
+            for m in back[todo.pop()]:
+                if m not in seen:
+                    seen.add(m)
+                    part.add(m)
+                    todo.append(m)
+        if len(part) > len(best):
+            best = part
+    return best
+
+
+# The airport, the hotel and the marina are each within 60 m of the road they
+# are on. A place further than this from the network has no road in it -- another
+# island's, or one outside the roads fetched -- and a line drawn from there to the
+# nearest road that is would cross the water without saying so.
+SNAP_M = 250.0
+
+
+def nearest(nodes, lat, lon):
+    n = min(nodes, key=lambda n: metres(n, (lat, lon)))
+    if metres(n, (lat, lon)) > SNAP_M:
+        raise SystemExit(f"no road within {SNAP_M:.0f} m of ({lat}, {lon})")
+    return n
 
 
 def route(start, end, walking=False):
@@ -132,7 +188,10 @@ def route(start, end, walking=False):
         return pickle.load(open(cache, "rb"))
 
     g = build_graph(allowed, walking)
-    s, e = nearest(g, *start), nearest(g, *end)
+    net = network(g)
+    if not net:
+        raise SystemExit("no road route found")
+    s, e = nearest(net, *start), nearest(net, *end)
     dist = {s: 0.0}
     prev = {}
     pq = [(0.0, s)]
@@ -150,8 +209,6 @@ def route(start, end, walking=False):
                 dist[m] = nd
                 prev[m] = n
                 heapq.heappush(pq, (nd, m))
-    if e not in dist:
-        raise SystemExit("no road route found")
     path, cur = [], e
     while cur != s:
         path.append(cur)

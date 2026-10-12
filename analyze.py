@@ -4,7 +4,9 @@ import csv
 import glob
 import math
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta, timezone
+
+from trip import read_utc
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 EDT = timezone(timedelta(hours=-4))       # Bahamas, late March 2024
@@ -28,7 +30,7 @@ def load(path):
                 dropped += 1
                 continue
             pts.append((
-                datetime.strptime(r["utc"], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc),
+                read_utc(r["utc"]),
                 float(r["lat"]), float(r["lon"]), float(r["sog_kn"]),
             ))
     return pts, dropped
