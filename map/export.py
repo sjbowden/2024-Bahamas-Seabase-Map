@@ -38,6 +38,7 @@ from trip import (AIRPORT, ANCHORAGES, DAYS, EXTENT, HOTEL, MAP_CAYS,
 from map import clock_fit as C
 from map import depth as DEPTH
 from map import place as P
+from map import record as R
 from map.stories import STORIES
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -312,6 +313,10 @@ def poster_files():
     out = []
     for name, label in POSTER:
         src = os.path.join(HERE, "out", name)
+        # Looked for and measured, not opened: noted as it is now, so that a
+        # sheet rendered while a build runs is not published beside data that
+        # describes the one before it.
+        R.look([src])
         if os.path.exists(src):
             out.append(dict(src=src, href=f"poster/{name}", label=label,
                             bytes=os.path.getsize(src)))

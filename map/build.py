@@ -62,6 +62,9 @@ def copy_site(dest):
         os.makedirs(os.path.join(dest, "poster"), exist_ok=True)
         shutil.copy2(f["src"], os.path.join(dest, f["href"]))
         copied.append(f["href"])
+    # Listed and not opened, so noted here, where the listing is: a file added
+    # to vendor/ changes what a build makes as surely as an edit to one.
+    R.look([VENDOR], but=VENDOR_NOTES)
     if os.path.isdir(VENDOR):
         vdst = os.path.join(dest, "vendor")
         os.makedirs(vdst, exist_ok=True)
@@ -94,7 +97,11 @@ def seal(out, record, made, seen):
     # folders that leaves empty.
     left = R.strays(out, made)
     for name in left:
-        (os.rmdir if name.endswith("/") else os.remove)(os.path.join(out, name))
+        try:
+            (os.rmdir if name.endswith("/") else os.remove)(os.path.join(out, name))
+        except OSError as e:
+            raise SystemExit(f"[site  ] could not clear {name} from {out} ({e}); "
+                             "it is not recorded as built") from None
     if left:
         print(f"[site  ] cleared {len(left)} files and folders this build did not "
               f"write: {', '.join(left)}")
@@ -114,11 +121,6 @@ def main():
     a = ap.parse_args()
 
     t0 = time.time()
-    # Looked for or listed, not opened, and so noted here before any of it is
-    # used: a poster rendered while the build runs, or a file added to vendor/,
-    # changes what a build makes as surely as an edit.
-    R.look([os.path.join(HERE, "out", name) for name, _ in E.POSTER])
-    R.look([VENDOR], but=VENDOR_NOTES)
     index_path = R.INDEX
     if a.reuse_index and os.path.exists(index_path):
         photos = json.load(open(index_path))
@@ -130,6 +132,8 @@ def main():
         print(f"[index ] {len(photos)} photographs, {stats['unreadable']} unreadable "
               f"({time.time() - t0:.1f}s)")
 
+    # A source whether this run read it or wrote it.
+    R.look([index_path])
     photos, dropped = PI.readable(photos)
     if dropped:
         print(f"[index ] {dropped} could not be read and are left off the site")
@@ -196,8 +200,6 @@ def main():
     # Last, when everything has been read and written: what publishing and the
     # suite will hold the folder to.
     if home:
-        # The index is a source whether this run read it or wrote it.
-        R.look([index_path])
         seal(a.out, R.RECORD, [f"data/{n}" for n in written] + copied, R.read())
 
     print(f"\nbuilt {a.out} in {time.time() - t0:.0f}s")

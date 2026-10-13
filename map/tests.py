@@ -21,6 +21,7 @@ import json
 import os
 import re
 import sys
+import tempfile
 from datetime import datetime, timedelta
 
 from shapely.validation import explain_validity
@@ -33,9 +34,11 @@ from map import place as P
 from map.photo_index import _stamp, camera_key
 
 INDEX = os.path.join(C.HERE, "out", "photo_index.json")
-# Where the newer tests make their folders: /tmp is a small memory disk on the
+# Where every test makes its folders: /tmp is a small memory disk on the
 # keeper's machine. Elsewhere, wherever the system puts them.
-SCRATCH = os.path.expanduser("~/.cache") if os.path.isdir(os.path.expanduser("~/.cache")) else None
+SCRATCH = os.path.expanduser("~/.cache")
+if os.path.isdir(SCRATCH):
+    tempfile.tempdir = SCRATCH
 
 _pass, _fail, _skip = 0, [], 0
 
@@ -2098,7 +2101,7 @@ def test_edges():
     def put(*path, text):
         with open(os.path.join(*path), "w") as fh:
             fh.write(text)
-    with tempfile.TemporaryDirectory(dir=SCRATCH) as t:
+    with tempfile.TemporaryDirectory() as t:
         src, out, rec = (os.path.join(t, n) for n in ("src", "out", "record.json"))
         os.makedirs(os.path.join(src, "vendor"))
         os.makedirs(os.path.join(out, "media"))
@@ -2135,6 +2138,10 @@ def test_edges():
         os.makedirs(os.path.join(out, "poster"))
         hollow = R.outdated(rec, out, root=src)
         os.rmdir(os.path.join(out, "poster"))
+        # ...and a link is a file, whatever it points at.
+        os.symlink(vendor, os.path.join(out, "linked"))
+        linked = R.outdated(rec, out, root=src)
+        os.remove(os.path.join(out, "linked"))
         # A file the build says it wrote and did not is not a folder to vouch
         # for: recorded as absent, its absence would pass ever after.
         try:
@@ -2161,7 +2168,10 @@ def test_edges():
         gone = R.outdated(rec, out, root=src)
         put(src, "journal.md", text="one")
         broken = []
-        for text in ('{"inputs": {"journal.md"', '{"inputs": []}', "[]"):
+        for text in ('{"inputs": {"journal.md"', '{"inputs": []}', "[]",
+                     '{"inputs": {"vendor": {"names": "x", "but": null}}, "outputs": {}}',
+                     '{"inputs": {"journal.md": 3}, "outputs": {}}',
+                     '{"inputs": {}, "outputs": {"journal.html": null}}'):
             put(rec, text=text)
             try:
                 broken.append(R.outdated(rec, out, root=src))
@@ -2202,6 +2212,8 @@ def test_edges():
           counted == ["vendor"], str(counted))
     check("an empty folder the build did not make makes the folder out of date",
           len(hollow) == 1 and "poster/" in hollow[0], str(hollow))
+    check("and so does a link to a folder, as a file and not as a folder",
+          len(linked) == 1 and linked[0].endswith(": linked"), str(linked))
     check("a record is not written for a file the build did not write",
           "never.html" in unwritten[0] and not unwritten[1], str(unwritten))
     check("a source that has gone makes the folder out of date",
@@ -2255,7 +2267,7 @@ print(json.dumps(dict(noted=sorted(os.path.relpath(p, root) for p in seen),
                       as_read=seen.get(page) == hashlib.sha256(b"one").hexdigest(),
                       changed=R.changed(seen, root=root))))
 """
-    with tempfile.TemporaryDirectory(dir=SCRATCH) as t:
+    with tempfile.TemporaryDirectory() as t:
         ran = subprocess.run([sys.executable, "-c", watched, t], cwd=C.HERE,
                              capture_output=True, text=True, timeout=120)
     try:
@@ -2270,10 +2282,30 @@ print(json.dumps(dict(noted=sorted(os.path.relpath(p, root) for p in seen),
           noted.get("as_read") is True and noted.get("changed") == ["journal.md"], str(noted))
     check("a file first opened on another thread while one is being hashed is noted too",
           "stories.md" in noted.get("noted", []), str(noted))
+    # And on this project as it is: its own modules and files, and nothing of
+    # the environment's, the built folder's or the machine's.
+    ran = subprocess.run(
+        [sys.executable, "-c", "import glob, json, os\n"
+         "from map import record as R\n"
+         "R.watch()\n"
+         "import trip, numpy\n"
+         "for path in (['map/journal.md', 'site_build/index.html', 'out/derived.json']\n"
+         "             + glob.glob('.venv/pyvenv.cfg') + glob.glob('geo/*.pkl')[:1]):\n"
+         "    if os.path.exists(path):\n"
+         "        open(path, 'rb').close()\n"
+         "print(json.dumps(sorted(os.path.relpath(p, R.HERE) for p in R.read())))"],
+        cwd=C.HERE, capture_output=True, text=True, timeout=120)
+    try:
+        real = json.loads(ran.stdout)
+    except ValueError:
+        real = ["failed: " + (ran.stdout + ran.stderr)[-300:]]
+    check("on this project the watch notes its own modules and files, and nothing else",
+          real == ["map/__init__.py", "map/journal.md", "map/record.py", "trip.py"],
+          str(real)[:300])
 
     # Publishing asks the same question, and without the index it cannot know
     # whose pictures the media are: that is a refusal, not a check passed.
-    with tempfile.TemporaryDirectory(dir=SCRATCH) as t:
+    with tempfile.TemporaryDirectory() as t:
         out, rec = os.path.join(t, "out"), os.path.join(t, "record.json")
         os.makedirs(out)
         put(out, "index.html", text="<p>page</p>")
@@ -2363,7 +2395,6 @@ def test_build_seals():
     -- or stop, if what it read is no longer what it read."""
     import contextlib
     import io
-    import tempfile
     from map import build as B
     from map import record as R
     section("the end of a build")
@@ -2381,6 +2412,9 @@ def test_build_seals():
         out, rec = os.path.join(t, "site"), os.path.join(t, "record.json")
         for name in ("poster/old.png", "data-left-behind.json", "attic/deep/note.txt"):
             put(out, name, text="an earlier build's")
+        os.makedirs(os.path.join(t, "elsewhere"))
+        put(t, "elsewhere", "kept.txt", text="not the build's to clear")
+        os.symlink(os.path.join(t, "elsewhere"), os.path.join(out, "linked"))
         put(rec, text="the last build's record")
         return out, rec, put(t, "journal.md", text="as the build read it")
 
@@ -2391,27 +2425,45 @@ def test_build_seals():
     def left(t, out, rec):
         return dict(files=R._built(out), top=sorted(os.listdir(out)),
                     record=open(rec).read() if os.path.exists(rec) else None,
-                    beside=sorted(os.listdir(t)), outdated=R.outdated(rec, out))
+                    beside=sorted(os.listdir(t)), outdated=R.outdated(rec, out),
+                    kept=os.path.exists(os.path.join(t, "elsewhere", "kept.txt")))
+
+    @contextlib.contextmanager
+    def fresh_watch():
+        """The watch's list, emptied for one build and put back after: a build
+        in this process must neither lean on what an earlier one noted nor
+        leave its own for the next."""
+        was = dict(R._seen)
+        R._seen.clear()
+        try:
+            yield
+        finally:
+            R._seen.clear()
+            R._seen.update(was)
 
     # The sealing itself, on sources of this test's own and not on whatever
     # the suite has read by now.
-    with tempfile.TemporaryDirectory(dir=SCRATCH) as t:
+    with tempfile.TemporaryDirectory() as t:
         out, rec, source = folder(t)
         write(out)
         said = io.StringIO()
-        with contextlib.redirect_stdout(said):
-            B.seal(out, rec, made, R.states([source]))
-        done = dict(left(t, out, rec), said=said.getvalue())
+        try:
+            with contextlib.redirect_stdout(said):
+                B.seal(out, rec, made, R.states([source]))
+            done = dict(left(t, out, rec), said=said.getvalue())
+        except Exception as e:                     # noqa: BLE001 - the failure looked for
+            done = dict(left(t, out, rec), said=repr(e))
     check("a build leaves in the folder only what it wrote, and says what it cleared",
           done["files"] == made and "old.png" in done["said"]
           and "data-left-behind.json" in done["said"],
           "" if done["files"] == made else f"{done['files']} {done['said'][-200:]}")
-    check("nor the folders those were in", done["top"] == ["data", "index.html"],
-          str(done["top"]))
+    check("nor the folders those were in, nor a link, though what it points at stays",
+          done["top"] == ["data", "index.html"] and done["kept"],
+          f"{done['top']} {done['kept']} {done['said'][-120:]}")
     check("and the folder it leaves is current by its own record",
           done["outdated"] == [], str(done["outdated"]))
 
-    with tempfile.TemporaryDirectory(dir=SCRATCH) as t:
+    with tempfile.TemporaryDirectory() as t:
         out, rec, source = folder(t)
         write(out)
         read = R.states([source])
@@ -2430,24 +2482,39 @@ def test_build_seals():
           "poster/old.png" in late["files"] and late["record"] == "the last build's record",
           f"{late['files']} {late['record']}")
 
-    def built(home):
-        """The build itself, into a temporary folder, with its two writers
-        stood in for and one source of this test's own: how main() is wired."""
-        with tempfile.TemporaryDirectory(dir=SCRATCH) as t:
+    # Where the looking happens is where it is noted: the posters as export
+    # asks for them, the library's folder as it is listed to be copied. A
+    # poster rendered while the build runs is otherwise never opened before
+    # the data that describes it is written, and a folder never at all.
+    with tempfile.TemporaryDirectory() as t, fresh_watch():
+        B.E.poster_files()
+        asked = dict(R._seen)
+        with contextlib.redirect_stdout(io.StringIO()):
+            B.copy_site(os.path.join(t, "site"))
+        listed = R._seen.get(B.VENDOR)
+    posters = [os.path.join(C.HERE, "out", name) for name, _ in B.E.POSTER]
+    check("the posters are noted when they are asked for, there or not",
+          sorted(asked) == sorted(posters), str(sorted(asked)))
+    check("and the library's folder when it is listed, with the names it leaves",
+          isinstance(listed, dict) and listed.get("but") == sorted(B.VENDOR_NOTES),
+          str(listed))
+
+    def built(home, late=False):
+        """The build itself, into a temporary folder: the slow export stood in
+        for, asking for the posters as it does, and the copying real."""
+        with tempfile.TemporaryDirectory() as t, fresh_watch():
             out, rec, source = folder(t)
-            read = R.states([source])
-            put(source, text="as saved while the build ran")
-            real = B.E.export, B.copy_site, sys.argv, B.OUT, R.RECORD, R.read
-            noted = []
 
             def export(dest, placed):
-                noted.extend(R._seen)          # what is noted by the first write
-                write(out)
+                put(dest, "meta.json", text="{}")
+                B.E.poster_files()
+                if late:
+                    R.look([source])
+                    put(source, text="as saved while the build ran")
                 return {"meta.json": 2}
-            B.E.export = export
-            B.copy_site = lambda dest: ["index.html"]
+            real = B.E.export, sys.argv, B.OUT, R.RECORD
+            B.E.export, R.RECORD = export, rec
             sys.argv = ["build", "--reuse-index", "--out", out]
-            R.RECORD, R.read = rec, lambda: read
             if home:
                 B.OUT = out
             try:
@@ -2457,25 +2524,34 @@ def test_build_seals():
             except SystemExit as e:
                 stopped = str(e)
             finally:
-                B.E.export, B.copy_site, sys.argv, B.OUT, R.RECORD, R.read = real
-            return dict(left(t, out, rec), stopped=stopped, noted=noted)
+                B.E.export, sys.argv, B.OUT, R.RECORD = real
+            return dict(left(t, out, rec), stopped=stopped, wrote=R.load(rec) or {})
 
-    home = built(home=True)
-    check("the build seals what it read, and a build that stops leaves no record "
-          "beside what it wrote, not even the last build's",
-          bool(home["stopped"]) and "changed while the build ran" in home["stopped"]
-          and home["record"] is None and home["files"][:1] == ["attic/deep/note.txt"],
-          f"{home['stopped']} {home['record']} {home['files']}")
-    # A poster rendered while the build runs is never opened before the data
-    # that describes it is written, and a folder listed is never opened at all.
-    looked = [B.VENDOR] + [os.path.join(C.HERE, "out", name) for name, _ in B.E.POSTER]
-    check("what the build looks for or lists is noted before any of it is used",
-          not [p for p in looked if p not in home["noted"]],
-          str([p for p in looked if p not in home["noted"]]))
+    whole = built(home=True)
+    read, wrote = whole["wrote"].get("inputs", {}), whole["wrote"].get("outputs", {})
+    check("a build run through leaves a folder that is current by its own record",
+          whole["stopped"] is None and whole["outdated"] == [],
+          f"{whole['stopped']} {whole['outdated']}")
+    check("with nothing in it but what it wrote, all of which it recorded",
+          whole["files"] == sorted(wrote) and "data/meta.json" in wrote
+          and "journal.html" in wrote and "vendor/maplibre-gl.js" in wrote
+          and "poster/old.png" not in whole["files"] and whole["kept"],
+          f"{whole['files']} {sorted(wrote)}")
+    unread = [n for n in ("out/photo_index.json", "map/journal.md", "map/site/app.js",
+                          "map/site/vendor", "map/site/vendor/maplibre-gl.js",
+                          *(os.path.relpath(p, C.HERE) for p in posters)) if n not in read]
+    check("and its record names the index, the pages, the library and the posters",
+          not unread, f"not recorded: {unread}" if unread else "")
+    stopped = built(home=True, late=True)
+    check("a build that stops leaves no record beside what it wrote, not even "
+          "the last build's",
+          bool(stopped["stopped"]) and "changed while the build ran" in stopped["stopped"]
+          and stopped["record"] is None and "poster/old.png" in stopped["files"],
+          f"{stopped['stopped']} {stopped['record']} {stopped['files']}")
     aside = built(home=False)
     check("a build to another folder writes no record and clears nothing",
           aside["stopped"] is None and aside["record"] == "the last build's record"
-          and aside["beside"] == ["journal.md", "record.json", "site"]
+          and aside["beside"] == ["elsewhere", "journal.md", "record.json", "site"]
           and "poster/old.png" in aside["files"], f"{aside['beside']} {aside['files']}")
 
 

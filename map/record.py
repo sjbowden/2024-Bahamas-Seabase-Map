@@ -122,8 +122,17 @@ def look(paths, but=()):
     """Note what a build is about to look for or list, as it is now: a file
     that may not be there, a folder whose contents it copies. No open gives
     these to the watch, and what they are at the end is not what was built
-    from if a poster was rendered in between."""
-    for path, state in states(paths, but).items():
+    from if a poster was rendered in between. Called where the looking is
+    done, as often as it is done: only the first time notes anything."""
+    for path in paths:
+        path = os.path.abspath(path)
+        if path in _seen:
+            continue
+        _busy.now = True          # this is the noting; the watch need not repeat it
+        try:
+            state = _state(path, but)
+        finally:
+            _busy.now = False
         _seen.setdefault(path, state)
 
 
@@ -158,14 +167,24 @@ def _still(path, was):
     return _state(path, was.get("but", ()) if isinstance(was, dict) else ()) == was
 
 
-def _built(out):
-    """The files of a built folder, but for its media, as paths within it."""
-    found = []
+def _walk(out):
+    """A built folder, media apart, as (files, folders) of paths within it. A
+    link is a file, whatever it points at: it is not gone into, and it is
+    taken away as a file is."""
+    files, folders = [], []
     for folder, sub, names in os.walk(out):
         if folder == out and "media" in sub:
             sub.remove("media")
-        found += [_rel(os.path.join(folder, n), out) for n in names]
-    return sorted(found)
+        for name in sub:
+            path = os.path.join(folder, name)
+            (files if os.path.islink(path) else folders).append(_rel(path, out))
+        files += [_rel(os.path.join(folder, n), out) for n in names]
+    return sorted(files), folders
+
+
+def _built(out):
+    """The files of a built folder, but for its media, as paths within it."""
+    return _walk(out)[0]
 
 
 def write_record(path, out, inputs, outputs, root=HERE):
@@ -190,14 +209,28 @@ def write_record(path, out, inputs, outputs, root=HERE):
     return record
 
 
+def _is_state(state, built=False):
+    """Whether this is something _state gives: a hash, and for a source also
+    nothing at all, or a folder's names with those left out of them."""
+    if isinstance(state, str):
+        return True
+    if built:
+        return False
+    return state is None or (
+        isinstance(state, dict) and isinstance(state.get("names"), str)
+        and isinstance(state.get("but"), list)
+        and all(isinstance(n, str) for n in state["but"]))
+
+
 def load(path):
     """A record as written, or None if there is none that can be read."""
     try:
         with open(path) as fh:
             record = json.load(fh)
-        if isinstance(record["inputs"], dict) and isinstance(record["outputs"], dict):
+        if (all(_is_state(v) for v in record["inputs"].values())
+                and all(_is_state(v, built=True) for v in record["outputs"].values())):
             return record
-    except (OSError, ValueError, KeyError, TypeError):
+    except (OSError, ValueError, KeyError, TypeError, AttributeError):
         pass
     return None
 
@@ -208,13 +241,9 @@ def strays(out, outputs):
     closing slash and deepest first, so that they can be cleared in this order."""
     mine = set(outputs)
     kept = {n[:i] for n in mine for i, c in enumerate(n) if c == "/"}
-    hollow = []
-    for folder, sub, _ in os.walk(out):
-        if folder == out and "media" in sub:
-            sub.remove("media")
-        hollow += [d for d in (_rel(os.path.join(folder, d), out) for d in sub)
-                   if d not in kept]
-    return ([n for n in _built(out) if n not in mine]
+    files, folders = _walk(out)
+    hollow = [d for d in folders if d not in kept]
+    return ([n for n in files if n not in mine]
             + [d + "/" for d in sorted(hollow, key=lambda d: (-d.count("/"), d))])
 
 
