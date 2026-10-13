@@ -73,10 +73,7 @@ def preflight(site=None, record=None, index=None):
     index = index or R.INDEX
     # Everything the build read and wrote, not only the files it copied: the
     # journal and the data are made from sources no file here sits beside.
-    # A rebuild mends all of it but a file the build never wrote, which it
-    # would leave where it is.
-    why = [w + (": remove them" if w.startswith("not written") else ": rebuild")
-           for w in R.outdated(record or R.RECORD, site)]
+    why = [w + ": rebuild" for w in R.outdated(record or R.RECORD, site)]
     # No index is no way to know whose pictures these are, which is not the
     # same as their being the right ones.
     if not os.path.exists(index):

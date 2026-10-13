@@ -18,6 +18,8 @@ host's project name and the upload token are deliberately not in it. They are in
 - **Build** after any change under `map/` or to `trip.py`, `roads.py`, `poster.py`.
   `--reuse-index` skips re-reading the photo archives. Add `--media` only when
   the build says the media do not match: it re-renders 5,010 images (7 minutes).
+  A build removes from `site_build/` any file outside `media/` that it did not
+  write, and stops without a record if a source is saved while it runs.
 - **Test** before every commit. The suite reads `site_build/`, and fails if that
   folder is not the build of the sources as they stand, so build first: the
   build records what it read and wrote in `out/build_record.json`. The

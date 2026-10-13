@@ -27,7 +27,7 @@ import time
 # Before the imports below, because a module may read its data as it loads:
 # from here on every file read is noted, for the record the build ends with.
 from map import record as R
-STARTED = R.watch()
+R.watch()
 
 from map import clock_fit as C                                    # noqa: E402
 from map import export as E                                       # noqa: E402
@@ -37,6 +37,7 @@ from map import place as PL                                       # noqa: E402
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SITE_SRC = os.path.join(os.path.dirname(os.path.abspath(__file__)), "site")
 OUT = os.path.join(HERE, "site_build")
+RECORD = R.RECORD
 
 
 def copy_site(dest):
@@ -64,7 +65,7 @@ def copy_site(dest):
         vdst = os.path.join(dest, "vendor")
         os.makedirs(vdst, exist_ok=True)
         for name in sorted(os.listdir(vsrc)):
-            if name in ("README", "VERSION"):
+            if name in R.NOT_COPIED:
                 continue
             shutil.copy2(os.path.join(vsrc, name), os.path.join(vdst, name))
             copied.append(f"vendor/{name}")
@@ -77,6 +78,32 @@ def copy_site(dest):
         fh.write("User-agent: *\nDisallow: /\n")
     copied += ["_headers", "robots.txt"]
     return copied
+
+
+def seal(out, record, made, index_path):
+    """The end of a build of site_build: clear what this build did not write,
+    and record what it read and what it wrote."""
+    seen = R.read()
+    late = R.changed(seen)
+    if late:
+        raise SystemExit(f"[record] changed while the build ran: {', '.join(late)} "
+                         f"— build again; {out} holds what was built from the "
+                         "earlier files and is not recorded as built")
+    # A poster no longer rendered, a data file no longer exported: an earlier
+    # build's, and nothing a build from these sources would publish.
+    left = R.strays(out, made)
+    for name in left:
+        os.remove(os.path.join(out, name))
+    if left:
+        print(f"[site  ] cleared {len(left)} files this build did not write: "
+              f"{', '.join(left)}")
+    # Looked for or listed, not opened: a poster rendered later, or a file
+    # added to vendor/, changes what a build makes as surely as an edit. The
+    # index too, which this run may have written and not read.
+    also = R.states([os.path.join(HERE, "out", name) for name, _ in E.POSTER]
+                    + [os.path.join(SITE_SRC, "vendor"), index_path])
+    written = R.write_record(record, out, {**also, **seen}, made)
+    print(f"[record] {len(written['inputs'])} sources, {len(written['outputs'])} files")
 
 
 def main():
@@ -136,6 +163,13 @@ def main():
                       f"[derive] skipped — the media on disk matches all "
                       f"{len(photos)} photographs")
 
+    # Only site_build has a record; a build to another folder is one to look
+    # at. From here the folder changes, and the last build's record is no
+    # longer its: gone now, so that a build which stops leaves none.
+    home = os.path.abspath(a.out) == os.path.abspath(OUT)
+    if home and os.path.exists(RECORD):
+        os.remove(RECORD)
+
     t = time.time()
     written = E.export(os.path.join(a.out, "data"), placed)
     print(f"[export] {len(written)} data files, "
@@ -159,26 +193,9 @@ def main():
         print(media_note)
 
     # Last, when everything has been read and written: what publishing and the
-    # suite will hold the folder to. Only site_build has a record; a build to
-    # another folder is one to look at.
-    if os.path.abspath(a.out) == OUT:
-        # Looked for or listed, not opened: a poster rendered later, or a file
-        # added to vendor/, changes what a build makes as surely as an edit.
-        read = R.sources(a.out) + [os.path.join(HERE, "out", name) for name, _ in E.POSTER]
-        read.append(os.path.join(SITE_SRC, "vendor"))
-        late = R.touched(read, STARTED)
-        if late:
-            raise SystemExit(f"[record] changed while the build ran: {', '.join(late)} "
-                             f"— build again; {a.out} is not recorded as built")
-        made = [f"data/{n}" for n in written] + copied
-        # The index is this run's own if it was just written, and a source
-        # either way.
-        record = R.write_record(R.RECORD, a.out, read + [index_path], made)
-        print(f"[record] {len(record['inputs'])} sources, {len(record['outputs'])} files")
-        left = R.strays(a.out, made)
-        if left:
-            print(f"[record] not written by this build, and not to be published: "
-                  f"{', '.join(left)} — remove them from {a.out}")
+    # suite will hold the folder to.
+    if home:
+        seal(a.out, RECORD, [f"data/{n}" for n in written] + copied, index_path)
 
     print(f"\nbuilt {a.out} in {time.time() - t0:.0f}s")
     if a.serve:
