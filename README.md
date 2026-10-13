@@ -467,13 +467,23 @@ zoomable, with a checkbox per day, and three things beside it.
 - **The poster**, for download as PDF or PNG, copied in from `out/` when it has
   been rendered.
 
-**Hosting.** The built folder is uploaded to Cloudflare Pages as it stands, with
-`wrangler pages deploy site_build`. The upload uses an API token that can edit
-Pages projects and nothing else. It is kept outside this repository, in
-`~/.config/bahamas/cloudflare.env` beside the account id, and read into the
-shell before uploading:
+**Publishing.** The built folder is uploaded to Cloudflare Pages as it stands:
 
-    set -a; . ~/.config/bahamas/cloudflare.env; set +a
+    .venv/bin/python -m map.build --reuse-index    # build
+    .venv/bin/python -m map.tests                  # test
+    .venv/bin/python -m map.publish                # upload, then check what is live
+    .venv/bin/python -m map.publish --check        # is the site up to date? uploads nothing
+
+`map/publish.py` refuses a folder that was not built from the current source or
+whose pictures do not match its records, runs `wrangler pages deploy` (again if
+the host fails it), and then fetches the pages and data back and compares them
+with the folder byte for byte.
+
+Its settings are kept outside this repository, in
+`~/.config/bahamas/cloudflare.env`: an API token that can edit Pages projects
+and nothing else, the account id, the Pages project's name and the site's
+address. On a new machine that file has to be made by hand; `map/publish.py`
+names the four settings at its top. `CLAUDE.md` has the working routine.
 
 Nothing is built from this repository there:
 the photographs are not in it, so a push here changes nothing on the site until

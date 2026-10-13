@@ -2024,6 +2024,28 @@ def test_edges():
     check("a checked-clock time that nothing vouches for stops the build",
           said is not None and "d3.jpg" in said, str(said))
 
+    # Publishing: the settings file is read without a shell, the environment
+    # wins over it, and "is it live" is a comparison of bytes.
+    from map import publish as PUB
+    with tempfile.TemporaryDirectory() as t:
+        env_file = os.path.join(t, "x.env")
+        with open(env_file, "w") as fh:
+            fh.write("# a comment\nCLOUDFLARE_API_TOKEN=abc\nSITE_URL='https://x.example'\n\n")
+        got = PUB.read_settings(env_file, environ={"SITE_URL": "https://y.example"})
+    check("publish settings come from the file, and the environment wins",
+          got == {"CLOUDFLARE_API_TOKEN": "abc", "SITE_URL": "https://y.example"}, str(got))
+    if os.path.isdir(PUB.SITE):
+        page = open(os.path.join(PUB.SITE, "index.html"), "rb").read()
+        same = PUB.differing("https://x.example", [("", "index.html")], fetch=lambda u: page)
+        other = PUB.differing("https://x.example", [("", "index.html")], fetch=lambda u: b"old")
+
+        def down(u):
+            raise OSError("no route")
+        dead = PUB.differing("https://x.example", [("", "index.html")], fetch=down)
+        check("a live file is the folder's only if its bytes are",
+              (same, other, dead) == ([], ["index.html"], ["index.html"]),
+              f"{same} {other} {dead}")
+
     # The browser check is one failed check or one skip, never a traceback that
     # takes the rest of the suite's verdict with it.
     import shutil
