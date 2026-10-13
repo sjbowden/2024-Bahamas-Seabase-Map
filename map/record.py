@@ -7,6 +7,7 @@ their hashes, and publishing and the suite ask this module whether both still
 stand.
 
     watch()                       at the top of a build, before its imports
+    look(paths)                   what the build will look for or list, as it is now
     read()                        what has been read since, each as it was then
     changed(seen)                 those that are no longer what was read
     write_record(...)             at the end of a build
@@ -20,6 +21,7 @@ import importlib.util
 import json
 import os
 import sys
+import threading
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 INDEX = os.path.join(HERE, "out", "photo_index.json")
@@ -33,19 +35,21 @@ NOT_SOURCE = (".venv", ".git", "photos", "node_modules", "site_build", "__pycach
 # away is not a page gone stale.
 CACHES = ("out/derived.json", "out/build_record.json")
 CACHE_SUFFIX = ".pkl"
-# The vendored library's own notes, which the build leaves where they are.
-NOT_COPIED = ("README", "VERSION")
 
 _seen = {}                # path -> what the file was when it was first read
 _watching = False
-_busy = False
+_root = HERE
+# Hashing a file opens it, which comes back to the watch. Each thread has its
+# own flag for that: one flag for all would drop whatever another thread first
+# opened in the meantime.
+_busy = threading.local()
 
 
 def _rel(path, root):
     return os.path.relpath(path, root).replace(os.sep, "/")
 
 
-def _is_source(path, root=HERE):
+def _is_source(path, root):
     rel = _rel(path, root)
     return not (rel.startswith("../") or rel in CACHES or rel.endswith(CACHE_SUFFIX)
                 or any(part in NOT_SOURCE for part in rel.split("/")))
@@ -62,37 +66,37 @@ def _first(path):
             path = importlib.util.source_from_cache(path)
         except ValueError:
             return
-    if path not in _seen and _is_source(path) and not os.path.isdir(path):
+    if path not in _seen and _is_source(path, _root) and not os.path.isdir(path):
         _seen[path] = _state(path)
 
 
 def _note(event, args):
-    global _busy
-    if event != "open" or _busy:
+    if event != "open" or getattr(_busy, "now", False):
         return
     path, mode = args[0], args[1]
     if not (isinstance(mode, str) and mode[:1] == "r" and "+" not in mode
             and isinstance(path, (str, os.PathLike))):
         return
-    _busy = True                  # hashing the file opens it, which comes here
+    _busy.now = True
     try:
         _first(os.fspath(path))
     except OSError:
         pass                      # the open this is watching will say so itself
     finally:
-        _busy = False
+        _busy.now = False
 
 
-def watch():
-    """Note every file read from now on, and the modules already loaded.
+def watch(root=HERE):
+    """Note every file of the project read from now on, and the modules
+    already loaded.
 
     Called before a build's imports, because a module may read its data as it
     loads. An audit hook cannot be taken off again, which is why it is put on
     here and not when this module is imported.
     """
-    global _watching
+    global _watching, _root
     if not _watching:
-        _watching = True
+        _watching, _root = True, root
         for m in list(sys.modules.values()):
             _first(getattr(m, "__file__", None))
         sys.addaudithook(_note)
@@ -108,24 +112,38 @@ def read():
     return dict(_seen)
 
 
-def states(paths):
-    """What each of these is now, as {path: state}: for what a build looked for
-    or listed, which no open gave the watch."""
-    return {os.path.abspath(p): _state(p) for p in paths}
+def states(paths, but=()):
+    """What each of these is now, as {path: state}. `but` are names a folder
+    among them may hold that the build leaves where they are."""
+    return {os.path.abspath(p): _state(p, but) for p in paths}
+
+
+def look(paths, but=()):
+    """Note what a build is about to look for or list, as it is now: a file
+    that may not be there, a folder whose contents it copies. No open gives
+    these to the watch, and what they are at the end is not what was built
+    from if a poster was rendered in between."""
+    for path, state in states(paths, but).items():
+        _seen.setdefault(path, state)
 
 
 def changed(seen, root=HERE):
     """Those of a build's sources that are no longer what was read, as names.
     The record vouches for what the build saw; a file saved since is not that."""
-    return sorted(_rel(p, root) for p, was in seen.items() if _state(p) != was)
+    return sorted(_rel(p, root) for p, was in seen.items() if not _still(p, was))
 
 
-def _state(path):
+def _state(path, but=()):
     """What a source is now: a file's hash, a folder's names, or None for
-    something that is not there -- which is a state too, and can change."""
+    something that is not there -- which is a state too, and can change.
+
+    A folder's state carries the names that were left out of it, so that
+    whoever checks it later leaves out the same ones: which those are is the
+    build's rule, and this module has none of its own."""
     if os.path.isdir(path):
-        names = sorted(n for n in os.listdir(path) if n not in NOT_COPIED)
-        return "names " + hashlib.sha256("\n".join(names).encode()).hexdigest()
+        names = sorted(n for n in os.listdir(path) if n not in but)
+        return dict(names=hashlib.sha256("\n".join(names).encode()).hexdigest(),
+                    but=sorted(but))
     if not os.path.isfile(path):
         return None
     h = hashlib.sha256()
@@ -133,6 +151,11 @@ def _state(path):
         for block in iter(lambda: fh.read(1 << 20), b""):
             h.update(block)
     return h.hexdigest()
+
+
+def _still(path, was):
+    """Whether a source is what it was recorded as."""
+    return _state(path, was.get("but", ()) if isinstance(was, dict) else ()) == was
 
 
 def _built(out):
@@ -180,9 +203,19 @@ def load(path):
 
 
 def strays(out, outputs):
-    """Files in a built folder, media apart, that are not among `outputs`."""
+    """What is in a built folder, media apart, that is not among `outputs`:
+    files, and then folders with none of the outputs in them, named with a
+    closing slash and deepest first, so that they can be cleared in this order."""
     mine = set(outputs)
-    return [n for n in _built(out) if n not in mine]
+    kept = {n[:i] for n in mine for i, c in enumerate(n) if c == "/"}
+    hollow = []
+    for folder, sub, _ in os.walk(out):
+        if folder == out and "media" in sub:
+            sub.remove("media")
+        hollow += [d for d in (_rel(os.path.join(folder, d), out) for d in sub)
+                   if d not in kept]
+    return ([n for n in _built(out) if n not in mine]
+            + [d + "/" for d in sorted(hollow, key=lambda d: (-d.count("/"), d))])
 
 
 def _some(names):
@@ -200,7 +233,8 @@ def outdated(path, out, root=HERE):
     was, made = record["inputs"], record["outputs"]
 
     why = []
-    src = [n for n, state in sorted(was.items()) if _state(os.path.join(root, n)) != state]
+    src = [n for n, state in sorted(was.items())
+           if not _still(os.path.join(root, n), state)]
     if src:
         why.append(f"changed since the build: {_some(src)}")
     changed = [n for n, state in sorted(made.items())

@@ -37,7 +37,9 @@ from map import place as PL                                       # noqa: E402
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SITE_SRC = os.path.join(os.path.dirname(os.path.abspath(__file__)), "site")
 OUT = os.path.join(HERE, "site_build")
-RECORD = R.RECORD
+VENDOR = os.path.join(SITE_SRC, "vendor")
+# The vendored library's own notes, which stay where they are.
+VENDOR_NOTES = ("README", "VERSION")
 
 
 def copy_site(dest):
@@ -60,14 +62,13 @@ def copy_site(dest):
         os.makedirs(os.path.join(dest, "poster"), exist_ok=True)
         shutil.copy2(f["src"], os.path.join(dest, f["href"]))
         copied.append(f["href"])
-    vsrc = os.path.join(SITE_SRC, "vendor")
-    if os.path.isdir(vsrc):
+    if os.path.isdir(VENDOR):
         vdst = os.path.join(dest, "vendor")
         os.makedirs(vdst, exist_ok=True)
-        for name in sorted(os.listdir(vsrc)):
-            if name in R.NOT_COPIED:
+        for name in sorted(os.listdir(VENDOR)):
+            if name in VENDOR_NOTES:
                 continue
-            shutil.copy2(os.path.join(vsrc, name), os.path.join(vdst, name))
+            shutil.copy2(os.path.join(VENDOR, name), os.path.join(vdst, name))
             copied.append(f"vendor/{name}")
     # A host that reads this will keep the chart out of search results. Cloudflare
     # Pages and Netlify both honour it; a plain http.server ignores it, which is
@@ -80,29 +81,24 @@ def copy_site(dest):
     return copied
 
 
-def seal(out, record, made, index_path):
+def seal(out, record, made, seen):
     """The end of a build of site_build: clear what this build did not write,
-    and record what it read and what it wrote."""
-    seen = R.read()
+    and record what it read (`seen`, each as it was then) and what it wrote."""
     late = R.changed(seen)
     if late:
         raise SystemExit(f"[record] changed while the build ran: {', '.join(late)} "
                          f"— build again; {out} holds what was built from the "
                          "earlier files and is not recorded as built")
     # A poster no longer rendered, a data file no longer exported: an earlier
-    # build's, and nothing a build from these sources would publish.
+    # build's, and nothing a build from these sources would publish. Then the
+    # folders that leaves empty.
     left = R.strays(out, made)
     for name in left:
-        os.remove(os.path.join(out, name))
+        (os.rmdir if name.endswith("/") else os.remove)(os.path.join(out, name))
     if left:
-        print(f"[site  ] cleared {len(left)} files this build did not write: "
-              f"{', '.join(left)}")
-    # Looked for or listed, not opened: a poster rendered later, or a file
-    # added to vendor/, changes what a build makes as surely as an edit. The
-    # index too, which this run may have written and not read.
-    also = R.states([os.path.join(HERE, "out", name) for name, _ in E.POSTER]
-                    + [os.path.join(SITE_SRC, "vendor"), index_path])
-    written = R.write_record(record, out, {**also, **seen}, made)
+        print(f"[site  ] cleared {len(left)} files and folders this build did not "
+              f"write: {', '.join(left)}")
+    written = R.write_record(record, out, seen, made)
     print(f"[record] {len(written['inputs'])} sources, {len(written['outputs'])} files")
 
 
@@ -118,6 +114,11 @@ def main():
     a = ap.parse_args()
 
     t0 = time.time()
+    # Looked for or listed, not opened, and so noted here before any of it is
+    # used: a poster rendered while the build runs, or a file added to vendor/,
+    # changes what a build makes as surely as an edit.
+    R.look([os.path.join(HERE, "out", name) for name, _ in E.POSTER])
+    R.look([VENDOR], but=VENDOR_NOTES)
     index_path = R.INDEX
     if a.reuse_index and os.path.exists(index_path):
         photos = json.load(open(index_path))
@@ -167,8 +168,8 @@ def main():
     # at. From here the folder changes, and the last build's record is no
     # longer its: gone now, so that a build which stops leaves none.
     home = os.path.abspath(a.out) == os.path.abspath(OUT)
-    if home and os.path.exists(RECORD):
-        os.remove(RECORD)
+    if home and os.path.exists(R.RECORD):
+        os.remove(R.RECORD)
 
     t = time.time()
     written = E.export(os.path.join(a.out, "data"), placed)
@@ -195,7 +196,9 @@ def main():
     # Last, when everything has been read and written: what publishing and the
     # suite will hold the folder to.
     if home:
-        seal(a.out, RECORD, [f"data/{n}" for n in written] + copied, index_path)
+        # The index is a source whether this run read it or wrote it.
+        R.look([index_path])
+        seal(a.out, R.RECORD, [f"data/{n}" for n in written] + copied, R.read())
 
     print(f"\nbuilt {a.out} in {time.time() - t0:.0f}s")
     if a.serve:

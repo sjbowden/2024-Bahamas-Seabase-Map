@@ -33,6 +33,9 @@ from map import place as P
 from map.photo_index import _stamp, camera_key
 
 INDEX = os.path.join(C.HERE, "out", "photo_index.json")
+# Where the newer tests make their folders: /tmp is a small memory disk on the
+# keeper's machine. Elsewhere, wherever the system puts them.
+SCRATCH = os.path.expanduser("~/.cache") if os.path.isdir(os.path.expanduser("~/.cache")) else None
 
 _pass, _fail, _skip = 0, [], 0
 
@@ -2095,7 +2098,7 @@ def test_edges():
     def put(*path, text):
         with open(os.path.join(*path), "w") as fh:
             fh.write(text)
-    with tempfile.TemporaryDirectory() as t:
+    with tempfile.TemporaryDirectory(dir=SCRATCH) as t:
         src, out, rec = (os.path.join(t, n) for n in ("src", "out", "record.json"))
         os.makedirs(os.path.join(src, "vendor"))
         os.makedirs(os.path.join(out, "media"))
@@ -2103,9 +2106,15 @@ def test_edges():
         put(src, "vendor", "lib.js", text="lib")
         put(out, "journal.html", text="<p>one</p>")
         put(out, "media", "p00000.jpg", text="x")
-        made_from = [os.path.join(src, n) for n in ("journal.md", "vendor", "poster.pdf")]
+        vendor = os.path.join(src, "vendor")
+
+        def made_from():
+            """A file read, a file looked for and not there, and a folder
+            listed -- of which the build said it leaves the library's notes."""
+            return {**R.states([os.path.join(src, n) for n in ("journal.md", "poster.pdf")]),
+                    **R.states([vendor], but=["README"])}
         unrecorded = R.outdated(rec, out, root=src)
-        R.write_record(rec, out, R.states(made_from), ["journal.html"], root=src)
+        R.write_record(rec, out, made_from(), ["journal.html"], root=src)
         fresh = R.outdated(rec, out, root=src)
         put(out, "media", "p00000.jpg", text="y")      # derive's to answer for
         media = R.outdated(rec, out, root=src)
@@ -2119,9 +2128,13 @@ def test_edges():
         stray = R.outdated(rec, out, root=src)
         # ...and one left by an earlier build is no more this build's for
         # having been there when the record was written.
-        R.write_record(rec, out, R.states(made_from), ["journal.html"], root=src)
+        R.write_record(rec, out, made_from(), ["journal.html"], root=src)
         left = R.outdated(rec, out, root=src)
         os.remove(os.path.join(out, "stray.html"))
+        # A folder is in the way as a file is, and no file says it is there.
+        os.makedirs(os.path.join(out, "poster"))
+        hollow = R.outdated(rec, out, root=src)
+        os.rmdir(os.path.join(out, "poster"))
         # A file the build says it wrote and did not is not a folder to vouch
         # for: recorded as absent, its absence would pass ever after.
         try:
@@ -2137,8 +2150,12 @@ def test_edges():
         added = R.outdated(rec, out, root=src)
         os.remove(os.path.join(src, "vendor", "more.js"))
         # ...but not one the build leaves where it is: the library's own notes.
+        # Which names those are is the build's to say, and it says so in the
+        # record: a folder listed without that counts every name in it.
+        whole = R.states([vendor])
         put(src, "vendor", "README", text="which version this is")
         noted = R.outdated(rec, out, root=src)
+        counted = R.changed(whole, root=src)
         os.remove(os.path.join(src, "vendor", "README"))
         os.remove(os.path.join(src, "journal.md"))
         gone = R.outdated(rec, out, root=src)
@@ -2155,7 +2172,7 @@ def test_edges():
         # the test, not what its clock says: a file put back with its old date
         # has changed, and one only touched has not.
         page = os.path.join(src, "journal.md")
-        seen = R.states(made_from)
+        seen = made_from()
         os.utime(page, (1, 1))
         only_touched = R.changed(seen, root=src)
         stamp = os.stat(page)
@@ -2181,6 +2198,10 @@ def test_edges():
     check("a file added to a folder the build copied makes it out of date",
           len(added) == 1 and "vendor" in added[0], str(added))
     check("and one the build does not copy from there does not", noted == [], str(noted))
+    check("which is the build's rule and not every folder's",
+          counted == ["vendor"], str(counted))
+    check("an empty folder the build did not make makes the folder out of date",
+          len(hollow) == 1 and "poster/" in hollow[0], str(hollow))
     check("a record is not written for a file the build did not write",
           "never.html" in unwritten[0] and not unwritten[1], str(unwritten))
     check("a source that has gone makes the folder out of date",
@@ -2193,33 +2214,66 @@ def test_edges():
           f"{rewritten} {deleted}")
     check("and one only touched is not", only_touched == [], str(only_touched))
 
-    # The watch itself: a file opened and a module loaded are both what a build
-    # was made from, each as it was when it was read; a cache is neither.
-    noted = subprocess.run(
-        [sys.executable, "-c", "import json, os\n"
-         "from map import record as R\n"
-         "R.watch()\n"
-         "open('map/journal.md').close()\n"
-         "import trip\n"
-         "open('out/derived.json') if os.path.exists('out/derived.json') else None\n"
-         "seen = R.read()\n"
-         "print(json.dumps({os.path.relpath(p, R.HERE): s == R.states([p])[p] "
-         "for p, s in seen.items()}))"],
-        cwd=C.HERE, capture_output=True, text=True, timeout=120)
+    # The watch itself, in a project of its own so that a source can be saved
+    # after it was read: a file opened and a module loaded are what a build was
+    # made from, each as it was when it was read and not as it is at the end; a
+    # cache and a file outside the project are not; and a file first opened on
+    # one thread while another's is being hashed is not lost.
+    watched = """
+import hashlib, json, os, py_compile, sys, threading
+from map import record as R
+root = os.path.join(sys.argv[1], "project")
+def put(name, text):
+    path = os.path.normpath(os.path.join(root, name))
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w") as fh:
+        fh.write(text)
+    return path
+page, other = put("journal.md", "one"), put("stories.md", "told")
+py_compile.compile(put("mod.py", "X = 1"))
+not_sources = [put("out/derived.json", "{}"), put("out/build_record.json", "{}"),
+               put("geo/land.pkl", "x"), put("../outside.txt", "x")]
+R.watch(root=root)
+real, begun = R._state, []
+def slow(path, *a, **k):
+    if path == page and not begun:
+        begun.append(path)
+        t = threading.Thread(target=lambda: open(other).close())
+        t.start()
+        t.join()
+    return real(path, *a, **k)
+R._state = slow
+open(page).close()
+R._state = real
+sys.path.insert(0, root)
+import mod
+for path in not_sources:
+    open(path).close()
+put("journal.md", "two")
+seen = R.read()
+print(json.dumps(dict(noted=sorted(os.path.relpath(p, root) for p in seen),
+                      as_read=seen.get(page) == hashlib.sha256(b"one").hexdigest(),
+                      changed=R.changed(seen, root=root))))
+"""
+    with tempfile.TemporaryDirectory(dir=SCRATCH) as t:
+        ran = subprocess.run([sys.executable, "-c", watched, t], cwd=C.HERE,
+                             capture_output=True, text=True, timeout=120)
     try:
-        noted = json.loads(noted.stdout)
+        noted = json.loads(ran.stdout)
     except ValueError:
-        noted = {"failed": (noted.stdout + noted.stderr)[-300:]}
-    check("the watch notes a file opened and a module loaded, as each was when read",
-          noted.get("map/journal.md") is True and noted.get("trip.py") is True
-          and noted.get("map/record.py") is True and all(noted.values()), str(noted)[:300])
-    check("and not this machine's caches, nor anything outside the project",
-          not [n for n in noted if n.startswith(("..", "out/", ".venv")) or "__pycache__" in n],
-          str(sorted(noted)))
+        noted = {"failed": (ran.stdout + ran.stderr)[-300:]}
+    check("the watch notes a file opened and a module loaded, and not a cache "
+          "or a file outside the project",
+          sorted(set(noted.get("noted", [])) - {"stories.md"}) == ["journal.md", "mod.py"],
+          str(noted))
+    check("each as it was when it was read, so that one saved since is named",
+          noted.get("as_read") is True and noted.get("changed") == ["journal.md"], str(noted))
+    check("a file first opened on another thread while one is being hashed is noted too",
+          "stories.md" in noted.get("noted", []), str(noted))
 
     # Publishing asks the same question, and without the index it cannot know
     # whose pictures the media are: that is a refusal, not a check passed.
-    with tempfile.TemporaryDirectory() as t:
+    with tempfile.TemporaryDirectory(dir=SCRATCH) as t:
         out, rec = os.path.join(t, "out"), os.path.join(t, "record.json")
         os.makedirs(out)
         put(out, "index.html", text="<p>page</p>")
@@ -2313,74 +2367,115 @@ def test_build_seals():
     from map import build as B
     from map import record as R
     section("the end of a build")
+    made = ["data/meta.json", "index.html"]
 
-    def built(seen=None, out_is_site=True):
-        """Run the build into a temporary folder with its two writers stood in
-        for; what it said, how it stopped, and what it left."""
-        with tempfile.TemporaryDirectory() as t:
-            out, rec = os.path.join(t, "site"), os.path.join(t, "record.json")
-            os.makedirs(os.path.join(out, "poster"))
-            for name in ("poster/old.png", "data-left-behind.json"):
-                with open(os.path.join(out, name), "w") as fh:
-                    fh.write("an earlier build's")
-            with open(rec, "w") as fh:
-                fh.write("the last build's record")
+    def put(*path, text):
+        os.makedirs(os.path.dirname(os.path.join(*path)), exist_ok=True)
+        with open(os.path.join(*path), "w") as fh:
+            fh.write(text)
+        return os.path.join(*path)
+
+    def folder(t):
+        """A built folder with an earlier build's leavings in it, the record
+        of that build beside it, and one source."""
+        out, rec = os.path.join(t, "site"), os.path.join(t, "record.json")
+        for name in ("poster/old.png", "data-left-behind.json", "attic/deep/note.txt"):
+            put(out, name, text="an earlier build's")
+        put(rec, text="the last build's record")
+        return out, rec, put(t, "journal.md", text="as the build read it")
+
+    def write(out):
+        put(out, "data", "meta.json", text="{}")
+        put(out, "index.html", text="<p>page</p>")
+
+    def left(t, out, rec):
+        return dict(files=R._built(out), top=sorted(os.listdir(out)),
+                    record=open(rec).read() if os.path.exists(rec) else None,
+                    beside=sorted(os.listdir(t)), outdated=R.outdated(rec, out))
+
+    # The sealing itself, on sources of this test's own and not on whatever
+    # the suite has read by now.
+    with tempfile.TemporaryDirectory(dir=SCRATCH) as t:
+        out, rec, source = folder(t)
+        write(out)
+        said = io.StringIO()
+        with contextlib.redirect_stdout(said):
+            B.seal(out, rec, made, R.states([source]))
+        done = dict(left(t, out, rec), said=said.getvalue())
+    check("a build leaves in the folder only what it wrote, and says what it cleared",
+          done["files"] == made and "old.png" in done["said"]
+          and "data-left-behind.json" in done["said"],
+          "" if done["files"] == made else f"{done['files']} {done['said'][-200:]}")
+    check("nor the folders those were in", done["top"] == ["data", "index.html"],
+          str(done["top"]))
+    check("and the folder it leaves is current by its own record",
+          done["outdated"] == [], str(done["outdated"]))
+
+    with tempfile.TemporaryDirectory(dir=SCRATCH) as t:
+        out, rec, source = folder(t)
+        write(out)
+        read = R.states([source])
+        put(source, text="as saved while the build ran")
+        try:
+            with contextlib.redirect_stdout(io.StringIO()):
+                B.seal(out, rec, made, read)
+            stopped = None
+        except SystemExit as e:
+            stopped = str(e)
+        late = left(t, out, rec)
+    check("a build whose source changed under it stops and says which",
+          bool(stopped) and "changed while the build ran" in stopped
+          and "journal.md" in stopped, str(stopped))
+    check("and clears nothing and records nothing",
+          "poster/old.png" in late["files"] and late["record"] == "the last build's record",
+          f"{late['files']} {late['record']}")
+
+    def built(home):
+        """The build itself, into a temporary folder, with its two writers
+        stood in for and one source of this test's own: how main() is wired."""
+        with tempfile.TemporaryDirectory(dir=SCRATCH) as t:
+            out, rec, source = folder(t)
+            read = R.states([source])
+            put(source, text="as saved while the build ran")
+            real = B.E.export, B.copy_site, sys.argv, B.OUT, R.RECORD, R.read
+            noted = []
 
             def export(dest, placed):
-                os.makedirs(dest, exist_ok=True)
-                with open(os.path.join(dest, "meta.json"), "w") as fh:
-                    fh.write("{}")
+                noted.extend(R._seen)          # what is noted by the first write
+                write(out)
                 return {"meta.json": 2}
-
-            def copy_site(dest):
-                with open(os.path.join(dest, "index.html"), "w") as fh:
-                    fh.write("<p>page</p>")
-                return ["index.html"]
-            real = B.E.export, B.copy_site, sys.argv, B.OUT, B.RECORD, R.read
-            B.E.export, B.copy_site = export, copy_site
+            B.E.export = export
+            B.copy_site = lambda dest: ["index.html"]
             sys.argv = ["build", "--reuse-index", "--out", out]
-            if out_is_site:
-                B.OUT, B.RECORD = out, rec
-            if seen is not None:
-                R.read = lambda: seen(t)
-            said, stopped = io.StringIO(), None
+            R.RECORD, R.read = rec, lambda: read
+            if home:
+                B.OUT = out
             try:
-                with contextlib.redirect_stdout(said):
+                with contextlib.redirect_stdout(io.StringIO()):
                     B.main()
+                stopped = None
             except SystemExit as e:
                 stopped = str(e)
             finally:
-                B.E.export, B.copy_site, sys.argv, B.OUT, B.RECORD, R.read = real
-            return dict(said=said.getvalue(), stopped=stopped, files=R._built(out),
-                        record=open(rec).read() if os.path.exists(rec) else None,
-                        beside=sorted(os.listdir(t)),
-                        outdated=R.outdated(rec, out))
+                B.E.export, B.copy_site, sys.argv, B.OUT, R.RECORD, R.read = real
+            return dict(left(t, out, rec), stopped=stopped, noted=noted)
 
-    done = built()
-    check("a build leaves in the folder only what it wrote, and says what it cleared",
-          done["files"] == ["data/meta.json", "index.html"]
-          and "old.png" in done["said"] and "data-left-behind.json" in done["said"],
-          "" if "old.png" in done["said"] else f"{done['files']} {done['said'][-200:]}")
-    check("and the folder it leaves is current by its own record",
-          done["stopped"] is None and done["outdated"] == [],
-          f"{done['stopped']} {done['outdated']}")
-
-    def edited(t):
-        path = os.path.join(t, "journal.md")
-        with open(path, "w") as fh:
-            fh.write("as saved while the build ran")
-        return {path: "what the build read"}
-    late = built(seen=edited)
-    check("a build whose source changed under it stops and says which",
-          bool(late["stopped"]) and "changed while the build ran" in late["stopped"]
-          and "journal.md" in late["stopped"], str(late["stopped"]))
-    check("and leaves no record, not even the last build's, beside what it wrote",
-          late["record"] is None and late["outdated"] != [], str(late["record"]))
-
-    aside = built(out_is_site=False)
+    home = built(home=True)
+    check("the build seals what it read, and a build that stops leaves no record "
+          "beside what it wrote, not even the last build's",
+          bool(home["stopped"]) and "changed while the build ran" in home["stopped"]
+          and home["record"] is None and home["files"][:1] == ["attic/deep/note.txt"],
+          f"{home['stopped']} {home['record']} {home['files']}")
+    # A poster rendered while the build runs is never opened before the data
+    # that describes it is written, and a folder listed is never opened at all.
+    looked = [B.VENDOR] + [os.path.join(C.HERE, "out", name) for name, _ in B.E.POSTER]
+    check("what the build looks for or lists is noted before any of it is used",
+          not [p for p in looked if p not in home["noted"]],
+          str([p for p in looked if p not in home["noted"]]))
+    aside = built(home=False)
     check("a build to another folder writes no record and clears nothing",
           aside["stopped"] is None and aside["record"] == "the last build's record"
-          and aside["beside"] == ["record.json", "site"]
+          and aside["beside"] == ["journal.md", "record.json", "site"]
           and "poster/old.png" in aside["files"], f"{aside['beside']} {aside['files']}")
 
 
