@@ -196,10 +196,10 @@ def write_record(path, out, inputs, outputs, root=HERE):
     there is not this build's.
     """
     made = {n: _state(os.path.join(out, n)) for n in sorted(set(outputs))}
-    unwritten = [n for n, state in made.items() if state is None]
-    if unwritten:
-        raise SystemExit(f"[record] the build did not write {_some(unwritten)}; "
-                         f"{out} is not recorded as built")
+    if unwritten(out, outputs):
+        raise SystemExit(f"[record] the build did not write "
+                         f"{_some(unwritten(out, outputs))}; {out} is not recorded "
+                         "as built")
     record = dict(inputs={_rel(p, root): state for p, state in sorted(inputs.items())},
                   outputs=made)
     os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -222,6 +222,11 @@ def _is_state(state, built=False):
         and all(isinstance(n, str) for n in state["but"]))
 
 
+def unwritten(out, outputs):
+    """Those of `outputs` that are not files in the folder."""
+    return [n for n in sorted(set(outputs)) if not os.path.isfile(os.path.join(out, n))]
+
+
 def load(path):
     """A record as written, or None if there is none that can be read."""
     try:
@@ -238,12 +243,13 @@ def load(path):
 def strays(out, outputs):
     """What is in a built folder, media apart, that is not among `outputs`:
     files, and then folders with none of the outputs in them, named with a
-    closing slash and deepest first, so that they can be cleared in this order."""
+    closing slash and deepest first, so that they can be cleared in this order.
+    A link the outputs were written through is the build's, as a folder is."""
     mine = set(outputs)
     kept = {n[:i] for n in mine for i, c in enumerate(n) if c == "/"}
     files, folders = _walk(out)
     hollow = [d for d in folders if d not in kept]
-    return ([n for n in files if n not in mine]
+    return ([n for n in files if n not in mine and n not in kept]
             + [d + "/" for d in sorted(hollow, key=lambda d: (-d.count("/"), d))])
 
 

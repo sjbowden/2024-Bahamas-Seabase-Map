@@ -2482,6 +2482,40 @@ def test_build_seals():
           "poster/old.png" in late["files"] and late["record"] == "the last build's record",
           f"{late['files']} {late['record']}")
 
+    # Clearing is the one thing here that cannot be taken back, so it waits
+    # until the build is known to have written what it says it wrote.
+    with tempfile.TemporaryDirectory() as t:
+        out, rec, source = folder(t)
+        write(out)
+        try:
+            with contextlib.redirect_stdout(io.StringIO()):
+                B.seal(out, rec, made + ["never.html"], R.states([source]))
+            stopped = None
+        except SystemExit as e:
+            stopped = str(e)
+        short = left(t, out, rec)
+    check("a build that did not write what it claims stops before it clears anything",
+          bool(stopped) and "never.html" in stopped and "poster/old.png" in short["files"]
+          and "linked" in short["top"], f"{stopped} {short['files']}")
+    # A folder of the build's own that is a link to another disk is still the
+    # build's: what was written through it is there, and the link stays.
+    with tempfile.TemporaryDirectory() as t:
+        out, rec = os.path.join(t, "site"), os.path.join(t, "record.json")
+        os.makedirs(os.path.join(t, "other-disk"))
+        os.makedirs(out)
+        os.symlink(os.path.join(t, "other-disk"), os.path.join(out, "data"))
+        write(out)
+        try:
+            with contextlib.redirect_stdout(io.StringIO()):
+                B.seal(out, rec, made, {})
+            through = (os.path.islink(os.path.join(out, "data")),
+                       os.path.exists(os.path.join(out, "data", "meta.json")),
+                       R.outdated(rec, out))
+        except SystemExit as e:
+            through = str(e)
+    check("a folder the build wrote through a link is left as it is",
+          through == (True, True, []), str(through))
+
     # Where the looking happens is where it is noted: the posters as export
     # asks for them, the library's folder as it is listed to be copied. A
     # poster rendered while the build runs is otherwise never opened before

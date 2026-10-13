@@ -92,6 +92,13 @@ def seal(out, record, made, seen):
         raise SystemExit(f"[record] changed while the build ran: {', '.join(late)} "
                          f"— build again; {out} holds what was built from the "
                          "earlier files and is not recorded as built")
+    # Before anything is cleared, which cannot be taken back: if the build did
+    # not write what it says it wrote, the list it would clear by is wrong.
+    short = R.unwritten(out, made)
+    if short:
+        raise SystemExit(f"[record] the build did not write {', '.join(short)}; "
+                         f"nothing in {out} has been cleared and it is not "
+                         "recorded as built")
     # A poster no longer rendered, a data file no longer exported: an earlier
     # build's, and nothing a build from these sources would publish. Then the
     # folders that leaves empty.

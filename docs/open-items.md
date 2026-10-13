@@ -73,6 +73,22 @@ A story dot under a photograph count now moves to the count's rim.
   network, and the airport, hotel and marina are on it), so it was left. It
   would matter to a drive added later that ends on a one-way spur.
 
+- What the build's record does not vouch for, found by the last review of it
+  on 13 October and left:
+  - A source the build only lists or looks for. The watch sees files opened;
+    the posters and `map/site/vendor/` are noted by hand (`record.look`). A
+    stage added later that globs `tracks/` or `geo/`, or asks whether an
+    optional file exists, has to note it the same way.
+  - A cache made by code since changed. `geo/*.pkl` are keyed on their data
+    and on `GEOMETRY_VERSION` / `ROUTE_VERSION`, which are raised by hand. An
+    edit to `abaco_geo.land_polygons` or the router without raising them
+    rebuilds from the old cache, and the record of that build is a true record
+    of a stale coast. Older than the record, and not mended by it.
+  - The Python and the packages in `.venv`. A new shapely or numpy can change
+    the data files, and nothing recorded changes with it.
+- `publish --check` exits 1 both when the live site differs and when the folder
+  itself needs a rebuild; the message says which, the status does not.
+
 ## Done since this list was first written
 
 - Locations for about 1,040 of the crew's phone photographs given up on
