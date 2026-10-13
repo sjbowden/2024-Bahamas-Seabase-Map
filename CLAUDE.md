@@ -78,6 +78,7 @@ build copies whatever is in `out/` to the site.
 | `map/build.py` | the site build: index, clock fit, placement, export, copy |
 | `map/site/` | the page: `index.html`, `app.js`, `style.css` |
 | `map/tests.py`, `map/browser_check.js` | the suite and its browser half |
+| `map/record.py` | what a build read and wrote, and whether the folder still matches |
 | `map/publish.py` | upload and verify |
 | `poster.py` | the printed sheet and the photobook page |
 | `docs/open-items.md` | what is left to do, and what was decided |

@@ -1120,23 +1120,31 @@ def test_site_build():
     # The build's own record answers that, for what it made as well as for
     # what it copied: an edited journal is yesterday's page as surely as an
     # edited app.js.
-    from map import build as B
-    old = B.outdated(B.RECORD, out)
+    from map import record as R
+    old = R.outdated(R.RECORD, out)
     check("the built folder is built from this source", not old,
           f"{'; '.join(old)}: run python -m map.build --reuse-index" if old else "")
-    read = (json.load(open(B.RECORD))["inputs"] if os.path.exists(B.RECORD) else {})
+    try:
+        read = json.load(open(R.RECORD))["inputs"]
+    except (OSError, ValueError, KeyError):
+        read = {}
+    # The last two are looked for and listed, not opened: a poster rendered
+    # after the build, or a file added to vendor/, changes what a build makes.
     unread = [n for n in ("map/journal.md", "map/journal.py", "map/stories.py",
                           "map/place.py", "map/export.py", "map/depth.py", "trip.py",
                           "map/site/app.js", "map/site/vendor/maplibre-gl.js",
                           "tracks/GPS_20240322_163426.csv", "geo/coastline_map.json",
-                          "geo/depth_gmrt_fine.npz", "out/photo_index.json")
+                          "geo/depth_gmrt_fine.npz", "out/photo_index.json",
+                          "out/abaco_poster_18x24.pdf", "map/site/vendor")
               if n not in read]
     check("the record of the build names what the pages and data are made from",
           not unread, f"not recorded: {', '.join(unread)}" if unread else "")
-    check("and nothing the suite alone reads",
-          not [n for n in read if n in ("map/tests.py", "map/browser_check.js")
-               or n.startswith(("docs/", "site_build/", ".venv/"))],
-          str([n for n in read if n.startswith(("docs/", "site_build/", ".venv/"))]))
+    # Nor this machine's caches, which follow their sources and are not one:
+    # a cache thrown away is not a page gone stale.
+    wrongly = [n for n in read if n in ("map/tests.py", "map/browser_check.js",
+                                        "out/derived.json")
+               or n.endswith(".pkl") or n.startswith(("docs/", "site_build/", ".venv/"))]
+    check("and nothing the suite alone reads, and no cache", not wrongly, str(wrongly))
     page0 = open(os.path.join(out, "index.html")).read()
     check("the panel says whose position the ring is", "the boat's\n       position" in page0
           or "the boat's position" in page0)
@@ -1374,6 +1382,7 @@ def test_edges():
     import contextlib
     import io
     import random
+    import subprocess
     import tempfile
     import zipfile
     from datetime import timezone
@@ -2084,34 +2093,59 @@ def test_edges():
     # What the build read and what it wrote, recorded, is how anything later
     # knows the folder is this source's: the journal, the stories and the data
     # are made, not copied, and cannot be compared with a file beside them.
-    from map import build as B
+    from map import record as R
 
     def put(*path, text):
         with open(os.path.join(*path), "w") as fh:
             fh.write(text)
     with tempfile.TemporaryDirectory() as t:
         src, out, rec = (os.path.join(t, n) for n in ("src", "out", "record.json"))
-        os.makedirs(src)
+        os.makedirs(os.path.join(src, "vendor"))
         os.makedirs(os.path.join(out, "media"))
         put(src, "journal.md", text="one")
+        put(src, "vendor", "lib.js", text="lib")
         put(out, "journal.html", text="<p>one</p>")
         put(out, "media", "p00000.jpg", text="x")
-        unrecorded = B.outdated(rec, out, root=src)
-        B.write_record(rec, out, [os.path.join(src, "journal.md")], root=src)
-        fresh = B.outdated(rec, out, root=src)
+        made_from = [os.path.join(src, n) for n in ("journal.md", "vendor", "poster.pdf")]
+        unrecorded = R.outdated(rec, out, root=src)
+        R.write_record(rec, out, made_from, ["journal.html"], root=src)
+        fresh = R.outdated(rec, out, root=src)
         put(out, "media", "p00000.jpg", text="y")      # derive's to answer for
-        media = B.outdated(rec, out, root=src)
+        media = R.outdated(rec, out, root=src)
         put(src, "journal.md", text="two")
-        edited = B.outdated(rec, out, root=src)
+        edited = R.outdated(rec, out, root=src)
         put(src, "journal.md", text="one")
         put(out, "journal.html", text="<p>another</p>")
-        swapped = B.outdated(rec, out, root=src)
+        swapped = R.outdated(rec, out, root=src)
         put(out, "journal.html", text="<p>one</p>")
         put(out, "stray.html", text="left behind")
-        stray = B.outdated(rec, out, root=src)
+        stray = R.outdated(rec, out, root=src)
+        # ...and one left by an earlier build is no more this build's for
+        # having been there when the record was written.
+        R.write_record(rec, out, made_from, ["journal.html"], root=src)
+        left = R.outdated(rec, out, root=src)
         os.remove(os.path.join(out, "stray.html"))
+        put(src, "poster.pdf", text="rendered since")
+        appeared = R.outdated(rec, out, root=src)
+        os.remove(os.path.join(src, "poster.pdf"))
+        put(src, "vendor", "more.js", text="added since")
+        added = R.outdated(rec, out, root=src)
+        os.remove(os.path.join(src, "vendor", "more.js"))
         os.remove(os.path.join(src, "journal.md"))
-        gone = B.outdated(rec, out, root=src)
+        gone = R.outdated(rec, out, root=src)
+        put(src, "journal.md", text="one")
+        broken = []
+        for text in ('{"inputs": {"journal.md"', '{"inputs": []}', "[]"):
+            put(rec, text=text)
+            try:
+                broken.append(R.outdated(rec, out, root=src))
+            except Exception as e:                 # noqa: BLE001 - the failure looked for
+                broken.append(repr(e))
+        # A source saved while the build ran: the record would have its new
+        # bytes and the folder its old ones.
+        when = os.path.getmtime(os.path.join(src, "journal.md"))
+        during = R.touched(made_from, when - 5, root=src)
+        before = R.touched(made_from, when + 5, root=src)
     check("a folder with no record of its build is not known to be current",
           len(unrecorded) == 1 and "build" in unrecorded[0], str(unrecorded))
     check("a folder is current when its sources and files are the ones recorded",
@@ -2122,8 +2156,20 @@ def test_edges():
           len(swapped) == 1 and "journal.html" in swapped[0], str(swapped))
     check("a file the build did not write makes the folder out of date",
           len(stray) == 1 and "stray.html" in stray[0], str(stray))
+    check("and so does one an earlier build left there",
+          len(left) == 1 and "stray.html" in left[0], str(left))
+    check("a file the build looked for and did not find makes it out of date by appearing",
+          len(appeared) == 1 and "poster.pdf" in appeared[0], str(appeared))
+    check("a file added to a folder the build copied makes it out of date",
+          len(added) == 1 and "vendor" in added[0], str(added))
     check("a source that has gone makes the folder out of date",
           len(gone) == 1 and "journal.md" in gone[0], str(gone))
+    check("a record that cannot be read is a reason, not a traceback",
+          all(isinstance(b, list) and len(b) == 1 and "read" in b[0] for b in broken),
+          str(broken))
+    check("a source saved while the build ran is named, and one saved before is not",
+          during and all("journal.md" in d or "vendor" in d for d in during)
+          and before == [], f"{during} {before}")
 
     # Publishing asks the same question, and without the index it cannot know
     # whose pictures the media are: that is a refusal, not a check passed.
@@ -2131,24 +2177,28 @@ def test_edges():
         out, rec = os.path.join(t, "out"), os.path.join(t, "record.json")
         os.makedirs(out)
         put(out, "index.html", text="<p>page</p>")
-        B.write_record(rec, out, [], root=t)
-        real = PUB.SITE, getattr(PUB, "RECORD", None), getattr(PUB, "INDEX", None)
-        PUB.SITE, PUB.RECORD, PUB.INDEX = out, rec, os.path.join(t, "photo_index.json")
-        try:
-            blind = PUB.preflight()
-            os.remove(rec)
-            unknown = PUB.preflight()
-        finally:
-            PUB.SITE, PUB.RECORD, PUB.INDEX = real
+        R.write_record(rec, out, [], ["index.html"], root=t)
+        nowhere = os.path.join(t, "photo_index.json")
+        blind = PUB.preflight(site=out, record=rec, index=nowhere)
+        os.remove(rec)
+        unknown = PUB.preflight(site=out, record=rec, index=nowhere)
     check("publishing refuses a folder whose media it has no index to check against",
           len(blind) == 1 and "photo_index" in blind[0], str(blind))
     check("publishing refuses a folder with no record of its build",
           any("record" in w for w in unknown), str(unknown))
+    # Asking is not building: the question must not load the build, nor leave
+    # its watch on every file the asking process goes on to open.
+    asked = subprocess.run(
+        [sys.executable, "-c", "import sys; from map import publish, record; "
+         "print(sorted(m for m in sys.modules if m in ('map.build', 'map.export', "
+         "'shapely')), record.watching())"],
+        cwd=C.HERE, capture_output=True, text=True, timeout=120)
+    check("asking whether a folder is current loads no build and watches no files",
+          asked.stdout.strip() == "[] False", (asked.stdout + asked.stderr)[-200:])
 
     # The browser check is one failed check or one skip, never a traceback that
     # takes the rest of the suite's verdict with it.
     import shutil
-    import subprocess
     real, before = subprocess.run, (len(_fail), _pass)
     script = os.path.join(C.HERE, "map", "browser_check.js")
 

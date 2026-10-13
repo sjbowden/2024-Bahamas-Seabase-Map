@@ -34,8 +34,6 @@ import urllib.request
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SITE = os.path.join(HERE, "site_build")
-INDEX = os.path.join(HERE, "out", "photo_index.json")
-RECORD = os.path.join(HERE, "out", "build_record.json")
 SETTINGS = os.path.expanduser("~/.config/bahamas/cloudflare.env")
 NEEDED = ("CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ACCOUNT_ID",
           "CLOUDFLARE_PAGES_PROJECT", "SITE_URL")
@@ -66,24 +64,29 @@ def read_settings(path=SETTINGS, environ=None):
     return got
 
 
-def preflight():
+def preflight(site=None, record=None, index=None):
     """Reasons this folder should not be uploaded; empty if there are none."""
-    if not os.path.isdir(SITE):
+    site = site or SITE
+    if not os.path.isdir(site):
         return ["no site_build: run python -m map.build --reuse-index"]
-    from map import build
+    from map import record as R
+    index = index or R.INDEX
     # Everything the build read and wrote, not only the files it copied: the
     # journal and the data are made from sources no file here sits beside.
-    why = [w + ": rebuild" for w in build.outdated(RECORD, SITE)]
+    # A rebuild mends all of it but a file the build never wrote, which it
+    # would leave where it is.
+    why = [w + (": remove them" if w.startswith("not written") else ": rebuild")
+           for w in R.outdated(record or R.RECORD, site)]
     # No index is no way to know whose pictures these are, which is not the
     # same as their being the right ones.
-    if not os.path.exists(INDEX):
+    if not os.path.exists(index):
         why.append("no out/photo_index.json to check the media against: "
                    "run python -m map.build")
     else:
         from map import derive
         from map import photo_index as PI
-        photos, _ = PI.readable(json.load(open(INDEX)))
-        stale = derive.stale(photos, os.path.join(SITE, "media"))
+        photos, _ = PI.readable(json.load(open(index)))
+        stale = derive.stale(photos, os.path.join(site, "media"))
         if stale is None:
             why.append("site_build has no media: build with --media")
         elif stale:

@@ -676,6 +676,8 @@ function scaleBar() {
   const y = map.getCanvas().clientHeight / 2;
   const a = map.unproject([0, y]), b = map.unproject([100, y]);
   const mPerPx = a.distanceTo(b) / 100;
+  // A chart with no size yet has nothing to measure; the ruler stands as it is.
+  if (!(mPerPx > 0) || !Number.isFinite(mPerPx)) return;
   const targetPx = Math.min(150, Math.max(80, map.getCanvas().clientWidth * 0.22));
   const rawNm = (targetPx * mPerPx) / NM;
   // The longest of 1, 2, 2.5 and 5 in any decade that fits: a list that stopped

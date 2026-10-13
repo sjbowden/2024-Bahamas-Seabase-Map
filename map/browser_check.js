@@ -416,8 +416,10 @@ const say = (name, ok, detail = '') => console.log(JSON.stringify({ name, ok: !!
     await phone.evaluate((z) => map.jumpTo({ center: [-77, 26.5], zoom: z }), zoom);
     rulers.push(await phone.evaluate(() => {
       const r = document.querySelector('#scalebar-line').getBoundingClientRect();
-      const y = map.getCanvas().clientHeight / 2;
-      const m = map.unproject([0, y]).distanceTo(map.unproject([100, y])) / 100;
+      // Not the page's own measurement: the earth's girth at this latitude,
+      // over the 512 px a tile is at zoom 0, doubled at each zoom after.
+      const m = 40075016.686 * Math.cos(map.getCenter().lat * Math.PI / 180)
+                / (512 * 2 ** map.getZoom());
       const said = document.querySelector('#scalebar-label').textContent;
       return { zoom: map.getZoom(), left: Math.round(r.left), right: Math.round(r.right),
                said, drawn: Math.round(r.width), true: Math.round(parseFloat(said) * 1852 / m) };
@@ -428,6 +430,16 @@ const say = (name, ok, detail = '') => console.log(JSON.stringify({ name, ok: !!
                    && r.drawn <= 160 && /^[\d.]+ nm$/.test(r.said)
                    && Math.abs(r.drawn - r.true) <= 3),
       JSON.stringify(rulers));
+  // A chart with no size yet has no scale to draw; the ruler it had stands.
+  const unsized = await phone.evaluate(() => {
+    const real = map.unproject, was = document.querySelector('#scalebar-label').textContent;
+    map.unproject = () => real.call(map, [0, 0]);
+    try { window.__scaleBar(); } finally { map.unproject = real; }
+    return { was, said: document.querySelector('#scalebar-label').textContent,
+             width: document.querySelector('#scalebar-line').style.width };
+  });
+  say('a chart that cannot be measured keeps the scale it had',
+      unsized.said === unsized.was && /^\d+px$/.test(unsized.width), JSON.stringify(unsized));
   say('the page raised no errors on a phone', phoneErrors.length === 0, phoneErrors.join('; '));
   await phone.close();
 
