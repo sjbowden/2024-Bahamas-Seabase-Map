@@ -2,7 +2,8 @@
 """Upload site_build to the host, and check that what is live is what was built.
 
     python -m map.publish            # check, upload, verify
-    python -m map.publish --check    # everything but the upload
+    python -m map.publish --check    # everything but the upload; exits 1 if
+                                     # what is live is not the folder
 
 The one command for publishing, so that nobody has to remember the four it
 replaces. It reads its settings from a file outside the repository,
@@ -33,7 +34,8 @@ import urllib.request
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SITE = os.path.join(HERE, "site_build")
-SOURCE = os.path.join(HERE, "map", "site")
+INDEX = os.path.join(HERE, "out", "photo_index.json")
+RECORD = os.path.join(HERE, "out", "build_record.json")
 SETTINGS = os.path.expanduser("~/.config/bahamas/cloudflare.env")
 NEEDED = ("CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ACCOUNT_ID",
           "CLOUDFLARE_PAGES_PROJECT", "SITE_URL")
@@ -68,16 +70,19 @@ def preflight():
     """Reasons this folder should not be uploaded; empty if there are none."""
     if not os.path.isdir(SITE):
         return ["no site_build: run python -m map.build --reuse-index"]
-    why = []
-    for name in ("index.html", "app.js", "style.css", "journal.css"):
-        built, src = os.path.join(SITE, name), os.path.join(SOURCE, name)
-        if not os.path.exists(built) or open(built, "rb").read() != open(src, "rb").read():
-            why.append(f"{name} in site_build is not the one in map/site: rebuild")
-    index = os.path.join(HERE, "out", "photo_index.json")
-    if os.path.exists(index):
+    from map import build
+    # Everything the build read and wrote, not only the files it copied: the
+    # journal and the data are made from sources no file here sits beside.
+    why = [w + ": rebuild" for w in build.outdated(RECORD, SITE)]
+    # No index is no way to know whose pictures these are, which is not the
+    # same as their being the right ones.
+    if not os.path.exists(INDEX):
+        why.append("no out/photo_index.json to check the media against: "
+                   "run python -m map.build")
+    else:
         from map import derive
         from map import photo_index as PI
-        photos, _ = PI.readable(json.load(open(index)))
+        photos, _ = PI.readable(json.load(open(INDEX)))
         stale = derive.stale(photos, os.path.join(SITE, "media"))
         if stale is None:
             why.append("site_build has no media: build with --media")
@@ -163,7 +168,8 @@ def main():
         print("[live  ] " + (f"{len(diff)} of {len(pairs)} files differ from the folder: "
                              f"{', '.join(diff)}" if diff
                              else f"all {len(pairs)} files checked are the folder's"))
-        return
+        # For a script asking: out of date, or out of reach, is not success.
+        return 1 if diff else 0
 
     if not upload(settings):
         raise SystemExit(f"[publish] the upload failed {TRIES} times; the site is "

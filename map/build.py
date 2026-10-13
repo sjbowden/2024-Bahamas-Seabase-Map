@@ -13,24 +13,47 @@ Stages, in the order the risk runs:
     export       GeoJSON at three zoom bands          ~17 s
     site         copy index.html, app.js, style.css, vendor/
     derive       thumbnails and viewing copies        long, and only with --media
+    record       what was read and what was written, for publish and the suite
 
 Everything but `derive` runs in under half a minute, so the chart can be rebuilt
 and looked at freely; the expensive stage is opt-in and idempotent.
 """
 import argparse
+import hashlib
 import json
 import os
 import shutil
+import sys
 import time
 
-from map import clock_fit as C
-from map import export as E
-from map import photo_index as PI
-from map import place as PL
+# Every file opened for reading from here on, so that the build can say at its
+# end what it was made from. Before the imports below, because a module may
+# read its data as it loads.
+_opened = set()
+
+
+def _note(event, args):
+    if event == "open" and isinstance(args[1], str) and args[1][:1] == "r" \
+            and "+" not in args[1] and isinstance(args[0], (str, os.PathLike)):
+        _opened.add(os.fspath(args[0]))
+
+
+sys.addaudithook(_note)
+
+from map import clock_fit as C                                    # noqa: E402
+from map import export as E                                       # noqa: E402
+from map import photo_index as PI                                 # noqa: E402
+from map import place as PL                                       # noqa: E402
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SITE_SRC = os.path.join(os.path.dirname(os.path.abspath(__file__)), "site")
 OUT = os.path.join(HERE, "site_build")
+# What the last build of site_build read and wrote. Beside the folder and not
+# in it: it names files that are not published.
+RECORD = os.path.join(HERE, "out", "build_record.json")
+# Not sources: the archives stand behind the index, which is one; the media
+# are checked against that index by derive; the rest is not this project's.
+NOT_SOURCE = (".venv", ".git", "photos", "node_modules", "site_build", "__pycache__")
 
 
 def copy_site(dest):
@@ -71,6 +94,82 @@ def copy_site(dest):
         fh.write("User-agent: *\nDisallow: /\n")
     copied += ["_headers", "robots.txt"]
     return copied
+
+
+def _sha(path):
+    h = hashlib.sha256()
+    with open(path, "rb") as fh:
+        for block in iter(lambda: fh.read(1 << 20), b""):
+            h.update(block)
+    return h.hexdigest()
+
+
+def _built(out):
+    """The files of a built folder, but for its media, as paths within it."""
+    found = []
+    for folder, sub, names in os.walk(out):
+        if folder == out and "media" in sub:
+            sub.remove("media")
+        found += [os.path.relpath(os.path.join(folder, n), out).replace(os.sep, "/")
+                  for n in names]
+    return sorted(found)
+
+
+def sources(out, root=HERE):
+    """What this run has read so far that a build is made from: the modules
+    loaded and the files opened, within the project."""
+    out = os.path.abspath(out)
+    seen = set(_opened) | {getattr(m, "__file__", None) or ""
+                           for m in list(sys.modules.values())}
+    keep = set()
+    for path in seen:
+        path = os.path.abspath(path)
+        rel = os.path.relpath(path, root).replace(os.sep, "/")
+        if (rel.startswith("../") or path.startswith(out + os.sep)
+                or any(part in NOT_SOURCE for part in rel.split("/"))
+                or not os.path.isfile(path)):
+            continue
+        keep.add(path)
+    return sorted(keep)
+
+
+def write_record(path, out, inputs, root=HERE):
+    """Record what a folder was built from and what the build left in it."""
+    record = dict(
+        inputs={os.path.relpath(p, root).replace(os.sep, "/"): _sha(p) for p in inputs},
+        outputs={n: _sha(os.path.join(out, n)) for n in _built(out)})
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path + ".part", "w") as fh:
+        json.dump(record, fh, indent=1, sort_keys=True)
+    os.replace(path + ".part", path)
+    return record
+
+
+def outdated(path, out, root=HERE):
+    """Reasons a folder is not the build of the sources as they stand; empty if
+    it is. The media are not looked at: derive.stale answers for those."""
+    if not os.path.exists(path):
+        return [f"no record of the build ({os.path.relpath(path, root)})"]
+    record = json.load(open(path))
+
+    def changed(was, folder):
+        return [n for n, sha in sorted(was.items())
+                if not os.path.isfile(os.path.join(folder, n))
+                or _sha(os.path.join(folder, n)) != sha]
+
+    def some(names):
+        return ", ".join(names[:4]) + (f" and {len(names) - 4} more" if len(names) > 4 else "")
+    why = []
+    src = changed(record["inputs"], root)
+    if src:
+        why.append(f"changed since the build: {some(src)}")
+    made = changed(record["outputs"], out)
+    if made:
+        why.append(f"not as the build left it: {some(made)}")
+    extra = [n for n in _built(out) if n not in record["outputs"]]
+    if extra:
+        why.append(f"not written by the build: {some(extra)}")
+    return why
 
 
 def main():
@@ -151,6 +250,13 @@ def main():
         derive.fail_on_errors(made)
     else:
         print(media_note)
+
+    # Last, when everything has been read and written: what publishing and the
+    # suite will hold the folder to. Another folder's record goes beside it.
+    home = os.path.abspath(a.out) == OUT
+    record = write_record(RECORD if home else os.path.abspath(a.out) + ".record.json",
+                          a.out, sources(a.out) + [index_path])
+    print(f"[record] {len(record['inputs'])} sources, {len(record['outputs'])} files")
 
     print(f"\nbuilt {a.out} in {time.time() - t0:.0f}s")
     if a.serve:

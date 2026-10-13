@@ -408,6 +408,26 @@ const say = (name, ok, detail = '') => console.log(JSON.stringify({ name, ok: !!
       && seen.close[0] >= 0 && seen.close[1] >= 0 && seen.close[2] <= PHONE.width
       && seen.caption[0] >= 0 && seen.caption[1] <= PHONE.width && seen.wide <= PHONE.width,
       JSON.stringify(seen));
+  // The scale is a ruler: all of it has to be on the screen, and it has to be
+  // as long as its label says. Zoomed all the way in, a tenth of a mile is
+  // wider than a phone.
+  const rulers = [];
+  for (const zoom of [18, 16, 13, 8]) {
+    await phone.evaluate((z) => map.jumpTo({ center: [-77, 26.5], zoom: z }), zoom);
+    rulers.push(await phone.evaluate(() => {
+      const r = document.querySelector('#scalebar-line').getBoundingClientRect();
+      const y = map.getCanvas().clientHeight / 2;
+      const m = map.unproject([0, y]).distanceTo(map.unproject([100, y])) / 100;
+      const said = document.querySelector('#scalebar-label').textContent;
+      return { zoom: map.getZoom(), left: Math.round(r.left), right: Math.round(r.right),
+               said, drawn: Math.round(r.width), true: Math.round(parseFloat(said) * 1852 / m) };
+    }));
+  }
+  say('on a phone the scale is on the screen and as long as it says at every zoom',
+      rulers.every((r) => r.left >= 0 && r.right <= PHONE.width && r.drawn >= 30
+                   && r.drawn <= 160 && /^[\d.]+ nm$/.test(r.said)
+                   && Math.abs(r.drawn - r.true) <= 3),
+      JSON.stringify(rulers));
   say('the page raised no errors on a phone', phoneErrors.length === 0, phoneErrors.join('; '));
   await phone.close();
 

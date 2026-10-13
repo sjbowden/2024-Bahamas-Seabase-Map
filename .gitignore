@@ -73,3 +73,7 @@ out/review_poster_*
 # Code review reports are working papers, kept on this machine and not in the
 # repository.
 docs/code-review-*.md
+
+# what the last build read and wrote, by name and hash: this machine's, and
+# rewritten by every build
+out/build_record.json

@@ -474,7 +474,8 @@ zoomable, with a checkbox per day, and three things beside it.
     .venv/bin/python -m map.publish                # upload, then check what is live
     .venv/bin/python -m map.publish --check        # is the site up to date? uploads nothing
 
-`map/publish.py` refuses a folder that was not built from the current source or
+`map/publish.py` refuses a folder that was not built from the current source
+(the build records every file it read and wrote, in `out/build_record.json`) or
 whose pictures do not match its records, runs `wrangler pages deploy` (again if
 the host fails it), and then fetches the pages and data back and compares them
 with the folder byte for byte.

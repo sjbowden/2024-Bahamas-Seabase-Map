@@ -678,9 +678,12 @@ function scaleBar() {
   const mPerPx = a.distanceTo(b) / 100;
   const targetPx = Math.min(150, Math.max(80, map.getCanvas().clientWidth * 0.22));
   const rawNm = (targetPx * mPerPx) / NM;
-  const nice = [0.1, 0.2, 0.25, 0.5, 1, 2, 2.5, 5, 10, 20, 25, 50];
-  let nm = nice[0];
-  for (const n of nice) if (n <= rawNm) nm = n;
+  // The longest of 1, 2, 2.5 and 5 in any decade that fits: a list that stopped
+  // at a tenth of a mile drew a ruler 694 px long on a phone at the closest zoom.
+  const decade = 10 ** Math.floor(Math.log10(rawNm));
+  let nm = decade;
+  for (const n of [2, 2.5, 5]) if (n * decade <= rawNm) nm = n * decade;
+  nm = Number(nm.toPrecision(2));
   const px = (nm * NM) / mPerPx;
   $('#scalebar-line').style.width = `${Math.round(px)}px`;
   $('#scalebar-label').textContent = `${nm} nm`;

@@ -63,7 +63,15 @@ A story dot under a photograph count now moves to the count's rim.
 
 ## Optional
 
-Nothing is open here.
+- A drive along a one-way road that is not part of a loop is refused.
+  `roads.snap` only joins a drive to a network every point of which can be
+  reached from every other, so that a one-way street to a dead end, or a lane
+  behind a private road, is never taken for the road to the hotel. The review
+  of 12 October showed the cost: three points joined one way are three
+  networks, and a legal drive from the first to the third is refused. No drive
+  of this week is affected (3,724 of the 3,828 drivable points fetched are one
+  network, and the airport, hotel and marina are on it), so it was left. It
+  would matter to a drive added later that ends on a one-way spur.
 
 ## Done since this list was first written
 

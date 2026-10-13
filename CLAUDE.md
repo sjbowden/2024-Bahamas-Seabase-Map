@@ -19,13 +19,15 @@ host's project name and the upload token are deliberately not in it. They are in
   `--reuse-index` skips re-reading the photo archives. Add `--media` only when
   the build says the media do not match: it re-renders 5,010 images (7 minutes).
 - **Test** before every commit. The suite reads `site_build/`, and fails if that
-  folder was not built from the current `map/site/` files, so build first. The
+  folder is not the build of the sources as they stand, so build first: the
+  build records what it read and wrote in `out/build_record.json`. The
   last section drives a real browser; it needs Node, Chrome and
   `npm install --no-save playwright-core@1.64.0`, and skips without them.
 - **Publish** only when the keeper asks. `python -m map.publish` refuses a folder
   that is stale, uploads, retries if the host fails, and then compares the live
   pages and data with the folder byte for byte. `--check` does everything but
-  the upload, and is how to answer "is the website up to date?".
+  the upload, and is how to answer "is the website up to date?"; it exits 1
+  if it is not.
 - A push to GitHub changes nothing on the site. The photographs are not in the
   repository, so nothing is built from it there; the site changes only on publish.
 
