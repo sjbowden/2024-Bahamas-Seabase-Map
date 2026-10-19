@@ -1034,13 +1034,18 @@ def test_derive_cache():
         # and said so, not a traceback.
         os.chmod(view, 0)
         try:
+            # Root reads it anyway, and so does a disk that keeps no modes.
+            readable = os.access(view, os.R_OK)
             unread = D.stale([blue], dest, manifest_path=record)
         except OSError as e:
             unread = repr(e)
         finally:
             os.chmod(view, 0o644)
-        check("a derivative that cannot be read is stale, not a traceback",
-              unread == ["p00000"], str(unread))
+        if readable:
+            print("  SKIP  a derivative that cannot be read: this one still can be")
+        else:
+            check("a derivative that cannot be read is stale, not a traceback",
+                  unread == ["p00000"], str(unread))
 
         # One size's settings change: only that size is made again.
         keep = D.THUMB
@@ -1492,8 +1497,32 @@ def test_edges():
               D.foreign(dest) == ["extra/deep/p00009.jpg", "original.jpg",
                                   "thumb/link.jpg", "view/notes.json", "view/p00003.jpg"],
               str(D.foreign(dest)))
-        check("and not taken for stale media, which a render would mend",
+        check("of which only the one with a derivative's name is stale as well",
               D.stale(ph, dest, man) == ["p00003"], str(D.stale(ph, dest, man)))
+        # A link standing where an indexed derivative should be is not that
+        # derivative, whatever it points at, and is not opened to find out:
+        # it could be a pipe that never ends.
+        real = os.path.join(dest, "view", "p00000.jpg")
+        kept = real + ".kept"
+        os.rename(real, kept)
+        fifo = os.path.join(t, "pipe")
+        os.mkfifo(fifo)
+        os.symlink(fifo, real)
+        try:
+            piped = D.stale(ph, dest, man)
+            os.remove(real)
+            os.symlink(original, real)        # the original, metadata and all
+            linked = D.stale(ph, dest, man)
+            named = D.foreign(dest)
+        finally:
+            os.remove(real)
+            os.rename(kept, real)
+        check("a link where an indexed derivative should be is stale, a pipe "
+              "without being opened",
+              piped == ["p00000", "p00003"], str(piped))
+        check("and so is one to an original",
+              linked == ["p00000", "p00003"] and "view/p00000.jpg" in named,
+              f"{linked} {named}")
         site = os.path.join(t, "site")
         os.makedirs(site)
         os.rename(dest, os.path.join(site, "media"))
@@ -2186,15 +2215,15 @@ def test_edges():
               and of > 5000 and all(os.path.isfile(os.path.join(PUB.SITE, n)) for n in media)
               and {n.split("/")[1] for n in media} == {"thumb", "view"},
               f"{sampled} of {of}: {media[:4]}")
-        bare = os.path.join(tempfile.mkdtemp(), "site")
-        os.makedirs(os.path.join(bare, "data"))
-        real_site, PUB.SITE = PUB.SITE, bare
-        try:
-            unlibrary = PUB.to_check()
-        except OSError as e:
-            unlibrary = repr(e)
-        finally:
-            PUB.SITE = real_site
+        with tempfile.TemporaryDirectory() as bare:
+            os.makedirs(os.path.join(bare, "data"))
+            real_site, PUB.SITE = PUB.SITE, bare
+            try:
+                unlibrary = PUB.to_check()
+            except OSError as e:
+                unlibrary = repr(e)
+            finally:
+                PUB.SITE = real_site
         check("a folder with no library is checked, not a traceback",
               isinstance(unlibrary, tuple) and unlibrary[1:] == (0, 0), str(unlibrary)[:200])
 
