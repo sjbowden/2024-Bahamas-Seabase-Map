@@ -156,11 +156,6 @@ def main():
                   if r["tier"] in ("gps", "bracket", "calibrated", "inferred"))
     print(f"[place ] {plotted} plot on the chart ({time.time() - t:.1f}s)")
 
-    # Before anything in the folder is replaced. Not rendering is fine;
-    # publishing pictures that no longer belong to their records is not. Ids
-    # are positions in the index, so if the index moved under an existing media
-    # folder, say so and stop -- with the old data still beside the old pictures,
-    # and not new records pointing at them.
     # Whatever no render made is in the way of publishing, with or without
     # --media: nothing here has stripped its metadata. Not removed, since it
     # may be the only copy of something; named, and the build goes no further.
@@ -170,9 +165,13 @@ def main():
         raise SystemExit(f"[derive] {len(strange)} files in the media folder were not "
                          f"made by the build (e.g. {', '.join(strange[:3])}) — move "
                          f"them out; nothing in {a.out} has been changed")
+    # Before anything in the folder is replaced. Not rendering is fine;
+    # publishing pictures that no longer belong to their records is not. Ids
+    # are positions in the index, so if the index moved under an existing media
+    # folder, say so and stop -- with the old data still beside the old pictures,
+    # and not new records pointing at them.
     media_note = None
     if not a.media:
-        from map import derive
         stale = derive.stale(photos, os.path.join(a.out, "media"))
         if stale:
             raise SystemExit(
@@ -201,7 +200,6 @@ def main():
     print(f"[site  ] {len(copied)} files ({time.time() - t:.1f}s)")
 
     if a.media:
-        from map import derive
         t = time.time()
         made = derive.run(photos, os.path.join(a.out, "media"))
         print(f"[derive] {made['thumbs']} thumbnails, {made['views']} viewing copies, "

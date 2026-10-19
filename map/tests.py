@@ -1012,8 +1012,9 @@ def test_derive_cache():
               damaged == ["p00000"] and mended["files"] == 1 and colour_of(dest) == "blue"
               and D.stale([blue], dest, manifest_path=record) == [],
               f"{damaged} {mended}")
-        # A record from before the bytes were kept names only the sources: not
-        # vouched for until a run has hashed what is there, which renders nothing.
+        # A record from before the bytes were kept names only the sources, and
+        # whatever is on disk under it may have been pasted over since: made
+        # again, not taken on trust.
         with open(record) as fh:
             everything = json.load(fh)
         everything[os.path.abspath(dest)] = {
@@ -1022,11 +1023,24 @@ def test_derive_cache():
         with open(record, "w") as fh:
             json.dump(everything, fh)
         older = D.stale([blue], dest, manifest_path=record)
+        with open(view, "wb") as fh:
+            fh.write(b"pasted over before the bytes were kept")
         adopted = run(blue)
-        check("a record without the bytes is stale until a run adopts what is there",
-              older == ["p00000"] and adopted["files"] == 0
+        check("a record without the bytes is stale, and the next run makes both again",
+              older == ["p00000"] and adopted["files"] == 2 and colour_of(dest) == "blue"
               and D.stale([blue], dest, manifest_path=record) == [],
               f"{older} {adopted}")
+        # A file that cannot be read is not one that can be vouched for: stale,
+        # and said so, not a traceback.
+        os.chmod(view, 0)
+        try:
+            unread = D.stale([blue], dest, manifest_path=record)
+        except OSError as e:
+            unread = repr(e)
+        finally:
+            os.chmod(view, 0o644)
+        check("a derivative that cannot be read is stale, not a traceback",
+              unread == ["p00000"], str(unread))
 
         # One size's settings change: only that size is made again.
         keep = D.THUMB
@@ -1468,12 +1482,18 @@ def test_edges():
             with open(os.path.join(dest, name), "wb") as fh:
                 fh.write(b"x")
         os.symlink(t, os.path.join(dest, "thumb", "link.jpg"))
+        # ...and a link to a file under a derivative's own name: the likelier
+        # way an original, metadata and all, would come to be published.
+        original = os.path.join(t, "IMG_0001.JPG")
+        with open(original, "wb") as fh:
+            fh.write(b"an original")
+        os.symlink(original, os.path.join(dest, "view", "p00003.jpg"))
         check("a file in the media folder that is not a derivative is named",
               D.foreign(dest) == ["extra/deep/p00009.jpg", "original.jpg",
-                                  "thumb/link.jpg", "view/notes.json"],
+                                  "thumb/link.jpg", "view/notes.json", "view/p00003.jpg"],
               str(D.foreign(dest)))
         check("and not taken for stale media, which a render would mend",
-              D.stale(ph, dest, man) == [], str(D.stale(ph, dest, man)))
+              D.stale(ph, dest, man) == ["p00003"], str(D.stale(ph, dest, man)))
         site = os.path.join(t, "site")
         os.makedirs(site)
         os.rename(dest, os.path.join(site, "media"))
@@ -2166,6 +2186,39 @@ def test_edges():
               and of > 5000 and all(os.path.isfile(os.path.join(PUB.SITE, n)) for n in media)
               and {n.split("/")[1] for n in media} == {"thumb", "view"},
               f"{sampled} of {of}: {media[:4]}")
+        bare = os.path.join(tempfile.mkdtemp(), "site")
+        os.makedirs(os.path.join(bare, "data"))
+        real_site, PUB.SITE = PUB.SITE, bare
+        try:
+            unlibrary = PUB.to_check()
+        except OSError as e:
+            unlibrary = repr(e)
+        finally:
+            PUB.SITE = real_site
+        check("a folder with no library is checked, not a traceback",
+              isinstance(unlibrary, tuple) and unlibrary[1:] == (0, 0), str(unlibrary)[:200])
+
+        def uploaded():
+            real = (PUB.read_settings, PUB.preflight, PUB.differing, PUB.upload,
+                    PUB.to_check, PUB.time.sleep, sys.argv)
+            PUB.read_settings = lambda: dict.fromkeys(PUB.NEEDED, "https://x.example")
+            PUB.preflight = lambda: []
+            PUB.differing = lambda base, pairs: ["app.js"]
+            PUB.upload = lambda settings: True
+            PUB.to_check = lambda: ([("app.js", "app.js")], 20, 5010)
+            PUB.time.sleep = lambda s: None
+            sys.argv = ["publish"]
+            try:
+                with contextlib.redirect_stdout(io.StringIO()):
+                    PUB.main()
+            except SystemExit as e:
+                return str(e)
+            finally:
+                (PUB.read_settings, PUB.preflight, PUB.differing, PUB.upload,
+                 PUB.to_check, PUB.time.sleep, sys.argv) = real
+        failed = uploaded()
+        check("an upload that never matched says the photographs were only sampled",
+              bool(failed) and "app.js" in failed and "20 of the 5010" in failed, str(failed))
         lib = PUB.differing("https://x.example", [p for p in pairs if "vendor" in p[1]],
                             fetch=lambda u: b"not the library")
         check("and a library that is not the folder's is named",

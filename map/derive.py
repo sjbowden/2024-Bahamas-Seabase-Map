@@ -167,6 +167,15 @@ def digest(path):
     return h.hexdigest()
 
 
+def _digest_or_none(path):
+    """The hash of a file's bytes, or None if it cannot be read: a file that
+    cannot be read is not one that can be vouched for."""
+    try:
+        return digest(path)
+    except OSError:
+        return None
+
+
 def _entry(e):
     """(what a derivative was made from, the hash of its bytes) from the record.
     A record from before the bytes were kept has the first and not the second."""
@@ -322,8 +331,9 @@ def stale(photos, dest, manifest_path=None):
     """Ids whose derivatives on disk are not known to be from this index.
 
     None if there is no media folder to be wrong -- nothing has been rendered,
-    which is a build without pictures, not a build with the wrong ones. Cheap:
-    it reads the record and lists the files, and renders nothing.
+    which is a build without pictures, not a build with the wrong ones. It
+    renders nothing, but it reads every derivative to hash it: about 610 MB,
+    a few seconds with the files in the page cache and longer without.
 
     A derivative nothing in the index asks for counts too, and so does a .part
     file from a killed run: a photograph taken out of the archive leaves every
@@ -348,7 +358,7 @@ def stale(photos, dest, manifest_path=None):
             # The bytes as well as the source: a file damaged or replaced since
             # it was made keeps its name and its size, and is not that file.
             if (made_from != fingerprint(p, spec) or sha is None or not _exists(path)
-                    or digest(path) != sha):
+                    or _digest_or_none(path) != sha):
                 out.append(p["id"])
                 break
     wanted = {p["id"] for p in photos if not p.get("unreadable")}
@@ -398,17 +408,17 @@ def run(photos, dest, workers=None, only=None, progress=True, archive_dir=None,
                 manifest[pid] = old     # a sample says nothing about the rest
             continue                # otherwise: gone from the index
         # Kept only if it is still from this source and still the bytes that
-        # were made: a file damaged or pasted over since is made again. A
-        # record from before the bytes were kept adopts what is there, once.
+        # were made: a file damaged or pasted over since is made again. So is
+        # one recorded before the bytes were kept: what is on disk under it is
+        # exactly what this cannot vouch for.
         kept = {}
         for name, e in old.items():
             made_from, sha = _entry(e)
             path = os.path.join(dest, name, f"{pid}.jpg")
-            if prints[pid].get(name) != made_from or not _exists(path):
+            if prints[pid].get(name) != made_from or sha is None or not _exists(path):
                 continue
-            have = digest(path)
-            if sha in (None, have):
-                kept[name] = dict(sha=have, **{"from": made_from})
+            if _digest_or_none(path) == sha:
+                kept[name] = {"from": made_from, "sha": sha}
         if kept:
             manifest[pid] = kept
     if manifest != was:

@@ -110,8 +110,8 @@ def to_check(rng=None):
     rng = rng or random.Random()
     vendor = os.path.join(SITE, "vendor")
     pairs = (LIVE + data_files() + poster_files()
-             + [(f"vendor/{n}", f"vendor/{n}") for n in sorted(os.listdir(vendor))
-                if os.path.isdir(vendor)])
+             + ([(f"vendor/{n}", f"vendor/{n}") for n in sorted(os.listdir(vendor))]
+                if os.path.isdir(vendor) else []))
     media = []
     for size in ("thumb", "view"):
         folder = os.path.join(SITE, "media", size)
@@ -214,7 +214,7 @@ def main():
             return
         time.sleep(10)
     raise SystemExit(f"[publish] uploaded, but after two minutes these are not "
-                     f"what was built: {', '.join(diff)}")
+                     f"what was built: {', '.join(diff)}{sample}")
 
 
 if __name__ == "__main__":
