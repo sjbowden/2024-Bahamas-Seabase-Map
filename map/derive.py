@@ -158,8 +158,26 @@ def fingerprint(photo, spec):
     return hashlib.sha1(key.encode()).hexdigest()
 
 
+def digest(path):
+    """The hash of a file's bytes."""
+    h = hashlib.sha256()
+    with open(path, "rb") as fh:
+        for block in iter(lambda: fh.read(1 << 20), b""):
+            h.update(block)
+    return h.hexdigest()
+
+
+def _entry(e):
+    """(what a derivative was made from, the hash of its bytes) from the record.
+    A record from before the bytes were kept has the first and not the second."""
+    if isinstance(e, dict):
+        return e.get("from"), e.get("sha")
+    return (e, None) if isinstance(e, str) else (None, None)
+
+
 def one(job):
-    """Make the derivatives one photograph needs. Returns (id, bytes, files, error).
+    """Make the derivatives one photograph needs. Returns (id, bytes, files,
+    error, {size: hash of what was written}).
 
     `fresh` names the sizes whose files on disk are known to be from this source,
     so those can be kept if they exist; any other size is rendered again whatever
@@ -167,12 +185,13 @@ def one(job):
     """
     pid, archive, member, dest, fresh, crc, size = job
     made = files = 0
+    shas = {}
     try:
         wanted = [s for s in (THUMB, VIEW)
                   if not (s["name"] in fresh
                           and _exists(os.path.join(dest, s["name"], f"{pid}.jpg")))]
         if not wanted:
-            return pid, 0, 0, None
+            return pid, 0, 0, None, shas
         zf = _zip(archive)
         info = zf.getinfo(member)
         # The index may have been read from an archive somewhere else. A member
@@ -192,11 +211,12 @@ def one(job):
             with open(tmp, "wb") as f:
                 f.write(payload)
             os.replace(tmp, out)
+            shas[spec["name"]] = hashlib.sha256(payload).hexdigest()
             made += len(payload)
             files += 1
-        return pid, made, files, None
+        return pid, made, files, None, shas
     except Exception as e:                   # noqa: BLE001
-        return pid, made, files, f"{type(e).__name__}: {e}"[:120]
+        return pid, made, files, f"{type(e).__name__}: {e}"[:120], shas
 
 
 def _exists(path):
@@ -252,6 +272,36 @@ def _orphans(dest, keep):
                 yield os.path.join(folder, name), m.group(1)
 
 
+def foreign(dest):
+    """Files in a media folder that this module never makes, as paths within
+    it: anything but pNNNNN.jpg, and its .part, directly in thumb/ or view/.
+
+    An original copied in by hand, a note, a folder of its own: none of it has
+    been through the stripping of metadata, and all of it would be published.
+    Named, never removed -- it may be the only copy of something. A link is
+    named too, whatever it points at.
+    """
+    allowed = {spec["name"] for spec in (THUMB, VIEW)}
+    found = []
+    for folder, sub, names in os.walk(dest):
+        rel = os.path.relpath(folder, dest).replace(os.sep, "/")
+        ours = rel in allowed
+        for name in list(sub):
+            path = os.path.join(folder, name)
+            if os.path.islink(path):
+                found.append(f"{rel}/{name}" if rel != "." else name)
+                sub.remove(name)
+        for name in names:
+            path = os.path.join(folder, name)
+            here = f"{rel}/{name}" if rel != "." else name
+            if rel == "." and name == LEGACY_MANIFEST:
+                continue                # _legacy() names this one
+            if not (ours and not os.path.islink(path)
+                    and (_DERIVED.match(name) or name.endswith(".jpg.part"))):
+                found.append(here)
+    return sorted(found)
+
+
 def _sweep(dest, keep):
     """Remove what the index no longer asks for. Returns how many files went.
 
@@ -293,8 +343,12 @@ def stale(photos, dest, manifest_path=None):
         have = manifest.get(p["id"])
         have = have if isinstance(have, dict) else {}
         for spec in (THUMB, VIEW):
-            if (have.get(spec["name"]) != fingerprint(p, spec)
-                    or not _exists(os.path.join(dest, spec["name"], f"{p['id']}.jpg"))):
+            made_from, sha = _entry(have.get(spec["name"]))
+            path = os.path.join(dest, spec["name"], f"{p['id']}.jpg")
+            # The bytes as well as the source: a file damaged or replaced since
+            # it was made keeps its name and its size, and is not that file.
+            if (made_from != fingerprint(p, spec) or sha is None or not _exists(path)
+                    or digest(path) != sha):
                 out.append(p["id"])
                 break
     wanted = {p["id"] for p in photos if not p.get("unreadable")}
@@ -343,7 +397,18 @@ def run(photos, dest, workers=None, only=None, progress=True, archive_dir=None,
             if only:
                 manifest[pid] = old     # a sample says nothing about the rest
             continue                # otherwise: gone from the index
-        kept = {name: h for name, h in old.items() if prints[pid].get(name) == h}
+        # Kept only if it is still from this source and still the bytes that
+        # were made: a file damaged or pasted over since is made again. A
+        # record from before the bytes were kept adopts what is there, once.
+        kept = {}
+        for name, e in old.items():
+            made_from, sha = _entry(e)
+            path = os.path.join(dest, name, f"{pid}.jpg")
+            if prints[pid].get(name) != made_from or not _exists(path):
+                continue
+            have = digest(path)
+            if sha in (None, have):
+                kept[name] = dict(sha=have, **{"from": made_from})
         if kept:
             manifest[pid] = kept
     if manifest != was:
@@ -361,7 +426,7 @@ def run(photos, dest, workers=None, only=None, progress=True, archive_dir=None,
         with ProcessPoolExecutor(max_workers=workers) as pool:
             futures = [pool.submit(one, j) for j in jobs]
             for f in as_completed(futures):
-                pid, made, n, err = f.result()
+                pid, made, n, err, shas = f.result()
                 done += 1
                 written += made
                 files += n
@@ -370,7 +435,11 @@ def run(photos, dest, workers=None, only=None, progress=True, archive_dir=None,
                     errors.append((pid, err))
                     manifest.pop(pid, None)     # whatever is on disk is not vouched for
                 else:
-                    manifest[pid] = prints[pid]
+                    was_kept = manifest.get(pid, {})
+                    manifest[pid] = {
+                        name: {"from": made_from,
+                               "sha": shas.get(name) or was_kept.get(name, {}).get("sha")}
+                        for name, made_from in prints[pid].items()}
                 # Often enough that an interrupted run keeps nearly all its work.
                 if done % 200 == 0:
                     _save_manifest(manifest_path, dest, manifest)

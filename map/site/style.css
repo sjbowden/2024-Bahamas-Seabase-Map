@@ -413,7 +413,11 @@ html, body {
   background: #10161a;
   box-shadow: 0 6px 40px rgba(0, 0, 0, .5);
 }
+/* The picture gives way to its caption and not the other way round: a fixed
+   allowance for the caption left a long one below the foot of a small screen. */
+#viewer img { flex: 0 1 auto; min-height: 0; }
 #viewer figcaption {
+  flex: none;
   margin-top: .7rem; text-align: center; color: var(--paper);
   font-family: var(--sans); max-width: 44rem;
 }
@@ -433,7 +437,10 @@ html, body {
   background: var(--paper); color: var(--ink);
   border: 1px solid var(--rule); border-radius: 3px;
   font-family: var(--sans); font-size: .8rem; font-weight: 700; letter-spacing: .05em;
-  white-space: nowrap; pointer-events: none;
+  /* One line where there is room for one, and wrapped inside the screen where
+     there is not: on a 320 px phone it ran 25 px off either side. */
+  width: max-content; max-width: calc(100vw - 2rem); text-align: center;
+  pointer-events: none;
   box-shadow: 0 2px 14px rgba(0, 0, 0, .45);
 }
 #viewer-moved[hidden] { display: none; }

@@ -1000,6 +1000,34 @@ def test_derive_cache():
               and not any(n.endswith(".json") for n in os.listdir(dest)),
               str(os.listdir(dest)))
 
+        # The record says what each file was made from and what its bytes
+        # were. A file damaged or replaced since is not the one made, whatever
+        # its name and size: reported, and made again by the next run.
+        view = os.path.join(dest, "view", "p00000.jpg")
+        with open(view, "wb") as fh:
+            fh.write(b"broken")
+        damaged = D.stale([blue], dest, manifest_path=record)
+        mended = run(blue)
+        check("a derivative whose bytes are not the ones made is stale, and made again",
+              damaged == ["p00000"] and mended["files"] == 1 and colour_of(dest) == "blue"
+              and D.stale([blue], dest, manifest_path=record) == [],
+              f"{damaged} {mended}")
+        # A record from before the bytes were kept names only the sources: not
+        # vouched for until a run has hashed what is there, which renders nothing.
+        with open(record) as fh:
+            everything = json.load(fh)
+        everything[os.path.abspath(dest)] = {
+            pid: {name: e["from"] for name, e in sizes.items()}
+            for pid, sizes in everything[os.path.abspath(dest)].items()}
+        with open(record, "w") as fh:
+            json.dump(everything, fh)
+        older = D.stale([blue], dest, manifest_path=record)
+        adopted = run(blue)
+        check("a record without the bytes is stale until a run adopts what is there",
+              older == ["p00000"] and adopted["files"] == 0
+              and D.stale([blue], dest, manifest_path=record) == [],
+              f"{older} {adopted}")
+
         # One size's settings change: only that size is made again.
         keep = D.THUMB
         D.THUMB = dict(keep, quality=keep["quality"] - 10)
@@ -1152,6 +1180,9 @@ def test_site_build():
     check("the panel says whose position the ring is", "the boat's\n       position" in page0
           or "the boat's position" in page0)
     check("every file the page asks for is present", not missing, str(missing))
+    from map import derive as D
+    strange = D.foreign(os.path.join(out, "media"))
+    check("nothing in the media folder but what the build made", not strange, str(strange[:5]))
 
     app = open(os.path.join(out, "app.js")).read()
     # A nudge is a distance on the ground: 2 km is a finger's width at the opening
@@ -1394,6 +1425,8 @@ def test_edges():
     import parse_nmea
     from trip import shoal
     from map import derive as D
+    from map import publish as PUB
+    from map import record as R
     from map.photo_index import _merge, by_camera
     from trip import recorded_fixes
     section("edges the data does not reach")
@@ -1413,8 +1446,11 @@ def test_edges():
             for p in ph:
                 with open(os.path.join(dest, s["name"], p["id"] + ".jpg"), "wb") as fh:
                     fh.write(b"x")
-        D._save_manifest(man, dest, {p["id"]: {s["name"]: D.fingerprint(p, s)
-                                               for s in (D.THUMB, D.VIEW)} for p in ph})
+        D._save_manifest(man, dest, {
+            p["id"]: {s["name"]: {"from": D.fingerprint(p, s),
+                                  "sha": D.digest(os.path.join(dest, s["name"],
+                                                               p["id"] + ".jpg"))}
+                      for s in (D.THUMB, D.VIEW)} for p in ph})
         check("media that matches its index is not stale", D.stale(ph, dest, man) == [])
         check("a photograph dropped from the end of the index leaves stale media",
               D.stale(ph[:1], dest, man) == ["p00001"], str(D.stale(ph[:1], dest, man)))
@@ -1422,6 +1458,32 @@ def test_edges():
             fh.write(b"x")
         check("and so does a half-written file",
               D.stale(ph, dest, man) == ["p00000.jpg.part"])
+        os.remove(os.path.join(dest, "view", "p00000.jpg.part"))
+        # Anything else in the media folder is something the pipeline that
+        # strips the metadata never made: an original copied in, a note, a
+        # folder of its own. Named, and refused; not cleared, since it may be
+        # the only copy of something.
+        for name in ("original.jpg", "view/notes.json", "extra/deep/p00009.jpg"):
+            os.makedirs(os.path.dirname(os.path.join(dest, name)), exist_ok=True)
+            with open(os.path.join(dest, name), "wb") as fh:
+                fh.write(b"x")
+        os.symlink(t, os.path.join(dest, "thumb", "link.jpg"))
+        check("a file in the media folder that is not a derivative is named",
+              D.foreign(dest) == ["extra/deep/p00009.jpg", "original.jpg",
+                                  "thumb/link.jpg", "view/notes.json"],
+              str(D.foreign(dest)))
+        check("and not taken for stale media, which a render would mend",
+              D.stale(ph, dest, man) == [], str(D.stale(ph, dest, man)))
+        site = os.path.join(t, "site")
+        os.makedirs(site)
+        os.rename(dest, os.path.join(site, "media"))
+        R.write_record(os.path.join(t, "record.json"), site, {}, [], root=t)
+        with open(os.path.join(t, "index.json"), "w") as fh:
+            json.dump([], fh)
+        refused = PUB.preflight(site=site, record=os.path.join(t, "record.json"),
+                                index=os.path.join(t, "index.json"))
+        check("publishing refuses a media folder holding what was not derived",
+              any("original.jpg" in w for w in refused), str(refused))
 
         def nmea(body):
             ck = 0
@@ -2076,22 +2138,38 @@ def test_edges():
     # a script reads the exit status: a check that found the site out of date,
     # or could not reach it, must not end the way one that found it current does.
     def checked(diff):
-        real = PUB.read_settings, PUB.preflight, PUB.differing, PUB.data_files, \
-            PUB.poster_files, sys.argv
+        real = PUB.read_settings, PUB.preflight, PUB.differing, PUB.to_check, sys.argv
         PUB.read_settings = lambda: dict.fromkeys(PUB.NEEDED, "https://x.example")
         PUB.preflight = lambda: []
         PUB.differing = lambda base, pairs: diff
-        PUB.data_files = PUB.poster_files = lambda: []
+        PUB.to_check = lambda: ([], 0, 0)
         sys.argv = ["publish", "--check"]
         try:
             with contextlib.redirect_stdout(io.StringIO()):
                 return PUB.main()
         finally:
-            (PUB.read_settings, PUB.preflight, PUB.differing, PUB.data_files,
-             PUB.poster_files, sys.argv) = real
+            PUB.read_settings, PUB.preflight, PUB.differing, PUB.to_check, sys.argv = real
     check("publish --check fails when a live file is not the folder's, and only then",
           not checked([]) and bool(checked(["app.js"])),
           f"{checked([])!r} {checked(['app.js'])!r}")
+    # What is fetched back: the pages and data, the map library the page
+    # cannot start without, and a sample of the photographs, which are 620 MB
+    # in all and would make every check a download of the whole site.
+    if os.path.isdir(os.path.join(PUB.SITE, "media", "view")):
+        import random
+        pairs, sampled, of = PUB.to_check(rng=random.Random(1))
+        names = [n for _, n in pairs]
+        media = [n for n in names if n.startswith("media/")]
+        check("--check fetches the map library and a sample of the photographs",
+              "vendor/maplibre-gl.js" in names and "vendor/maplibre-gl.css" in names
+              and len(media) == sampled == PUB.SAMPLE and len(set(media)) == len(media)
+              and of > 5000 and all(os.path.isfile(os.path.join(PUB.SITE, n)) for n in media)
+              and {n.split("/")[1] for n in media} == {"thumb", "view"},
+              f"{sampled} of {of}: {media[:4]}")
+        lib = PUB.differing("https://x.example", [p for p in pairs if "vendor" in p[1]],
+                            fetch=lambda u: b"not the library")
+        check("and a library that is not the folder's is named",
+              "vendor/maplibre-gl.js" in lib, str(lib))
 
     # What the build read and what it wrote, recorded, is how anything later
     # knows the folder is this source's: the journal, the stories and the data

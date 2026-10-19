@@ -89,6 +89,31 @@ A story dot under a photograph count now moves to the count's rim.
 - `publish --check` exits 1 both when the live site differs and when the folder
   itself needs a rebuild; the message says which, the status does not.
 
+- Found by the review of 19 October and left, none of them seen in this
+  trip's data:
+  - `analyze.py` keeps its own reader. It applies the boat's 30 kn spike rule
+    to the whole of the drive home on 28 Mar, so it drops 42 fixes the shared
+    reader keeps and reports the top speed as 34.1 kn, not 45.9; and it takes
+    an `hdop` of nan or a `sog_kn` of inf that the shared reader refuses. The
+    site and the poster do not use it.
+  - A folder in `site_build` that is a link to another disk is kept when the
+    build wrote through it, and the files under it that the build did not
+    write are not looked for.
+  - A drive that starts exactly on a junction where a one-way road begins
+    joins the road only along that one-way road, and can go round a block
+    to get where a shorter road leads.
+  - GGA and RMC sentences match on the time as written, so `120000.00` and
+    `120000.000` are two instants and the fix loses its quality.
+  - EXIF coordinates are checked per component, not as a latitude and a
+    longitude: a hemisphere letter of the wrong axis, or a latitude over 90,
+    is accepted.
+  - An EXIF GPS time of 25:00 rolls over into the next day instead of being
+    refused.
+  - A zip member whose CRC fails stops the whole index; only a member that
+    will not decode is set aside.
+  - `map/depth.py` `_despeckle()` gives back every speck when there is
+    nothing else in the band.
+
 ## Done since this list was first written
 
 - Locations for about 1,040 of the crew's phone photographs given up on

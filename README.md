@@ -477,8 +477,10 @@ zoomable, with a checkbox per day, and three things beside it.
 `map/publish.py` refuses a folder that was not built from the current source
 (the build records every file it read and wrote, in `out/build_record.json`) or
 whose pictures do not match its records, runs `wrangler pages deploy` (again if
-the host fails it), and then fetches the pages and data back and compares them
-with the folder byte for byte.
+the host fails it), and then fetches the pages, the data, the map library and
+a sample of 20 of the photographs' files back and compares them with the folder
+byte for byte. It also refuses a media folder holding anything the build did not
+make, and a derivative whose bytes are not the ones the build wrote.
 
 Its settings are kept outside this repository, in
 `~/.config/bahamas/cloudflare.env`: an API token that can edit Pages projects

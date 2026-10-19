@@ -16,8 +16,9 @@ site's address is not:
     SITE_URL=https://...              where it is served, for the check afterwards
 
 Before uploading it refuses a folder that was not built from this source or
-whose pictures do not belong to its records. Afterwards it fetches the pages and
-the data back and compares them with the folder byte for byte, because an upload
+whose pictures do not belong to its records. Afterwards it fetches the pages,
+the data, the map library and a sample of the photographs back and compares them
+with the folder byte for byte, because an upload
 that reports success and a site that has changed are two different facts: the
 host has been seen to fail at the last step, and to take a minute to switch.
 
@@ -74,13 +75,17 @@ def preflight(site=None, record=None, index=None):
     # Everything the build read and wrote, not only the files it copied: the
     # journal and the data are made from sources no file here sits beside.
     why = [w + ": rebuild" for w in R.outdated(record or R.RECORD, site)]
+    from map import derive
+    strange = derive.foreign(os.path.join(site, "media"))
+    if strange:
+        why.append(f"{len(strange)} files in the media folder were not made by the "
+                   f"build (e.g. {', '.join(strange[:3])}): move them out")
     # No index is no way to know whose pictures these are, which is not the
     # same as their being the right ones.
     if not os.path.exists(index):
         why.append("no out/photo_index.json to check the media against: "
                    "run python -m map.build")
     else:
-        from map import derive
         from map import photo_index as PI
         photos, _ = PI.readable(json.load(open(index)))
         stale = derive.stale(photos, os.path.join(site, "media"))
@@ -90,6 +95,30 @@ def preflight(site=None, record=None, index=None):
             why.append(f"{len(stale)} photographs do not match the media on disk "
                        f"(e.g. {', '.join(stale[:3])}): build with --media")
     return why
+
+
+# Photographs' files fetched back on each check: 620 MB in all would make every
+# check a download of the whole site, so a sample, and the check says so.
+SAMPLE = 20
+
+
+def to_check(rng=None):
+    """What to fetch back: the pages, the data, the posters, the map library the
+    page cannot start without, and a sample of the photographs' files, half
+    thumbnails and half viewing copies. Returns (pairs, how many sampled, of)."""
+    import random
+    rng = rng or random.Random()
+    vendor = os.path.join(SITE, "vendor")
+    pairs = (LIVE + data_files() + poster_files()
+             + [(f"vendor/{n}", f"vendor/{n}") for n in sorted(os.listdir(vendor))
+                if os.path.isdir(vendor)])
+    media = []
+    for size in ("thumb", "view"):
+        folder = os.path.join(SITE, "media", size)
+        names = sorted(os.listdir(folder)) if os.path.isdir(folder) else []
+        media.append([f"media/{size}/{n}" for n in names if n.endswith(".jpg")])
+    sample = [n for names in media for n in rng.sample(names, min(SAMPLE // 2, len(names)))]
+    return pairs + [(n, n) for n in sample], len(sample), sum(len(m) for m in media)
 
 
 def data_files():
@@ -162,12 +191,15 @@ def main():
         raise SystemExit("[publish] not uploading:\n  " + "\n  ".join(why))
     print("[check ] site_build is built from this source and its media match")
 
-    pairs = LIVE + data_files() + poster_files()
+    pairs, sampled, of = to_check()
+    # Said every time: what was not fetched was not checked.
+    sample = f" ({sampled} of the {of} photographs' files among them, a sample)"
     if a.check:
         diff = differing(settings["SITE_URL"], pairs)
         print("[live  ] " + (f"{len(diff)} of {len(pairs)} files differ from the folder: "
                              f"{', '.join(diff)}" if diff
-                             else f"all {len(pairs)} files checked are the folder's"))
+                             else f"all {len(pairs)} files checked are the folder's")
+              + sample)
         # For a script asking: out of date, or out of reach, is not success.
         return 1 if diff else 0
 
@@ -178,7 +210,7 @@ def main():
     for _ in range(12):
         diff = differing(settings["SITE_URL"], pairs)
         if not diff:
-            print(f"[live  ] all {len(pairs)} files checked are the folder's")
+            print(f"[live  ] all {len(pairs)} files checked are the folder's{sample}")
             return
         time.sleep(10)
     raise SystemExit(f"[publish] uploaded, but after two minutes these are not "

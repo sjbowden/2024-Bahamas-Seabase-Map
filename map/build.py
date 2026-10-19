@@ -161,6 +161,15 @@ def main():
     # are positions in the index, so if the index moved under an existing media
     # folder, say so and stop -- with the old data still beside the old pictures,
     # and not new records pointing at them.
+    # Whatever no render made is in the way of publishing, with or without
+    # --media: nothing here has stripped its metadata. Not removed, since it
+    # may be the only copy of something; named, and the build goes no further.
+    from map import derive
+    strange = derive.foreign(os.path.join(a.out, "media"))
+    if strange:
+        raise SystemExit(f"[derive] {len(strange)} files in the media folder were not "
+                         f"made by the build (e.g. {', '.join(strange[:3])}) — move "
+                         f"them out; nothing in {a.out} has been changed")
     media_note = None
     if not a.media:
         from map import derive

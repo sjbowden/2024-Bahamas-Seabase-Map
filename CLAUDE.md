@@ -27,7 +27,8 @@ host's project name and the upload token are deliberately not in it. They are in
   `npm install --no-save playwright-core@1.64.0`, and skips without them.
 - **Publish** only when the keeper asks. `python -m map.publish` refuses a folder
   that is stale, uploads, retries if the host fails, and then compares the live
-  pages and data with the folder byte for byte. `--check` does everything but
+  pages, data, map library and a sample of 20 photographs' files with the
+  folder byte for byte. `--check` does everything but
   the upload, and is how to answer "is the website up to date?"; it exits 1
   if it is not.
 - A push to GitHub changes nothing on the site. The photographs are not in the

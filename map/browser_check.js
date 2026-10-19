@@ -443,6 +443,52 @@ const say = (name, ok, detail = '') => console.log(JSON.stringify({ name, ok: !!
   say('the page raised no errors on a phone', phoneErrors.length === 0, phoneErrors.join('; '));
   await phone.close();
 
+  // The narrowest phone still sold: a portrait whose caption runs to several
+  // lines, and the notice that says a step has gone somewhere else, both on
+  // the screen and none of either below or beside it.
+  const SMALL = { width: 320, height: 568 };
+  const narrow = await browser.newPage({
+    viewport: SMALL, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+  await narrow.goto(process.argv[2], { waitUntil: 'load' });
+  await narrow.waitForFunction(
+    () => typeof state !== 'undefined' && state.stories && state.onChart, null, { timeout: 60000 });
+  const fits = async (id) => {
+    await narrow.evaluate((x) => window.__open(x), id);
+    await narrow.waitForFunction(() => {
+      const i = document.querySelector('#viewer-img');
+      return i.complete && i.naturalWidth > 0;
+    }, null, { timeout: 30000 });
+    return narrow.evaluate(() => {
+      const box = (s) => document.querySelector(s).getBoundingClientRect();
+      const img = box('#viewer-img'), cap = box('#viewer figcaption');
+      return { img: [Math.round(img.top), Math.round(img.bottom), Math.round(img.height)],
+               caption: [Math.round(cap.left), Math.round(cap.right), Math.round(cap.bottom)] };
+    });
+  };
+  // The longest note of any photograph, beside the portrait the review found.
+  const tall = await narrow.evaluate(() => state.shown.reduce(
+    (a, p) => ((p.note || '').length > (a.note || '').length ? p : a)).id);
+  const longest = await fits(tall);
+  const named = await fits('p00466');
+  say('on a narrow phone a photograph and its whole caption are on the screen',
+      [longest, named].every((s) => s.caption[0] >= 0 && s.caption[1] <= SMALL.width
+                             && s.caption[2] <= SMALL.height && s.img[0] >= 0
+                             && s.img[2] > SMALL.height / 4),
+      JSON.stringify({ [tall]: longest, p00466: named }));
+  const moved = await narrow.evaluate(() => {
+    const i = state.shown.findIndex((p) => p.id === 'p01069');
+    if (i < 1) return null;
+    window.__open(state.shown[i - 1].id);
+    document.querySelector('#viewer-next').click();
+    const el = document.querySelector('#viewer-moved'), r = el.getBoundingClientRect();
+    return { said: el.textContent, hidden: el.hidden,
+             left: Math.round(r.left), right: Math.round(r.right) };
+  });
+  say('on a narrow phone the notice of a new spot is all on the screen',
+      moved && !moved.hidden && moved.said.length > 40 && moved.left >= 0
+      && moved.right <= SMALL.width, JSON.stringify(moved));
+  await narrow.close();
+
   // The chart's own data failing has to be said on the page, not in a console.
   const broken = await browser.newPage({ viewport: { width: 1400, height: 900 } });
   await broken.route('**/data/meta.json', (route) => route.fulfill({ status: 500, body: 'no' }));
