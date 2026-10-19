@@ -114,6 +114,17 @@ A story dot under a photograph count now moves to the count's rim.
   - `map/depth.py` `_despeckle()` gives back every speck when there is
     nothing else in the band.
 
+- Found while fixing those, and left:
+  - `derive.stale()` hashes every thumbnail and viewing copy, about 610 MB,
+    each time a build, the suite or a publish asks whether the media match.
+  - Any `OSError` reading a derivative counts as stale, so a disk fault or a
+    permission problem is answered with a re-render, not an error.
+  - What may sit in `media/` is written twice, in `derive.foreign()` and
+    `derive._orphans()`. A change to one and not the other would let the build
+    and the publish check disagree.
+  - The browser check of the "moved" notice at 320 px reads the notice once it
+    is shown; it has not failed, but it may depend on timing.
+
 ## Done since this list was first written
 
 - Locations for about 1,040 of the crew's phone photographs given up on
