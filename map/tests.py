@@ -1042,7 +1042,10 @@ def test_derive_cache():
         finally:
             os.chmod(view, 0o644)
         if readable:
-            print("  SKIP  a derivative that cannot be read: this one still can be")
+            # Root reads it anyway: the answer cannot be tested, but that
+            # there is one, and not a traceback, still can.
+            check("a derivative stale() is asked about gives an answer, not a traceback",
+                  isinstance(unread, list), str(unread))
         else:
             check("a derivative that cannot be read is stale, not a traceback",
                   unread == ["p00000"], str(unread))
@@ -1435,6 +1438,7 @@ def test_edges():
     import contextlib
     import io
     import random
+    import shutil
     import subprocess
     import tempfile
     import zipfile
@@ -1500,27 +1504,26 @@ def test_edges():
         check("of which only the one with a derivative's name is stale as well",
               D.stale(ph, dest, man) == ["p00003"], str(D.stale(ph, dest, man)))
         # A link standing where an indexed derivative should be is not that
-        # derivative, whatever it points at, and is not opened to find out:
-        # it could be a pipe that never ends.
+        # derivative, whatever it points at -- even a byte-for-byte copy of
+        # it, whose hash would pass -- and is not followed to find out.
         real = os.path.join(dest, "view", "p00000.jpg")
-        kept = real + ".kept"
+        kept, copy = real + ".kept", os.path.join(t, "copy.jpg")
+        shutil.copyfile(real, copy)
         os.rename(real, kept)
-        fifo = os.path.join(t, "pipe")
-        os.mkfifo(fifo)
-        os.symlink(fifo, real)
         try:
-            piped = D.stale(ph, dest, man)
+            os.symlink(copy, real)
+            same = D.stale(ph, dest, man)
             os.remove(real)
             os.symlink(original, real)        # the original, metadata and all
             linked = D.stale(ph, dest, man)
             named = D.foreign(dest)
         finally:
-            os.remove(real)
+            if os.path.lexists(real):
+                os.remove(real)
             os.rename(kept, real)
-        check("a link where an indexed derivative should be is stale, a pipe "
-              "without being opened",
-              piped == ["p00000", "p00003"], str(piped))
-        check("and so is one to an original",
+        check("a link where an indexed derivative should be is stale, even to a "
+              "copy of the very bytes", same == ["p00000", "p00003"], str(same))
+        check("and so is one to an original, which is named as well",
               linked == ["p00000", "p00003"] and "view/p00000.jpg" in named,
               f"{linked} {named}")
         site = os.path.join(t, "site")
@@ -2204,6 +2207,19 @@ def test_edges():
     # What is fetched back: the pages and data, the map library the page
     # cannot start without, and a sample of the photographs, which are 620 MB
     # in all and would make every check a download of the whole site.
+    # Needs nothing from the build, and so is not under the guard below.
+    with tempfile.TemporaryDirectory() as bare:
+        os.makedirs(os.path.join(bare, "data"))
+        real_site, PUB.SITE = PUB.SITE, bare
+        try:
+            unlibrary = PUB.to_check()
+        except OSError as e:
+            unlibrary = repr(e)
+        finally:
+            PUB.SITE = real_site
+    check("a folder with no library is checked, not a traceback",
+          isinstance(unlibrary, tuple) and unlibrary[1:] == (0, 0), str(unlibrary)[:200])
+
     if os.path.isdir(os.path.join(PUB.SITE, "media", "view")):
         import random
         pairs, sampled, of = PUB.to_check(rng=random.Random(1))
@@ -2215,18 +2231,6 @@ def test_edges():
               and of > 5000 and all(os.path.isfile(os.path.join(PUB.SITE, n)) for n in media)
               and {n.split("/")[1] for n in media} == {"thumb", "view"},
               f"{sampled} of {of}: {media[:4]}")
-        with tempfile.TemporaryDirectory() as bare:
-            os.makedirs(os.path.join(bare, "data"))
-            real_site, PUB.SITE = PUB.SITE, bare
-            try:
-                unlibrary = PUB.to_check()
-            except OSError as e:
-                unlibrary = repr(e)
-            finally:
-                PUB.SITE = real_site
-        check("a folder with no library is checked, not a traceback",
-              isinstance(unlibrary, tuple) and unlibrary[1:] == (0, 0), str(unlibrary)[:200])
-
         def uploaded():
             real = (PUB.read_settings, PUB.preflight, PUB.differing, PUB.upload,
                     PUB.to_check, PUB.time.sleep, sys.argv)

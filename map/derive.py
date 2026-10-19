@@ -229,8 +229,11 @@ def one(job):
 
 
 def _exists(path):
+    """Whether a derivative is there: a file of its own with something in it.
+    A link is not one, whatever it points at, and is not followed to find out;
+    a render replaces the link and not what it points at."""
     try:
-        return os.path.getsize(path) > 0
+        return not os.path.islink(path) and os.path.getsize(path) > 0
     except OSError:
         return False
 
