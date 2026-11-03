@@ -5,10 +5,14 @@ Everything built so far is committed and the site is hosted; these are loose end
 
 ## Needs a person
 
-- [ ] **Decide who gets the link.** The site is hosted, unlisted: it asks search
+- [x] **Decide who gets the link.** The site is hosted, unlisted: it asks search
   engines to stay away, and anyone with the address can read it. The stories
   carry the crew's first names, alongside their photographs; two of the sixteen
-  scouts were 18 and the rest were minors.
+  scouts were 18 and the rest were minors. Decided 2 November 2026: everyone on
+  the trip and the crew's families.
+- [ ] **Send the link and the poster** to everyone on the trip and the crew's
+  families, once the feedback the keeper is waiting on has come in. Needs a list
+  of their addresses.
 
 ## The journal
 
